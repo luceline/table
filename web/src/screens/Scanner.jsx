@@ -6,50 +6,108 @@ import {
 
 const OUT = { p: [630, 880], l: [880, 630] };
 
+// Photo déjà détourée au format carte (63 x 88, portrait ou paysage) ?
+// Tolérance de 3 % : une photo standard 3:4 (écart de 4,8 %) n'est pas prise pour une carte.
+function croppedOrient(cv) {
+  const r = cv.width / cv.height;
+  if (Math.abs(r / (63 / 88) - 1) < 0.03) return "p";
+  if (Math.abs(r / (88 / 63) - 1) < 0.03) return "l";
+  return null;
+}
+
+function resizeTo(cv, w, h) {
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(cv, 0, 0, w, h);
+  return out;
+}
+
 export default function Scanner({ go }) {
   const user = me();
-  const [queue, setQueue] = useState([]);
-  const [src, setSrc] = useState(null); // canvas source
+  const [queue, setQueue] = useState([]); // photos à ajuster à la main
+  const [src, setSrc] = useState(null);
   const [quad, setQuad] = useState(null);
   const [orient, setOrient] = useState("p");
   const [result, setResult] = useState(null); // { url, blob }
   const [name, setName] = useState("");
-  const [isToken, setIsToken] = useState(false); // reste actif pour scanner une série de cartes jetons
+  const [isToken, setIsToken] = useState(false); // reste actif pour toute une série
   const [saved, setSaved] = useState(0);
   const [total, setTotal] = useState(0);
+  const [progress, setProgress] = useState(null); // { done, n, auto }
+  const [report, setReport] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const camRef = useRef();
   const galRef = useRef();
+  const totalRef = useRef(0);
 
   useEffect(() => {
-    pb.collection("cards").getList(1, 1, { filter: `owner="${user.id}"` }).then((r) => setTotal(r.totalItems)).catch(() => {});
+    pb.collection("cards").getList(1, 1, { filter: `owner="${user.id}"` }).then((r) => {
+      totalRef.current = r.totalItems;
+      setTotal(r.totalItems);
+    }).catch(() => {});
   }, []);
 
-  async function openFile(file) {
-    setErr("");
-    setBusy(true);
-    try {
-      const cv = await loadImage(file);
-      const q = detectCorners(cv);
-      setSrc(cv);
-      setQuad(q);
-      setOrient(quadIsLandscape(q) ? "l" : "p");
-      setResult(null);
-      setName("");
-    } catch (e) {
-      setErr("Impossible de lire cette image.");
-    } finally {
-      setBusy(false);
-    }
+  async function upload(blob, o, nm) {
+    const fd = new FormData();
+    fd.append("owner", user.id);
+    fd.append("name", nm || `Carte ${totalRef.current + 1}`);
+    fd.append("orient", o);
+    fd.append("kind", isToken ? "jeton" : "carte");
+    fd.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
+    await pb.collection("cards").create(fd);
+    totalRef.current += 1;
+    setTotal(totalRef.current);
+    setSaved((n) => n + 1);
   }
 
-  function onFiles(e) {
+  function showEditor(cv) {
+    const q = detectCorners(cv);
+    setSrc(cv);
+    setQuad(q);
+    setOrient(quadIsLandscape(q) ? "l" : "p");
+    setResult(null);
+    setName("");
+  }
+
+  // Photos déjà détourées : enregistrées directement. Les autres passent par l'ajustement des coins.
+  async function onFiles(e) {
     const files = [...(e.target.files || [])];
     e.target.value = "";
     if (!files.length) return;
-    setQueue(files.slice(1));
-    openFile(files[0]);
+    setErr("");
+    setReport("");
+    setBusy(true);
+    const manual = [];
+    let auto = 0, failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setProgress({ done: i, n: files.length, auto });
+      try {
+        const cv = await loadImage(files[i]);
+        const o = croppedOrient(cv);
+        if (o) {
+          const [w, h] = OUT[o];
+          await upload(await canvasToBlob(resizeTo(cv, w, h)), o);
+          auto++;
+        } else manual.push(cv);
+      } catch (e2) {
+        failed++;
+      }
+    }
+    setProgress(null);
+    setBusy(false);
+    const parts = [];
+    if (auto) parts.push(`${auto} carte${auto > 1 ? "s" : ""} déjà détourée${auto > 1 ? "s" : ""} ajoutée${auto > 1 ? "s" : ""} directement`);
+    if (manual.length) parts.push(`${manual.length} photo${manual.length > 1 ? "s" : ""} à recadrer`);
+    if (failed) parts.push(`${failed} illisible${failed > 1 ? "s" : ""}`);
+    setReport(parts.join(", ") + ".");
+    if (manual.length) {
+      setQueue(manual.slice(1));
+      showEditor(manual[0]);
+    }
   }
 
   function next() {
@@ -57,9 +115,9 @@ export default function Scanner({ go }) {
     setSrc(null);
     setQuad(null);
     if (queue.length) {
-      const [f, ...rest] = queue;
+      const [cv, ...rest] = queue;
       setQueue(rest);
-      openFile(f);
+      showEditor(cv);
     }
   }
 
@@ -67,8 +125,7 @@ export default function Scanner({ go }) {
     setBusy(true);
     await new Promise((r) => setTimeout(r, 20));
     const [w, h] = OUT[orient];
-    const out = warp(src, quad, w, h);
-    const blob = await canvasToBlob(out);
+    const blob = await canvasToBlob(warp(src, quad, w, h));
     setResult({ url: URL.createObjectURL(blob), blob });
     setBusy(false);
   }
@@ -77,15 +134,7 @@ export default function Scanner({ go }) {
     setBusy(true);
     setErr("");
     try {
-      const fd = new FormData();
-      fd.append("owner", user.id);
-      fd.append("name", name.trim() || `Carte ${total + 1}`);
-      fd.append("orient", orient);
-      fd.append("kind", isToken ? "jeton" : "carte");
-      fd.append("image", new File([result.blob], "scan.jpg", { type: "image/jpeg" }));
-      await pb.collection("cards").create(fd);
-      setSaved((n) => n + 1);
-      setTotal((n) => n + 1);
+      await upload(result.blob, orient, name.trim());
       URL.revokeObjectURL(result.url);
       const hadQueue = queue.length > 0;
       next();
@@ -96,6 +145,17 @@ export default function Scanner({ go }) {
       setBusy(false);
     }
   }
+
+  const tokenToggle = (
+    <div className="row" style={{ marginBottom: 12 }}>
+      <button className={`btn sm ${isToken ? "primary" : ""}`} onClick={() => setIsToken(!isToken)}>
+        {isToken ? "✓ Cartes jetons" : "Cartes jetons ?"}
+      </button>
+      <span className="muted small grow">
+        {isToken ? "Iront dans la réserve à côté du tapis, copies illimitées." : "Cartes normales, pour le deck."}
+      </span>
+    </div>
+  );
 
   return (
     <div className="page">
@@ -108,18 +168,21 @@ export default function Scanner({ go }) {
       <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={onFiles} />
       <input ref={galRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
       {err && <div className="err">{err}</div>}
+      {report && <div className="card-box small" style={{ padding: "10px 14px" }}>{report}</div>}
 
       {!src && (
         <div className="card-box">
-          <h2>Ajouter une carte</h2>
+          <h2>Ajouter des cartes</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Posez la carte à plat sur un fond uni et contrasté (table sombre pour une carte claire), sans reflet, et cadrez-la en entier. Les coins sont détectés automatiquement, vous pourrez les ajuster.
+            Photos déjà détourées au format carte (par l'appli photo ou un scanner de documents) : elles sont ajoutées directement, sans validation.
+            Pour une photo de la carte posée sur la table : fond uni et contrasté, sans reflet, carte entière. Les coins sont détectés et vous pourrez les ajuster.
           </p>
+          {tokenToggle}
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button className="btn primary" onClick={() => camRef.current?.click()} disabled={busy}>Prendre une photo</button>
             <button className="btn" onClick={() => galRef.current?.click()} disabled={busy}>Importer des photos</button>
           </div>
-          {busy && <p className="muted">Analyse…</p>}
+          {progress && <p className="muted">Import {progress.done + 1} / {progress.n}…</p>}
           <div className="spacer" />
           <button className="btn ghost sm" onClick={() => go("library")}>Voir mes cartes ({total})</button>
         </div>
@@ -128,7 +191,7 @@ export default function Scanner({ go }) {
       {src && !result && (
         <>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Faites glisser les 4 coins sur les coins de la carte. Le trait bleu marque le haut : « Pivoter » si besoin.{queue.length ? ` ${queue.length} photo(s) en attente.` : ""}
+            Faites glisser les 4 coins sur les coins de la carte. Le trait bleu marque le haut : « Pivoter » si besoin.{queue.length ? ` ${queue.length} autre(s) photo(s) à recadrer ensuite.` : ""}
           </p>
           <CornerEditor src={src} quad={quad} setQuad={setQuad} />
           <div className="spacer" />
@@ -140,7 +203,7 @@ export default function Scanner({ go }) {
             <button className="btn ghost" onClick={() => setQuad(detectCorners(src))}>Détecter</button>
             <button className="btn ghost" onClick={() => setQuad(defaultCorners(src.width, src.height))}>Cadre</button>
             <span className="grow" />
-            <button className="btn ghost" onClick={next}>Annuler</button>
+            <button className="btn ghost" onClick={next}>Passer</button>
             <button className="btn primary" onClick={validate} disabled={busy}>Redresser</button>
           </div>
         </>
@@ -154,16 +217,9 @@ export default function Scanner({ go }) {
           <div className="spacer" />
           <div className="field">
             <label>Nom de la carte (facultatif, utile pour le journal de partie)</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={`Carte ${total + 1}`} maxLength={120} autoFocus />
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={`Carte ${total + 1}`} maxLength={120} />
           </div>
-          <div className="row" style={{ marginBottom: 12 }}>
-            <button className={`btn sm ${isToken ? "primary" : ""}`} onClick={() => setIsToken(!isToken)}>
-              {isToken ? "✓ Carte jeton" : "Carte jeton ?"}
-            </button>
-            <span className="muted small grow">
-              {isToken ? "Ira dans la réserve à côté du tapis, copies illimitées." : "Carte normale, va dans le deck."}
-            </span>
-          </div>
+          {tokenToggle}
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button className="btn ghost" onClick={() => setResult(null)}>← Ajuster</button>
             <span className="grow" />

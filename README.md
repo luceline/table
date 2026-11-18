@@ -16,6 +16,7 @@ deploy/nginx-table.conf                    extrait nginx à coller dans le vhost
 ## Fonctionnement
 
 - **Compte** : e-mail + mot de passe, pseudo affiché en partie.
+- **Photos déjà détourées** (appli photo, scanner de documents) : si l'image est au format carte (63 x 88, portrait ou paysage, à 3 % près), elle est enregistrée directement, sans validation. L'import multiple traite ainsi un lot entier et ne s'arrête que sur les photos à recadrer.
 - **Scan** : photo au téléphone (ou import multiple depuis la galerie), détection automatique des 4 coins, ajustement à la loupe, redressement de la perspective au format 63 x 88 mm (630 x 880 px, JPEG). Le trait bleu marque le haut de la carte. Format paysage possible.
 - **Cartes jetons** : au scan, activer « Carte jeton » (le réglage reste actif pour enchaîner une série). Ces cartes ne vont pas dans le deck : elles sont rangées dans la **réserve** (onglet « Réserve » à côté de la main). Chaque glisser-déposer depuis la réserve crée une copie sur le tapis, en quantité illimitée. Une carte jeton qui quitte le tapis disparaît (retour à la réserve). Le type d'une carte déjà scannée se change dans « Mes cartes ».
 - **Decks** : quantité par carte (0 à 20), plusieurs decks ; section séparée pour choisir les cartes jetons de la réserve.
