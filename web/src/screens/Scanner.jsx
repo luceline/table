@@ -15,6 +15,17 @@ function croppedOrient(cv) {
   return null;
 }
 
+// Nom de carte tiré du nom de fichier : « 3 - Potion rouge.jpg » -> « Potion rouge ».
+// Les noms génériques d'appareil photo (IMG_1234, image, PXL_…) sont ignorés.
+export function nameFromFile(filename) {
+  let n = (filename || "").replace(/\.[^.]+$/, "");
+  n = n.replace(/^\s*\d+\s*[-_.)]\s*/, "");
+  n = n.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!n || /^\d[\d\s-]*$/.test(n)) return "";
+  if (/^(img|image|pxl|dsc|dcim|photo|scan|capture|screenshot|signal|whatsapp|wa\d|mvimg|burst|cimg|p\d{6,})/i.test(n)) return "";
+  return n.slice(0, 120);
+}
+
 function resizeTo(cv, w, h) {
   const out = document.createElement("canvas");
   out.width = w;
@@ -64,13 +75,14 @@ export default function Scanner({ go }) {
     setSaved((n) => n + 1);
   }
 
-  function showEditor(cv) {
+  function showEditor(item) {
+    const cv = item.cv;
     const q = detectCorners(cv);
     setSrc(cv);
     setQuad(q);
     setOrient(quadIsLandscape(q) ? "l" : "p");
     setResult(null);
-    setName("");
+    setName(item.nm || "");
   }
 
   // Photos déjà détourées : enregistrées directement. Les autres passent par l'ajustement des coins.
@@ -87,12 +99,13 @@ export default function Scanner({ go }) {
       setProgress({ done: i, n: files.length, auto });
       try {
         const cv = await loadImage(files[i]);
+        const nm = nameFromFile(files[i].name);
         const o = croppedOrient(cv);
         if (o) {
           const [w, h] = OUT[o];
-          await upload(await canvasToBlob(resizeTo(cv, w, h)), o);
+          await upload(await canvasToBlob(resizeTo(cv, w, h)), o, nm);
           auto++;
-        } else manual.push(cv);
+        } else manual.push({ cv, nm });
       } catch (e2) {
         failed++;
       }
@@ -115,9 +128,9 @@ export default function Scanner({ go }) {
     setSrc(null);
     setQuad(null);
     if (queue.length) {
-      const [cv, ...rest] = queue;
+      const [item, ...rest] = queue;
       setQueue(rest);
-      showEditor(cv);
+      showEditor(item);
     }
   }
 
@@ -175,6 +188,7 @@ export default function Scanner({ go }) {
           <h2>Ajouter des cartes</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
             Photos déjà détourées au format carte (par l'appli photo ou un scanner de documents) : elles sont ajoutées directement, sans validation.
+            Le nom du fichier devient le nom de la carte (« 3 - Potion rouge.jpg » donne « Potion rouge »).
             Pour une photo de la carte posée sur la table : fond uni et contrasté, sans reflet, carte entière. Les coins sont détectés et vous pourrez les ajuster.
           </p>
           {tokenToggle}
