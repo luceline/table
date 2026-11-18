@@ -24,12 +24,12 @@ export function Face({ src, down, alt }) {
   return <img src={src} alt={alt || ""} draggable={false} loading="lazy" />;
 }
 
-export function Toast({ text, onDone, ms = 2600 }) {
+export function Toast({ text, onDone, ms = 2600, style }) {
   useEffect(() => {
     if (!text) return;
     const t = setTimeout(onDone, ms);
     return () => clearTimeout(t);
   }, [text, onDone, ms]);
   if (!text) return null;
-  return <div className="toast">{text}</div>;
+  return <div className="toast" style={style}>{text}</div>;
 }

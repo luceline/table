@@ -5,7 +5,9 @@ import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
 import { normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX } from "../lib/game.js";
 
-const ZOOMS = [1, 1.5, 2.2];
+const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
+const BAR = 48; // bandeau PI/PV en portrait (px écran)
+const RAIL = 96; // colonne PI/PV en paysage (px écran)
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -19,12 +21,14 @@ export default function Table({ go, gameId }) {
   const [toast, setToast] = useState("");
   const [sheet, setSheet] = useState(null);
   const [zoom, setZoom] = useState(0);
-  const [fit, setFit] = useState(0.5);
   const [hover, setHover] = useState(null);
   const [dragKey, setDragKey] = useState(null);
   const [ghost, setGhost] = useState(null);
   const [offline, setOffline] = useState(false);
   const [handH, setHandH] = useState(null);
+  const [landscape, setLandscape] = useState(false);
+  const [vp, setVp] = useState({ w: 360, h: 600 });
+  const [focus, setFocus] = useState(null); // null = vue d'ensemble, "mine" / "opp" = loupe sur un tapis
   const [panel, setPanel] = useState("hand");
   const mainRef = useRef();
 
@@ -45,7 +49,11 @@ export default function Table({ go, gameId }) {
   const dragRef = useRef(null);
   const sRef = useRef(0.5);
 
-  const s = fit * ZOOMS[zoom];
+  // Échelle : vue d'ensemble des deux tapis, ou loupe plein écran sur un seul tapis
+  const fitS = landscape
+    ? Math.min((vp.w - 12 - RAIL) / MAT_W, (vp.h - 12) / (focus ? MAT_H : BOARD_H))
+    : Math.min((vp.w - 12) / MAT_W, (vp.h - 12 - (focus ? BAR : 2 * BAR)) / (focus ? MAT_H : BOARD_H));
+  const s = Math.max(0.15, fitS) * (focus ? ZOOMS[zoom] : 1);
   sRef.current = s;
   const mySide = sideRef.current;
   const oppSide = mySide === "p1" ? "p2" : "p1";
@@ -215,6 +223,7 @@ export default function Table({ go, gameId }) {
 
   // ---------- Mise à l'échelle ----------
   // Portrait : le plateau prend la largeur, la place restante agrandit la main.
+  const hasReserve = !!mine?.reserve?.length;
   useEffect(() => {
     const el = mainRef.current;
     if (!el) return;
@@ -222,18 +231,14 @@ export default function Table({ go, gameId }) {
     const compute = () => {
       const W = el.clientWidth;
       const H = el.clientHeight;
-      if (mq.matches) {
-        setHandH(null);
-        setFit(Math.max(0.15, Math.min((W - 230 - 12) / MAT_W, (H - 12) / BOARD_H)));
-        return;
-      }
-      const ctrl = 46 + 40;
+      setLandscape(mq.matches);
+      if (mq.matches) return setHandH(null);
+      const ctrl = 46 + (hasReserve ? 38 : 0);
       const fitW = (W - 12) / MAT_W;
-      const boardH = BOARD_H * fitW + 12;
-      const hh = clamp(H - ctrl - boardH, 112, 250);
-      setHandH(hh);
-      setFit(Math.max(0.15, Math.min(fitW, (H - ctrl - hh - 12) / BOARD_H)));
+      const boardH = BOARD_H * fitW + 2 * BAR + 12;
+      setHandH(clamp(H - ctrl - boardH, 112, 250));
     };
+    compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     mq.addEventListener?.("change", compute);
@@ -241,16 +246,30 @@ export default function Table({ go, gameId }) {
       ro.disconnect();
       mq.removeEventListener?.("change", compute);
     };
-  }, []);
+  }, [hasReserve]);
 
   useEffect(() => {
     const el = vpRef.current;
     if (!el) return;
+    const ro = new ResizeObserver(() => setVp({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Loupe : on recentre la vue à chaque changement
+  useEffect(() => {
+    const el = vpRef.current;
+    if (!el) return;
     requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
       el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
     });
-  }, [zoom]);
+  }, [zoom, focus]);
+
+  const openFocus = (which) => {
+    setZoom(0);
+    setFocus(which);
+  };
 
   // ---------- Actions de jeu ----------
   const nameOf = (st, iid) => st.cards[iid]?.n || "Carte";
@@ -662,60 +681,62 @@ export default function Table({ go, gameId }) {
               <b>{opp.name}</b>
               <span className="muted" style={{ fontSize: 11 }}>main {opp.hand.length} · deck {opp.deck.length}</span>
             </div>
-            <span className="chip pi">PI {opp.pi}</span>
-            <span className="chip pv">PV {opp.pv}</span>
           </>
         ) : (
           <span className="muted">En attente d'un adversaire</span>
         )}
         <div className="ticker">{offline ? "⚠ connexion perdue, nouvel essai…" : ticker}</div>
-        <div className="zoom">
-          <button onClick={() => setZoom((z) => Math.max(0, z - 1))} aria-label="Dézoomer" disabled={zoom === 0}>−</button>
-          <button onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} aria-label="Zoomer" disabled={zoom === ZOOMS.length - 1}>+</button>
-        </div>
+        {focus && (
+          <div className="zoom">
+            <button onClick={() => setZoom((z) => Math.max(0, z - 1))} aria-label="Dézoomer" disabled={zoom === 0}>−</button>
+            <button onClick={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))} aria-label="Zoomer" disabled={zoom === ZOOMS.length - 1}>+</button>
+            <button className="back" onClick={() => setFocus(null)} aria-label="Vue d'ensemble">⤡ Les 2 tapis</button>
+          </div>
+        )}
         <button className="btn sm" onClick={() => setSheet({ kind: "menu" })} aria-label="Menu">☰</button>
       </div>
 
       <div className="main-area" ref={mainRef}>
         <div className="viewport" ref={vpRef}>
-          <div className="board" style={{ width: MAT_W * s, height: BOARD_H * s, marginTop: 6, marginBottom: 6 }}>
-            <Mat
-              side="opp"
-              st={opp}
-              s={s}
-              top={0}
-              tokens={oppTokens}
-              hover={hover}
-              dragKey={dragKey}
-              onPress={press}
-              matRef={oppMatRef}
-              waiting={
-                !opp && meta ? (
-                  <div className="waiting" style={{ top: 0, bottom: 0 }}>
-                    <div>Partagez ce code avec votre adversaire</div>
-                    <div className="code">{meta.code}</div>
-                    <button className="btn sm" style={{ pointerEvents: "auto" }} onClick={share}>Partager le lien</button>
-                    <div className="small">Vous pouvez déjà préparer votre jeu.</div>
-                  </div>
-                ) : null
-              }
-            />
-            <Mat
-              side="mine"
-              st={mine}
-              s={s}
-              top={(MAT_H + GAP) * s}
-              tokens={myTokens}
-              hover={hover}
-              dragKey={dragKey}
-              onPress={press}
-              onTrack={(t) => {
-                const [k, v] = t.split(":");
-                setTrack(k, Number(v) === mine?.[k] ? Number(v) - 1 : Number(v));
-              }}
-              matRef={myMatRef}
-            />
-          </div>
+          {(() => {
+            const L = boardLayout(landscape, focus, s);
+            const waiting = !opp && meta ? (
+              <div className="waiting" style={{ top: 0, bottom: 0 }}>
+                <div>Partagez ce code avec votre adversaire</div>
+                <div className="code">{meta.code}</div>
+                <button className="btn sm" style={{ pointerEvents: "auto" }} onClick={share}>Partager le lien</button>
+                <div className="small">Vous pouvez déjà préparer votre jeu.</div>
+              </div>
+            ) : null;
+            const loupe = (which, m) => (
+              <button
+                className="loupe-btn"
+                style={{ left: m.left + MAT_W * s - 40, top: m.top + 6 }}
+                onClick={() => (focus ? setFocus(null) : openFocus(which))}
+                aria-label={focus ? "Revenir aux deux tapis" : "Agrandir ce tapis"}
+              >
+                {focus ? "⤡" : "🔍"}
+              </button>
+            );
+            return (
+              <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
+                {L.opp && (
+                  <>
+                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} />
+                    <Mat side="opp" st={opp} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} />
+                    {loupe("opp", L.opp.mat)}
+                  </>
+                )}
+                {L.mine && (
+                  <>
+                    <Mat side="mine" st={mine} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} />
+                    <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} />
+                    {loupe("mine", L.mine.mat)}
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="side">
@@ -723,18 +744,6 @@ export default function Table({ go, gameId }) {
             <button className="btn sm primary" onClick={() => draw(1)} disabled={!mine}>
               Piocher <span style={{ opacity: 0.7 }}>({mine?.deck.length ?? 0})</span>
             </button>
-            <div className="stepper pi">
-              <button onClick={() => setTrack("pi", (mine?.pi || 0) - 1)}>−</button>
-              <span>PI {mine?.pi ?? 0}</span>
-              <button onClick={() => setTrack("pi", (mine?.pi || 0) + 1)}>+</button>
-            </div>
-            <div className="stepper pv">
-              <button onClick={() => setTrack("pv", (mine?.pv || 0) - 1)}>−</button>
-              <span>PV {mine?.pv ?? 0}</span>
-              <button onClick={() => setTrack("pv", (mine?.pv || 0) + 1)}>+</button>
-            </div>
-          </div>
-          <div className="controls2">
             <div className="palette" title="Jetons : faites glisser sur une carte ou un tapis">
               {TOKEN_COLORS.map((c) => (
                 <div
@@ -746,13 +755,15 @@ export default function Table({ go, gameId }) {
                 />
               ))}
             </div>
-            {mine?.reserve?.length > 0 && (
+          </div>
+          {mine?.reserve?.length > 0 && (
+            <div className="controls2">
               <div className="hand-tabs">
                 <button className={panel === "hand" ? "on" : ""} onClick={() => setPanel("hand")}>Main {mine.hand.length}</button>
                 <button className={panel === "reserve" ? "on" : ""} onClick={() => setPanel("reserve")}>Réserve {mine.reserve.length}</button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <div
             ref={handRef}
             className={`hand ${hover?.area === "hand" ? "drop-on" : ""}`}
@@ -809,7 +820,15 @@ export default function Table({ go, gameId }) {
         </div>
       )}
 
-      <Toast text={toast} onDone={() => setToast("")} />
+      {/* Message au milieu du tapis adverse : ne masque ni les compteurs PI/PV ni la main */}
+      <Toast
+        text={toast}
+        onDone={() => setToast("")}
+        style={(() => {
+          const r = oppMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
+          return r ? { top: Math.max(r.top + 8, r.top + r.height / 2 - 16), left: r.left + r.width / 2 } : null;
+        })()}
+      />
       {err && (
         <div className="toast" style={{ borderColor: "var(--danger)", pointerEvents: "auto", whiteSpace: "normal", borderRadius: 10 }} onClick={() => setErr("")}>{err}</div>
       )}
@@ -1008,4 +1027,53 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
     );
   }
   return null;
+}
+
+// Position des tapis et des panneaux PI/PV (px écran)
+function boardLayout(side, focus, s) {
+  const mw = MAT_W * s;
+  const mh = MAT_H * s;
+  const gap = GAP * s;
+  if (side) {
+    const panel = (top) => ({ left: 0, top, width: RAIL, height: mh });
+    if (focus === "mine") return { mode: "side", w: RAIL + mw, h: mh, mine: { mat: { left: RAIL, top: 0 }, panel: panel(0) } };
+    if (focus === "opp") return { mode: "side", w: RAIL + mw, h: mh, opp: { mat: { left: RAIL, top: 0 }, panel: panel(0) } };
+    return {
+      mode: "side", w: RAIL + mw, h: 2 * mh + gap,
+      opp: { mat: { left: RAIL, top: 0 }, panel: panel(0) },
+      mine: { mat: { left: RAIL, top: mh + gap }, panel: panel(mh + gap) },
+    };
+  }
+  const bar = (top) => ({ left: 0, top, width: mw, height: BAR });
+  if (focus === "mine") return { mode: "bar", w: mw, h: mh + BAR, mine: { mat: { left: 0, top: 0 }, panel: bar(mh) } };
+  if (focus === "opp") return { mode: "bar", w: mw, h: mh + BAR, opp: { mat: { left: 0, top: BAR }, panel: bar(0) } };
+  return {
+    mode: "bar", w: mw, h: 2 * BAR + 2 * mh + gap,
+    opp: { mat: { left: 0, top: BAR }, panel: bar(0) },
+    mine: { mat: { left: 0, top: BAR + mh + gap }, panel: bar(BAR + 2 * mh + gap) },
+  };
+}
+
+function Stat({ label, k, v, cls, onSet }) {
+  return (
+    <div className={`stat ${cls}`}>
+      {onSet && <button onClick={() => onSet(k, v - 1)} aria-label={`${label} moins 1`}>−</button>}
+      <div className="val">
+        <small>{label}</small>
+        <b>{v}</b>
+      </div>
+      {onSet && <button onClick={() => onSet(k, v + 1)} aria-label={`${label} plus 1`}>+</button>}
+    </div>
+  );
+}
+
+// Compteurs PI / PV bien visibles à côté de chaque tapis (seul le propriétaire peut les modifier)
+function ScorePanel({ st, mine, layout, box, onSet }) {
+  return (
+    <div className={`score ${layout} ${mine ? "mine" : "opp"}`} style={box}>
+      <span className="sname">{st?.name || (mine ? "Moi" : "Adversaire")}</span>
+      <Stat label="PI" k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine ? onSet : null} />
+      <Stat label="PV" k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine ? onSet : null} />
+    </div>
+  );
 }

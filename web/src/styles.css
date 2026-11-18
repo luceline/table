@@ -169,3 +169,24 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .02em;
 .hand-tabs button { flex: 1; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 12px; cursor: pointer; }
 .hand-tabs button.on { background: var(--panel); border-color: var(--gold2); color: var(--gold); }
 .tok-frame { position: absolute; inset: 0; border: 2px dashed rgba(214,190,140,.85); border-radius: inherit; pointer-events: none; }
+
+/* Compteurs PI / PV à côté des tapis */
+.score { position: absolute; display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+.score.bar { flex-direction: row; justify-content: flex-end; }
+.score.side { flex-direction: column; justify-content: center; gap: 8px; padding: 4px; }
+.score .sname { font-family: var(--serif); font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score.bar .sname { flex: 1; min-width: 0; }
+.score.side .sname { max-width: 100%; text-align: center; }
+.stat { display: flex; align-items: center; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 2px 4px; }
+.stat .val { display: flex; flex-direction: column; align-items: center; min-width: 40px; line-height: 1; }
+.stat .val small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
+.stat .val b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.stat.pi b { color: #9cc3ff; }
+.stat.pv b { color: #ff9c9c; }
+.stat button { width: 30px; height: 34px; border: 0; background: transparent; font-size: 20px; cursor: pointer; border-radius: 8px; }
+.stat button:active { background: rgba(255,255,255,.08); }
+.score.side .stat button { width: 22px; font-size: 17px; }
+.score.side .stat .val { min-width: 32px; }
+.score.side .stat .val b { font-size: 21px; }
+.loupe-btn { position: absolute; z-index: 7; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold2); background: rgba(18,20,26,.85); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.zoom .back { width: auto; padding: 0 10px; font-size: 13px; }

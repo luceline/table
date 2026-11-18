@@ -22,7 +22,8 @@ deploy/nginx-table.conf                    extrait nginx à coller dans le vhost
 - **Decks** : quantité par carte (0 à 20), plusieurs decks ; section séparée pour choisir les cartes jetons de la réserve.
 - **Prêt de deck** : pour initier quelqu'un qui n'a pas de cartes, le créateur choisit « Prêter un deck à l'adversaire » avant de créer la partie. L'invité crée juste un compte, entre le code (ou ouvre le lien) et joue avec ce deck, sans rien scanner. S'il a ses propres decks, on lui demande lequel utiliser. Le prêt ne vaut que pour cette partie : rien n'est copié dans son compte.
 - **Partie** : un joueur crée la partie, partage le code (ou le lien `?join=CODE`), l'autre rejoint avec son deck. Les deux deviennent visibles en temps réel.
-- **Plateau** : reproduction du tapis 60 x 30 (3 territoires, Combattants, Magies, Commandant, 3 défausses, Deck, pistes PI 1-15 et PV 1-30). Le tapis adverse est affiché retourné à 180°, comme à une vraie table (son Territoire I fait face à votre Territoire III).
+- **Plateau** : reproduction du tapis 60 x 30 (3 territoires, Combattants, Magies, Commandant, 3 défausses, Deck). Les pistes PI/PV imprimées sont remplacées par de grands compteurs à côté de chaque tapis (bandeau en portrait, colonne en paysage), avec − / + pour son propre côté.
+- **Loupe** : le bouton 🔍 en coin de chaque tapis l'affiche seul en plein écran, avec − / + pour zoomer davantage ; « Les 2 tapis » (ou ⤡) revient à la vue d'ensemble. On peut continuer à jouer en mode loupe. Le tapis adverse est affiché retourné à 180°, comme à une vraie table (son Territoire I fait face à votre Territoire III).
 - **Chacun son côté** : un joueur n'agit que sur son propre tapis (cartes, jetons, PI/PV, piles). Côté adversaire, il peut seulement regarder : toucher une carte visible pour l'agrandir, consulter ses défausses. Les jetons sont aussi protégés côté serveur.
 - **Gestes** :
   - glisser une carte de la main vers le tapis : elle s'aimante sur l'emplacement visé (ou reste où on la lâche hors emplacement) ;
@@ -33,7 +34,7 @@ deploy/nginx-table.conf                    extrait nginx à coller dans le vhost
   - toucher une défausse : voir son contenu (la sienne ou celle de l'adversaire) ;
   - toucher le deck : piocher 1/3/5/7, mélanger, chercher une carte ;
   - jetons (compteurs de couleur) : glisser une couleur sur une de ses cartes. Le jeton s'accroche à la carte : plusieurs par carte, ils suivent la carte quand elle bouge ou s'engage, et disparaissent quand elle quitte le tapis. Lâché hors carte, il reste libre sur le tapis. Toucher pour +/− ou changer de couleur, glisser hors des tapis pour le retirer ;
-  - PI / PV : départ à PI 4 et PV 0 ; toucher une case de la piste ou utiliser les boutons − / +.
+  - PI / PV : départ à PI 4 et PV 0 ; boutons − / + du compteur à côté de son tapis.
 - **Mélanger** : toucher le deck, ou menu ☰ > « Mélanger mon deck ».
 - **Journal** : chaque action est tracée (menu ☰), la dernière action adverse s'affiche en haut.
 - Recharger la page ramène à la partie en cours.

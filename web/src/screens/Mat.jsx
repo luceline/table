@@ -1,6 +1,6 @@
 import { memo } from "react";
 import {
-  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, TRACK, PI_ROW_Y, PV_ROWS_Y, piCell, pvCell, rotPt,
+  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, rotPt,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX } from "../lib/game.js";
@@ -44,23 +44,6 @@ export const MatBackground = memo(function MatBackground({ flip }) {
       els.push(text(p.x + p.w / 2, p.y + p.h / 2, "TERRITOIRE", 4.6, `pl2${p.id}`, {}, 3.5));
     }
   }
-  // Pistes PI / PV
-  // Libellés toujours au-dessus de leur rangée à l'écran, même sur le tapis retourné
-  const above = (rowTop, rowH) => (flip ? { y: rowTop + rowH, dy: -3.2 } : { y: rowTop, dy: -3.2 });
-  const lpi = above(PI_ROW_Y, TRACK.ch);
-  const lpv = above(PV_ROWS_Y[0], flip ? TRACK.ch * 2 : TRACK.ch);
-  els.push(text(TRACK.x + 7.5 * TRACK.cw, lpi.y, "PI (points d'influence)", 3.8, "pil", {}, lpi.dy));
-  els.push(text(TRACK.x + 7.5 * TRACK.cw, lpv.y, "PV (points de vie)", 3.8, "pvl", {}, lpv.dy));
-  for (let v = 1; v <= 15; v++) {
-    const c = piCell(v);
-    els.push(rect(R(c.x, c.y, c.w, c.h), `pic${v}`, { rx: 0.6, strokeWidth: 0.3, fill: "rgba(59,130,214,.07)" }));
-    els.push(text(c.x + c.w / 2, c.y + c.h / 2, String(v), 3.4, `pin${v}`));
-  }
-  for (let v = 1; v <= 30; v++) {
-    const c = pvCell(v);
-    els.push(rect(R(c.x, c.y, c.w, c.h), `pvc${v}`, { rx: 0.6, strokeWidth: 0.3, fill: "rgba(214,69,69,.07)" }));
-    els.push(text(c.x + c.w / 2, c.y + c.h / 2, String(v), 3.4, `pvn${v}`));
-  }
   return (
     <svg className="bg" viewBox={`0 0 ${MAT_W} ${MAT_H}`} preserveAspectRatio="none">
       {els}
@@ -68,7 +51,7 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   );
 });
 
-export function Mat({ side, st, s, top, tokens, hover, dragKey, onPress, onTrack, matRef, waiting }) {
+export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting }) {
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
@@ -83,27 +66,11 @@ export function Mat({ side, st, s, top, tokens, hover, dragKey, onPress, onTrack
     <div
       ref={matRef}
       className={`mat ${mine ? "mine" : "opp"}`}
-      style={{ top, width: MAT_W * s, height: MAT_H * s }}
-      onClick={(e) => {
-        const t = e.target?.dataset?.track;
-        if (t && onTrack) onTrack(t);
-      }}
+      style={{ top, left, width: MAT_W * s, height: MAT_H * s }}
     >
       <MatBackground flip={flip} />
 
       {hi && <div className="slot-hi" style={box(hi.x, hi.y, hi.w, hi.h)} />}
-
-      {/* Zones cliquables des pistes (mon tapis uniquement) */}
-      {mine &&
-        [...Array(15)].map((_, i) => {
-          const c = piCell(i + 1);
-          return <div key={`hpi${i}`} className="track-hit" style={box(c.x, c.y, c.w, c.h)} data-track={`pi:${i + 1}`} />;
-        })}
-      {mine &&
-        [...Array(30)].map((_, i) => {
-          const c = pvCell(i + 1);
-          return <div key={`hpv${i}`} className="track-hit" style={box(c.x, c.y, c.w, c.h)} data-track={`pv:${i + 1}`} />;
-        })}
 
       {/* Piles */}
       {st &&
@@ -175,10 +142,6 @@ export function Mat({ side, st, s, top, tokens, hover, dragKey, onPress, onTrack
           );
         })}
 
-      {/* Marqueurs PI / PV */}
-      {st && st.pi >= 1 && st.pi <= 15 && <Marker cell={piCell(st.pi)} kind="pi" box={box} />}
-      {st && st.pv >= 1 && st.pv <= 30 && <Marker cell={pvCell(st.pv)} kind="pv" box={box} />}
-
       {/* Jetons */}
       {tokens.map((t) => {
         let tx = t.x, ty = t.y;
@@ -216,8 +179,3 @@ export function Mat({ side, st, s, top, tokens, hover, dragKey, onPress, onTrack
   );
 }
 
-function Marker({ cell, kind, box }) {
-  const d = Math.min(cell.w, cell.h) * 0.92;
-  const r = box(cell.x + (cell.w - d) / 2, cell.y + (cell.h - d) / 2, d, d);
-  return <div className={`marker ${kind}`} style={r} />;
-}
