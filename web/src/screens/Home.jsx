@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
+import { Sheet } from "../components/ui.jsx";
 
 export default function Home({ go, pendingJoin, clearJoin }) {
   const user = me();
@@ -8,6 +9,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [decks, setDecks] = useState([]);
   const [games, setGames] = useState([]);
   const [deckId, setDeckId] = useState("");
+  const [loanId, setLoanId] = useState(""); // deck prêté à l'adversaire ("" = aucun)
+  const [joinChoice, setJoinChoice] = useState(null); // partie avec deck prêté : choisir lequel jouer
   const [code, setCode] = useState(pendingJoin || "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,11 +39,35 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
   const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (cardsById[e.card]?.kind === "jeton" ? 0 : e.qty || 0), 0);
 
+  const myName = user.name || user.email.split("@")[0];
+
   function myState() {
     const deck = decks.find((d) => d.id === deckId);
     if (!deck) throw new Error("Choisissez un deck.");
     if (!deckSize(deck)) throw new Error("Ce deck est vide.");
-    return buildState({ name: user.name || user.email.split("@")[0], deck, cardsById });
+    return buildState({ name: myName, deck, cardsById });
+  }
+
+  // Instantané du deck prêté, stocké dans la partie
+  function loanSnapshot(deck) {
+    const ents = (deck.entries || []).filter((e) => cardsById[e.card] && e.qty > 0);
+    return {
+      name: deck.name,
+      by: myName,
+      entries: ents.map((e) => ({ card: e.card, qty: e.qty })),
+      cards: ents.map((e) => {
+        const c = cardsById[e.card];
+        return { id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind };
+      }),
+    };
+  }
+
+  function loanState(loan) {
+    return buildState({
+      name: myName,
+      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries },
+      cardsById: Object.fromEntries(loan.cards.map((c) => [c.id, c])),
+    });
   }
 
   async function createGame() {
@@ -48,10 +75,13 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setBusy(true);
     try {
       const state = myState();
+      const lent = decks.find((d) => d.id === loanId);
+      if (lent && !deckSize(lent)) throw new Error("Le deck à prêter est vide.");
+      const loan = lent ? loanSnapshot(lent) : null;
       let rec = null;
       for (let i = 0; i < 4 && !rec; i++) {
         try {
-          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: state.name, status: "waiting" });
+          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: state.name, status: "waiting", loan });
         } catch (e) {
           if (i === 3) throw e;
         }
@@ -80,10 +110,34 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       clearJoin();
       if (g.p1 === user.id || g.p2 === user.id) return go("table", { gameId: g.id });
       if (g.p2) throw new Error("Cette partie a déjà deux joueurs.");
-      const state = myState();
-      await pb.collection("games").update(g.id, { p2: user.id, n2: state.name, status: "playing" });
-      await pb.collection("seats").create({ game: g.id, player: user.id, state });
-      go("table", { gameId: g.id });
+      if (g.loan?.cards?.length) {
+        // Deck prêté disponible : direct si je n'ai pas de deck, sinon je choisis
+        if (!decks.length) return await sit(g, true);
+        return setJoinChoice(g);
+      }
+      if (!decks.length) throw new Error("Vous n'avez pas encore de deck, et cette partie n'en prête pas.");
+      await sit(g, false);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sit(g, useLoan) {
+    const state = useLoan ? loanState(g.loan) : myState();
+    await pb.collection("games").update(g.id, { p2: user.id, n2: state.name, status: "playing" });
+    await pb.collection("seats").create({ game: g.id, player: user.id, state });
+    go("table", { gameId: g.id });
+  }
+
+  async function chooseJoin(useLoan) {
+    const g = joinChoice;
+    setJoinChoice(null);
+    setErr("");
+    setBusy(true);
+    try {
+      await sit(g, useLoan);
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -126,16 +180,29 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <div className="card-box">
         <h2>Jouer</h2>
         {decks.length === 0 ? (
-          <p className="muted small">Scannez vos cartes puis créez un deck pour pouvoir jouer.</p>
+          <p className="muted small">
+            Pas encore de deck ? Vous pouvez rejoindre une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour créer vos propres parties, scannez vos cartes puis créez un deck.
+          </p>
         ) : (
-          <div className="field">
-            <label>Mon deck pour cette partie</label>
-            <select className="input" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
-              {decks.map((d) => (
-                <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes)</option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="field">
+              <label>Mon deck pour cette partie</label>
+              <select className="input" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
+                {decks.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes)</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Prêter un deck à l'adversaire (s'il n'a pas de cartes)</label>
+              <select className="input" value={loanId} onChange={(e) => setLoanId(e.target.value)}>
+                <option value="">Aucun prêt</option>
+                {decks.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes)</option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
         <div className="row" style={{ flexWrap: "wrap" }}>
           <button className="btn primary" onClick={createGame} disabled={busy || !decks.length}>Créer une partie</button>
@@ -148,7 +215,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
               style={{ textTransform: "uppercase" }}
             />
-            <button className="btn" onClick={joinGame} disabled={busy || !decks.length}>Rejoindre</button>
+            <button className="btn" onClick={joinGame} disabled={busy}>Rejoindre</button>
           </div>
         </div>
         {games.length > 0 && (
@@ -171,6 +238,19 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           </>
         )}
       </div>
+
+      <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quel deck jouer ?">
+        {joinChoice && (
+          <div className="actions">
+            <button className="btn primary" onClick={() => chooseJoin(true)}>
+              Deck prêté par {joinChoice.loan.by} : « {joinChoice.loan.name} »
+            </button>
+            <button className="btn" onClick={() => chooseJoin(false)}>
+              Mon deck : « {decks.find((d) => d.id === deckId)?.name} »
+            </button>
+          </div>
+        )}
+      </Sheet>
 
       <div className="card-box">
         <h2>Ma collection</h2>
