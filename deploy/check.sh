@@ -10,11 +10,13 @@ echo "== Configuration nginx =="
 nginx -t 2>&1 | tail -2
 echo
 echo "== Fichier(s) nginx qui servent resgestae.fr =="
-grep -rlsn "resgestae.fr" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ || echo "(aucun trouvé)"
+grep -Rlsn "resgestae.fr" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ || echo "(aucun trouvé)"
 echo
 echo "== Chemin /table déjà utilisé dans nginx ? =="
-grep -rsn "location.*/table" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ || echo "non, libre"
+grep -Rsn "location.*/table" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ || echo "non, libre"
 echo
 PORT="${PORT:-8091}"
 echo "== Port $PORT =="
-if ss -tln | grep -q ":$PORT\s"; then echo "OCCUPÉ : choisir un autre port (PORT=8092 bash deploy/install.sh)"; else echo "libre"; fi
+if ss -tln | grep -q ":$PORT\s"; then
+  for p in $(seq 8093 8099); do ss -tln | grep -q ":$p\s" || { echo "OCCUPÉ. Premier port libre : $p  ->  PORT=$p bash deploy/install.sh"; break; }; done
+else echo "libre"; fi

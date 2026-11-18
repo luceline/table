@@ -7,7 +7,7 @@ PB_VER="0.23.4"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if ss -tln | grep -q ":$PORT\s"; then
-  echo "Le port $PORT est déjà utilisé. Relancer avec un autre : PORT=8092 bash deploy/install.sh"
+  echo "Le port $PORT est déjà utilisé. Lancer « bash deploy/check.sh » pour trouver un port libre."
   exit 1
 fi
 if pm2 describe pb-table >/dev/null 2>&1; then

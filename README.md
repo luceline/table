@@ -44,7 +44,7 @@ deploy/nginx-table.conf                    extrait nginx à coller dans le vhost
 
 ## Installation sur le VPS : https://resgestae.fr/table/
 
-L'appli vit sous le chemin `/table/` de resgestae.fr : nginx retire ce préfixe et transmet à une instance PocketBase dédiée (port 8091), séparée de Guildes. Le reste de resgestae.fr n'est pas touché. Le build est déjà configuré pour ce chemin (`base: "/table/"` dans `vite.config.js`).
+L'appli vit sous le chemin `/table/` de resgestae.fr : nginx retire ce préfixe et transmet à une instance PocketBase dédiée (port 8093 sur ce serveur), séparée de Guildes. Le reste de resgestae.fr n'est pas touché. Le build est déjà configuré pour ce chemin (`base: "/table/"` dans `vite.config.js`).
 
 Dépôt : https://github.com/luceline/table
 
