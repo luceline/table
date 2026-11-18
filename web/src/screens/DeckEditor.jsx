@@ -10,6 +10,7 @@ export default function DeckEditor({ go, deckId }) {
   const [err, setErr] = useState("");
   const [dirty, setDirty] = useState(false);
   const [onlyIn, setOnlyIn] = useState(false);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -66,8 +67,11 @@ export default function DeckEditor({ go, deckId }) {
     go("home");
   }
 
-  const shown = onlyIn ? normal.filter((c) => qty[c.id]) : normal;
-  const shownTok = onlyIn ? tokens.filter((c) => qty[c.id]) : tokens;
+  // Recherche sans tenir compte des accents ni des majuscules (« pretre » trouve « Prêtre »)
+  const fold = (t) => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const match = (c) => !q.trim() || fold(c.name).includes(fold(q.trim()));
+  const shown = normal.filter((c) => (!onlyIn || qty[c.id]) && match(c));
+  const shownTok = tokens.filter((c) => (!onlyIn || qty[c.id]) && match(c));
   const thumb = (c) => (
     <>
       <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
@@ -90,6 +94,13 @@ export default function DeckEditor({ go, deckId }) {
             <label>Nom du deck</label>
             <input className="input" value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} maxLength={80} />
           </div>
+          <input
+            className="input"
+            placeholder="Rechercher une carte par nom"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            style={{ marginBottom: 10 }}
+          />
           <div className="row" style={{ marginBottom: 12 }}>
             <button className={`btn sm ${onlyIn ? "" : "ghost"}`} onClick={() => setOnlyIn(!onlyIn)}>
               {onlyIn ? "Afficher toute ma collection" : "Seulement les cartes du deck"}
@@ -100,6 +111,7 @@ export default function DeckEditor({ go, deckId }) {
 
           <h2 style={{ fontSize: 17, marginBottom: 8 }}>Cartes du deck</h2>
           {normal.length === 0 && <p className="muted">Aucune carte normale scannée.</p>}
+          {normal.length > 0 && shown.length === 0 && <p className="muted small">Aucune carte ne correspond.</p>}
           <div className="grid">
             {shown.map((c) => (
               <div key={c.id}>

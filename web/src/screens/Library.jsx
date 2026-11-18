@@ -87,7 +87,8 @@ export default function Library({ go }) {
     if (await removeIds(ids)) stopPicking();
   }
 
-  const shown = (cards || []).filter((c) => !q || (c.name || "").toLowerCase().includes(q.toLowerCase()));
+  const fold = (t) => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const shown = (cards || []).filter((c) => !q.trim() || fold(c.name).includes(fold(q.trim())));
   const allShownPicked = shown.length > 0 && shown.every((c) => picked.has(c.id));
 
   function toggleAll() {
