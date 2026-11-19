@@ -213,7 +213,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
       {err && <div className="err">{err}</div>}
 
-      <TutoVideo key={cards.length ? "o" : "n"} open={!cards.length} />
+      {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
+      <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
 
       <div className="card-box">
         <h2>Jouer</h2>
