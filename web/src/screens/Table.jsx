@@ -17,6 +17,7 @@ const PHASE_H = 40; // barre des phases au-dessus de la main (portrait)
 const WIN_PV = 30;
 const QUICK = ["OK", "Attends", "Je réagis", "Riposte ?", "Vol vie ?", "À toi", "Bien joué !"];
 const ARROW_HEX = { atk: "#ff3b3b", cib: "#4ba3ff" };
+const logLine = (who, m) => (m.startsWith("⚠ ") ? `⚠ ${who} ${m.slice(2)}` : `${who} ${m}`);
 const terrOf = (x) => (x < 201.5 ? 0 : x < 398.5 ? 1 : 2);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -122,7 +123,7 @@ export default function Table({ go, gameId }) {
     const o = rec.state && rec.state.cards ? normalize(rec.state) : null;
     if (o) {
       const last = o.log?.[o.log.length - 1];
-      if (last && lastOppLog.current !== null && last.t > lastOppLog.current) setToast(`${o.name} ${last.m}`);
+      if (last && lastOppLog.current !== null && last.t > lastOppLog.current) setToast(logLine(o.name, last.m));
       lastOppLog.current = last ? last.t : 0;
       // Carte montrée par l'adversaire (ignorée au premier chargement)
       const rv = o.reveal;
@@ -264,17 +265,17 @@ export default function Table({ go, gameId }) {
   }, []);
 
   // Mutation de mon état : fn(s) modifie s et renvoie le message du journal, ou false pour annuler.
-  const mut = useCallback((fn) => {
+  // key : les messages successifs de même clé (moins de 8 s d'écart) sont fusionnés en une ligne
+  const mut = useCallback((fn, key) => {
     if (!mineRef.current) return;
     const st = structuredClone(mineRef.current);
     const msg = fn(st);
     if (msg === false) return;
     if (typeof msg === "string") {
       const last = st.log?.[st.log.length - 1];
-      const key = msg.startsWith("met ses P") ? msg.slice(0, 10) : null;
-      if (last && key && last.m.startsWith(key) && Date.now() - last.t < 6000) {
-        st.log = [...st.log.slice(0, -1), { t: Date.now(), m: msg }];
-      } else addLog(st, msg);
+      if (last && key && last.k === key && Date.now() - last.t < 8000) {
+        st.log = [...st.log.slice(0, -1), { t: Date.now(), m: msg, k: key }];
+      } else addLog(st, msg, key);
     }
     st.rev = (st.rev || 0) + 1;
     mineRef.current = st;
@@ -307,6 +308,31 @@ export default function Table({ go, gameId }) {
   const delMark = (id) => {
     setMarks(tokRef.current.filter((t) => t.id !== id));
     track(id, () => pb.collection("marks").delete(id));
+  };
+
+  // Description d'un jeton / marqueur pour le journal
+  const tokDesc = (t, where = true) => {
+    if (!t) return "un jeton";
+    const what = t.label ? `le marqueur « ${t.label} »` : `un jeton ${(TOKEN_COLORS.find((c) => c.id === t.color)?.label || "").toLowerCase()}`;
+    if (!where) return what;
+    const st = mineRef.current;
+    const on = t.on && st?.cards[t.on] ? ` sur « ${st.board.find((b) => b.iid === t.on)?.down ? "une carte face cachée" : st.cards[t.on].n} »` : ` sur ${placeName(t.x, t.y)}`;
+    return what + on;
+  };
+  // Modification d'un jeton par le joueur, tracée dans le journal
+  const editMark = (id, patch) => {
+    const t = tokRef.current.find((x) => x.id === id);
+    if (!t) return;
+    if (patch === "delete") {
+      delMark(id);
+      return mut(() => `retire ${tokDesc(t)}`);
+    }
+    updMark(id, patch);
+    const nt = { ...t, ...patch };
+    if ("v" in patch && patch.v !== t.v) mut(() => `met ${tokDesc(nt)} à ${patch.v}`, `tok:${id}`);
+    else if ("label" in patch && patch.label !== t.label) mut(() => `renomme le marqueur « ${t.label} » en « ${patch.label} »`);
+    else if ("x" in patch || "on" in patch) mut(() => `déplace ${tokDesc(t, false)}${tokDesc(nt).slice(tokDesc(nt, false).length)}`);
+    else if ("color" in patch && patch.color !== t.color) mut(() => `change la couleur de ${tokDesc(t)}`, `tokc:${id}`);
   };
 
   // ---------- Mise à l'échelle ----------
@@ -383,6 +409,7 @@ export default function Table({ go, gameId }) {
     cx = clamp(cx, bw / 2, MAT_W - bw / 2);
     cy = clamp(cy, bh / 2, MAT_H - bh / 2);
     const down = faceDown ? true : from === "deck" ? true : from === "board" ? !!prev?.down : false;
+    const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid; // carte choisie dans le deck, pas celle du dessus
     detach(st, iid);
     st.board.push({ iid, x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, rot, down });
     const where = placeName(cx, cy);
@@ -390,7 +417,7 @@ export default function Table({ go, gameId }) {
     if (from === "board") return prev && Math.hypot(prev.x - cx, prev.y - cy) < 1 ? false : `déplace ${nm} vers ${where}`;
     if (from === "reserve") return `crée le jeton « ${c.n} » sur ${where}`;
     if (from === "hand") return `joue ${nm} sur ${where}`;
-    if (from === "deck") return `pose ${nm} depuis son deck sur ${where}`;
+    if (from === "deck") return searched ? `⚠ prend une carte choisie dans son deck et la pose face cachée sur ${where}` : `pose la carte du dessus de son deck, face cachée, sur ${where}`;
     return `sort « ${c.n} » de sa ${PILE_NAMES[from]} vers ${where}`;
   }
 
@@ -439,9 +466,10 @@ export default function Table({ go, gameId }) {
     mut((st) => {
       const c = st.cards[iid];
       const prev = st.board.find((b) => b.iid === iid);
+      const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       detach(st, iid);
       st.hand.push(iid);
-      if (from === "deck") return "prend 1 carte de son deck en main";
+      if (from === "deck") return searched ? `⚠ cherche dans son deck et prend « ${c.n} » en main` : "pioche 1 carte (dessus du deck)";
       if (from === "board") return prev?.down ? "reprend une carte face cachée en main" : `reprend « ${c.n} » en main`;
       return `reprend « ${c.n} » de sa ${PILE_NAMES[from]} en main`;
     });
@@ -453,14 +481,17 @@ export default function Table({ go, gameId }) {
     mut((st) => {
       const c = st.cards[iid];
       const prev = st.board.find((b) => b.iid === iid);
+      const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       detach(st, iid);
       if (pid === "deck") {
         bottom ? st.deck.unshift(iid) : st.deck.push(iid);
         const hidden = from === "hand" || from === "deck" || prev?.down;
-        return `place ${hidden ? "une carte" : `« ${c.n} »`} ${bottom ? "sous" : "sur"} son deck`;
+        const what = searched ? "⚠ déplace une carte choisie dans son deck" : `place ${hidden ? "une carte" : `« ${c.n} »`}${from === "hand" ? " de sa main" : ""}`;
+        return `${what} ${bottom ? "sous" : "sur"} son deck`;
       }
       st.piles[pid].push(iid);
-      return `défausse « ${c.n} » dans sa ${PILE_NAMES[pid]}`;
+      if (from === "deck") return `${searched ? "⚠ cherche dans son deck et défausse" : "défausse la carte du dessus de son deck,"} « ${c.n} » dans sa ${PILE_NAMES[pid]}`;
+      return `défausse « ${c.n} »${from === "hand" ? " de sa main" : ""} dans sa ${PILE_NAMES[pid]}`;
     });
   }, [mut]);
 
@@ -475,6 +506,12 @@ export default function Table({ go, gameId }) {
       return `pioche ${k} carte${k > 1 ? "s" : ""}`;
     });
 
+  // Consulter son deck est visible de l'adversaire (comme fouiller son deck à une vraie table)
+  const peekDeck = () => {
+    mut(() => "⚠ consulte le contenu de son deck", "peek");
+    setSheet({ kind: "pile", pile: "deck", side: "mine" });
+  };
+
   const shuffleDeck = () =>
     mut((st) => {
       st.deck = shuffle(st.deck);
@@ -488,7 +525,7 @@ export default function Table({ go, gameId }) {
       if (st[kind] === nv) return false;
       st[kind] = nv;
       return `met ses ${kind.toUpperCase()} à ${nv}`;
-    });
+    }, kind);
 
   const showCard = (iid) =>
     mut((st) => {
@@ -826,14 +863,15 @@ export default function Table({ go, gameId }) {
       if (!loc || loc.area === "hand") return;
       if (loc.area === "opp") return setToast("Chacun ne joue que sur son côté du plateau.");
       const a = attachAt(mySide, clamp(loc.x, 4, MAT_W - 4), clamp(loc.y, 4, MAT_H - 4));
-      return addMark({ side: mySide, color: src.color, v: 1, ...a });
+      addMark({ side: mySide, color: src.color, v: 1, ...a });
+      return mut(() => `pose ${tokDesc({ color: src.color, ...a })} (valeur 1)`);
     }
     if (src.type === "token") {
       if (loc?.area === "opp") return setToast("Chacun ne joue que sur son côté du plateau.");
-      if (!loc || loc.area === "hand") return delMark(src.id);
+      if (!loc || loc.area === "hand") return editMark(src.id, "delete");
       const tk = tokRef.current.find((t) => t.id === src.id);
-      if (tk?.label) return updMark(src.id, { side: mySide, on: null, dx: 0, dy: 0, x: clamp(loc.x, 15, MAT_W - 15), y: clamp(loc.y, 6, MAT_H - 6) });
-      return updMark(src.id, { side: mySide, ...attachAt(mySide, clamp(loc.x, 4, MAT_W - 4), clamp(loc.y, 4, MAT_H - 4), src.id) });
+      if (tk?.label) return editMark(src.id, { side: mySide, on: null, dx: 0, dy: 0, x: clamp(loc.x, 15, MAT_W - 15), y: clamp(loc.y, 6, MAT_H - 6) });
+      return editMark(src.id, { side: mySide, ...attachAt(mySide, clamp(loc.x, 4, MAT_W - 4), clamp(loc.y, 4, MAT_H - 4), src.id) });
     }
     if (src.type === "reserve") {
       if (!loc || loc.area !== "mine") return;
@@ -918,7 +956,7 @@ export default function Table({ go, gameId }) {
   // ---------- Rendu ----------
   const myTokens = tokens.filter((t) => t.side === mySide);
   const oppTokens = tokens.filter((t) => t.side !== mySide);
-  const ticker = opp?.log?.length ? `${opp.name} ${opp.log[opp.log.length - 1].m}` : "";
+  const ticker = opp?.log?.length ? logLine(opp.name, opp.log[opp.log.length - 1].m) : "";
 
   return (
     <div className="table" onContextMenu={(e) => e.preventDefault()} style={{ WebkitTouchCallout: "none" }}>
@@ -934,7 +972,14 @@ export default function Table({ go, gameId }) {
         ) : (
           <span className="muted">En attente d'un adversaire</span>
         )}
-        <div className="ticker">{offline ? "⚠ connexion perdue, nouvel essai…" : ticker}</div>
+        <div
+          className="ticker"
+          onClick={() => (wide ? setPanel("log") : setSheet({ kind: "log" }))}
+          title="Ouvrir le journal"
+          style={{ cursor: "pointer" }}
+        >
+          {offline ? "⚠ connexion perdue, nouvel essai…" : ticker}
+        </div>
         {focus && (
           <div className="zoom">
             <button onClick={() => setZoom((z) => Math.max(0, z - 1))} aria-label="Dézoomer" disabled={zoom === 0}>−</button>
@@ -1027,12 +1072,15 @@ export default function Table({ go, gameId }) {
                 {mine?.reserve?.length > 0 && (
                   <button className={panel === "reserve" ? "on" : ""} onClick={() => setPanel("reserve")}>Réserve {mine.reserve.length}</button>
                 )}
+                {wide && <button className={panel === "log" ? "on" : ""} onClick={() => setPanel("log")}>📜 Journal</button>}
                 {wide && <button className={panel === "rules" ? "on" : ""} onClick={() => setPanel("rules")}>📖 Règles</button>}
               </div>
             </div>
           )}
           {wide && panel === "rules" ? (
             <RulesPanel />
+          ) : wide && panel === "log" ? (
+            <div className="side-log"><Journal mine={mine} opp={opp} /></div>
           ) : (
           <div
             ref={handRef}
@@ -1162,7 +1210,7 @@ export default function Table({ go, gameId }) {
         userId={user.id}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, hasOpp: !!opp,
+          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, hasOpp: !!opp,
         }}
       />
     </div>
@@ -1245,7 +1293,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             <button key={n} className="btn" onClick={run(() => A.draw(n))} disabled={!mine.deck.length}>Piocher {n}</button>
           ))}
           <button className="btn" onClick={run(A.shuffleDeck)}>Mélanger</button>
-          <button className="btn" onClick={() => setSheet({ kind: "pile", pile: "deck", side: "mine" })}>Chercher dans le deck</button>
+          <button className="btn" onClick={A.peekDeck}>Chercher dans le deck</button>
           <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>
         </div>
       </Sheet>
@@ -1295,7 +1343,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   if (sheet.kind === "token") {
     const t = tokens.find((x) => x.id === sheet.id);
     if (!t) return null;
-    const upd = (patch) => A.updMark(sheet.id, patch);
+    const upd = (patch) => A.editMark(sheet.id, patch);
     return (
       <Sheet open onClose={close} title="Jeton">
         <div className="row" style={{ justifyContent: "center", gap: 16, marginBottom: 16 }}>
@@ -1322,7 +1370,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           className="btn danger"
           style={{ width: "100%" }}
           onClick={() => {
-            A.delMark(sheet.id);
+            A.editMark(sheet.id, "delete");
             close();
           }}
         >
@@ -1333,11 +1381,15 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     );
   }
 
+  if (sheet.kind === "log") {
+    return (
+      <Sheet open onClose={close} title="Journal de la partie">
+        <Journal mine={mine} opp={opp} />
+      </Sheet>
+    );
+  }
+
   if (sheet.kind === "menu") {
-    const logs = [
-      ...(mine?.log || []).map((l) => ({ ...l, who: mine.name, me: true })),
-      ...(opp?.log || []).map((l) => ({ ...l, who: opp.name, me: false })),
-    ].sort((a, b) => b.t - a.t).slice(0, 60);
     return (
       <Sheet open onClose={close} title="Partie">
         {meta && (
@@ -1356,15 +1408,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
         </div>
         <h3>Journal</h3>
-        <div className="log-list">
-          {logs.length === 0 && <span className="muted">Rien pour l'instant.</span>}
-          {logs.map((l, i) => (
-            <div key={i} className={l.me ? "me" : "op"}>
-              <span className="muted">{new Date(l.t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>{" "}
-              <b>{l.who}</b> {l.m}
-            </div>
-          ))}
-        </div>
+        <Journal mine={mine} opp={opp} />
       </Sheet>
     );
   }
@@ -1381,9 +1425,35 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   if (sheet.kind === "marker") {
     const t = sheet.id ? tokens.find((x) => x.id === sheet.id) : null;
     if (sheet.id && !t) return null;
-    return <MarkerSheet onClose={close} t={t} onCreate={A.addMarker} onUpd={(p) => A.updMark(sheet.id, p)} onDel={() => A.delMark(sheet.id)} />;
+    return <MarkerSheet onClose={close} t={t} onCreate={A.addMarker} onUpd={(p) => A.editMark(sheet.id, p)} onDel={() => A.editMark(sheet.id, "delete")} />;
   }
   return null;
+}
+
+// Journal des deux joueurs, du plus récent au plus ancien. ⚠ = action sur le deck à surveiller (recherche, consultation)
+function Journal({ mine, opp, onlyOpp }) {
+  const [filter, setFilter] = useState(onlyOpp ? "opp" : "all");
+  const logs = [
+    ...(filter !== "opp" ? (mine?.log || []).map((l) => ({ ...l, who: mine.name, me: true })) : []),
+    ...(opp?.log || []).map((l) => ({ ...l, who: opp.name, me: false })),
+  ].sort((a, b) => b.t - a.t);
+  return (
+    <div className="journal">
+      <div className="hand-tabs" style={{ marginBottom: 8 }}>
+        <button className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>Tout</button>
+        <button className={filter === "opp" ? "on" : ""} onClick={() => setFilter("opp")}>Adversaire seulement</button>
+      </div>
+      <div className="log-list">
+        {logs.length === 0 && <span className="muted">Rien pour l'instant.</span>}
+        {logs.map((l, i) => (
+          <div key={i} className={`${l.me ? "me" : "op"} ${l.m.startsWith("⚠") ? "sens" : ""}`}>
+            <span className="muted">{new Date(l.t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>{" "}
+            <b>{l.who}</b> {l.m.replace(/^⚠ /, "")}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ChatSheet({ onClose, messages, userId, onSend }) {

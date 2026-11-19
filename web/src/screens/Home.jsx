@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
+import { checkDeck } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
 
 export default function Home({ go, pendingJoin, clearJoin }) {
@@ -44,7 +45,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   function myState() {
     const deck = decks.find((d) => d.id === deckId);
     if (!deck) throw new Error("Choisissez un deck.");
-    if (!deckSize(deck)) throw new Error("Ce deck est vide.");
+    const chk = checkDeck(deck.entries, cardsById);
+    if (!chk.ok) throw new Error(`Deck « ${deck.name} » non conforme : ${chk.problems.join(" ")}`);
     return buildState({ name: myName, deck, cardsById });
   }
 
@@ -76,7 +78,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     try {
       const state = myState();
       const lent = decks.find((d) => d.id === loanId);
-      if (lent && !deckSize(lent)) throw new Error("Le deck à prêter est vide.");
+      if (lent) {
+        const chk = checkDeck(lent.entries, cardsById);
+        if (!chk.ok) throw new Error(`Deck à prêter « ${lent.name} » non conforme : ${chk.problems.join(" ")}`);
+      }
       const loan = lent ? loanSnapshot(lent) : null;
       let rec = null;
       for (let i = 0; i < 4 && !rec; i++) {
@@ -189,7 +194,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <label>Mon deck pour cette partie</label>
               <select className="input" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes)</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -198,7 +203,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <select className="input" value={loanId} onChange={(e) => setLoanId(e.target.value)}>
                 <option value="">Aucun prêt</option>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes)</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -273,7 +278,9 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           {decks.map((d) => (
             <div className="list-item" key={d.id}>
               <span className="grow">{d.name}</span>
-              <span className="muted small">{deckSize(d)} cartes</span>
+              <span className={`small ${checkDeck(d.entries, cardsById).ok ? "muted" : "warn"}`}>
+                {deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : " · non conforme"}
+              </span>
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>
           ))}

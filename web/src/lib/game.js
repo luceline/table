@@ -133,8 +133,9 @@ export function whereIs(s, iid) {
   return null;
 }
 
-export function addLog(s, m) {
-  s.log = [...(s.log || []), { t: Date.now(), m }].slice(-40);
+// k : clé de regroupement (ex. réglages successifs d'un même compteur fusionnés en une ligne)
+export function addLog(s, m, k) {
+  s.log = [...(s.log || []), k ? { t: Date.now(), m, k } : { t: Date.now(), m }].slice(-150);
 }
 
 export const TOKEN_COLORS = [

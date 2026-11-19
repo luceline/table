@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { Sheet } from "../components/ui.jsx";
+import { nameKey } from "../lib/deckrules.js";
 
 export default function Library({ go }) {
   const user = me();
@@ -46,6 +47,12 @@ export default function Library({ go }) {
   }
 
   async function save(patch) {
+    if ("name" in patch) {
+      if (!patch.name) return setErr("Le nom est obligatoire.");
+      const dup = cards.find((c) => c.id !== sel.id && nameKey(c.name) === nameKey(patch.name));
+      if (dup) return setErr(`« ${dup.name} » existe déjà dans votre collection. Pour une autre version de la même carte, ajoutez un repère (ex. « ${patch.name} UR »).`);
+    }
+    setErr("");
     try {
       const r = await pb.collection("cards").update(sel.id, patch);
       setSel(r);
@@ -161,7 +168,7 @@ export default function Library({ go }) {
         })}
       </div>
 
-      <Sheet open={!!sel} onClose={() => setSel(null)} title="Carte">
+      <Sheet open={!!sel} onClose={() => { setSel(null); setErr(""); }} title="Carte">
         {sel && (
           <>
             <div className="preview">
@@ -173,6 +180,7 @@ export default function Library({ go }) {
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
                 <button className="btn" onClick={() => save({ name: name.trim() })}>OK</button>
               </div>
+              {err && <div className="err">{err}</div>}
             </div>
             <div className="row" style={{ flexWrap: "wrap" }}>
               <button className={`btn ${sel.kind === "jeton" ? "primary" : ""}`} onClick={() => save({ kind: sel.kind === "jeton" ? "carte" : "jeton" })}>

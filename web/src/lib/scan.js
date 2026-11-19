@@ -43,6 +43,11 @@ function otsu(values) {
 
 // Retourne [tl, tr, br, bl] en pixels du canvas source, ou un cadre par défaut.
 export function detectCorners(canvas) {
+  return findCard(canvas)?.q || defaultCorners(canvas.width, canvas.height);
+}
+
+// Détection d'une carte : coins + taux de remplissage du contour (null si rien de convaincant)
+export function findCard(canvas) {
   const W = canvas.width, H = canvas.height;
   const k = Math.min(1, 320 / Math.max(W, H));
   const w = Math.max(8, Math.round(W * k));
@@ -106,7 +111,7 @@ export function detectCorners(canvas) {
   }
 
   const area = w * h;
-  if (bestSize < area * 0.06 || bestSize > area * 0.97) return defaultCorners(W, H);
+  if (bestSize < area * 0.06 || bestSize > area * 0.97) return null;
 
   let tl, tr, brc, bl;
   let mnS = Infinity, mxS = -Infinity, mnD = Infinity, mxD = -Infinity;
@@ -123,8 +128,31 @@ export function detectCorners(canvas) {
   const q = [up(tl), up(tr), up(brc), up(bl)];
   // Garde-fou : quadrilatère trop petit ou dégénéré
   const qa = Math.abs(polyArea(q));
-  if (qa < W * H * 0.05) return defaultCorners(W, H);
-  return q;
+  if (qa < W * H * 0.05) return null;
+  // Part du quadrilatère réellement couverte par la forme détectée : ~1 pour une carte bien contrastée
+  const fill = Math.min(1, bestSize / (k * k) / qa);
+  return { q, fill };
+}
+
+// Le quadrilatère a-t-il les proportions d'une carte 63 x 88 (avec une marge pour la perspective) ?
+export function cardShape(q) {
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const hz = (d(q[0], q[1]) + d(q[3], q[2])) / 2;
+  const vt = (d(q[0], q[3]) + d(q[1], q[2])) / 2;
+  if (!hz || !vt) return { ok: false, ratio: 0 };
+  const ratio = Math.min(hz, vt) / Math.max(hz, vt);
+  // Côtés opposés de longueurs proches : pas de forme trop déformée
+  const skew = Math.max(d(q[0], q[1]) / d(q[3], q[2]), d(q[3], q[2]) / d(q[0], q[1]), d(q[0], q[3]) / d(q[1], q[2]), d(q[1], q[2]) / d(q[0], q[3]));
+  return { ok: Math.abs(ratio / (63 / 88) - 1) < 0.12 && skew < 1.35, ratio };
+}
+
+// Verdict de détection pour l'appareil photo : carte trouvée, aux bonnes proportions, contour net
+export function detectCard(canvas) {
+  const r = findCard(canvas);
+  if (!r) return { ok: false, why: "Aucune carte détectée. Posez la carte sur un fond uni et contrasté, entière dans le cadre." };
+  if (!cardShape(r.q).ok) return { ok: false, q: r.q, why: "La forme détectée n'a pas les proportions d'une carte. Cadrez la carte seule, bien à plat." };
+  if (r.fill < 0.82) return { ok: false, q: r.q, why: "Contour de carte incomplet. Évitez les reflets et les objets autour de la carte." };
+  return { ok: true, q: r.q };
 }
 
 export function polyArea(q) {

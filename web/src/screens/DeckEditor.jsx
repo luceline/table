@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
+import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrules.js";
 
 export default function DeckEditor({ go, deckId }) {
   const user = me();
@@ -36,9 +37,22 @@ export default function DeckEditor({ go, deckId }) {
   const total = normal.reduce((n, c) => n + (qty[c.id] || 0), 0);
   const nTok = tokens.filter((c) => qty[c.id]).length;
 
+  const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
+  const chk = checkDeck(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId);
+  // Exemplaires déjà pris pour ce nom (deux scans du même nom comptent ensemble)
+  const sameName = (c) => normal.filter((x) => x.id !== c.id && nameKey(x.name) === nameKey(c.name)).reduce((n, x) => n + (qty[x.id] || 0), 0);
+  const maxFor = (c) => Math.max(0, Math.min(COPY_MAX - sameName(c), (qty[c.id] || 0) + DECK_MAX - total));
+
   function setN(id, n) {
+    const c = byId[id];
+    const cap = c && c.kind !== "jeton" ? maxFor(c) : 1;
+    if (n > cap) {
+      setErr(total >= DECK_MAX ? `Un deck compte ${DECK_MAX} cartes au maximum.` : `${COPY_MAX} exemplaires au maximum de « ${c?.name || "cette carte"} ».`);
+      return;
+    }
+    setErr("");
     setQty((q) => {
-      const r = { ...q, [id]: Math.max(0, Math.min(20, n)) };
+      const r = { ...q, [id]: Math.max(0, Math.min(cap, n)) };
       if (!r[id]) delete r[id];
       return r;
     });
@@ -84,7 +98,7 @@ export default function DeckEditor({ go, deckId }) {
       <div className="topbar">
         <button className="btn icon ghost" onClick={back} aria-label="Retour">←</button>
         <h1>Deck</h1>
-        <span className="chip">{total} cartes{nTok ? ` + ${nTok} jeton${nTok > 1 ? "s" : ""}` : ""}</span>
+        <span className={`chip ${chk.ok ? "ok" : "warn"}`}>{total} / {DECK_MIN}-{DECK_MAX}{nTok ? ` + ${nTok} jeton${nTok > 1 ? "s" : ""}` : ""}</span>
         <button className="btn primary sm" onClick={() => save(true)} disabled={!deck}>Enregistrer</button>
       </div>
       {err && <div className="err">{err}</div>}
@@ -109,6 +123,11 @@ export default function DeckEditor({ go, deckId }) {
             <button className="btn sm danger ghost" onClick={remove}>Supprimer le deck</button>
           </div>
 
+          <p className={`small ${chk.ok ? "muted" : "warn"}`} style={{ marginTop: 0 }}>
+            {chk.ok
+              ? `Deck conforme : ${total} cartes, ${COPY_MAX} exemplaires au plus par carte.`
+              : `Deck non conforme, il ne pourra pas être joué : ${chk.problems.join(" ")}`}
+          </p>
           <h2 style={{ fontSize: 17, marginBottom: 8 }}>Cartes du deck</h2>
           {normal.length === 0 && <p className="muted">Aucune carte normale scannée.</p>}
           {normal.length > 0 && shown.length === 0 && <p className="muted small">Aucune carte ne correspond.</p>}
@@ -122,7 +141,7 @@ export default function DeckEditor({ go, deckId }) {
                 <div className="qty">
                   <button className="btn sm icon" onClick={() => setN(c.id, (qty[c.id] || 0) - 1)} disabled={!qty[c.id]}>−</button>
                   <b>{qty[c.id] || 0}</b>
-                  <button className="btn sm icon" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)}>+</button>
+                  <button className="btn sm icon" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)} disabled={(qty[c.id] || 0) >= maxFor(c)}>+</button>
                 </div>
               </div>
             ))}
