@@ -1,0 +1,165 @@
+// Aide-mémoire des règles, rédigé à partir de « Nos Règles s3 ».
+// Résumé non officiel : en cas de doute, les règles officielles et le texte des cartes font foi.
+// items : { k: titre court, t: texte } ou { k, table: { head: [...], rows: [[...]] } }
+
+export const RULES = [
+  {
+    id: "bases",
+    title: "Bases",
+    items: [
+      { k: "But", t: "Premier joueur à 30 points de victoire (PV)." },
+      { k: "Deck", t: "Entre 30 et 40 cartes. Au plus 2 exemplaires d'une même carte (strictement identique). Deux versions différentes d'un même personnage sont des cartes différentes." },
+      { k: "Tapis", t: "3 territoires. Chaque territoire : 3 emplacements Combattant, 3 emplacements Magie et 1 défausse. Plus les zones PI, PV, Commandant et Deck." },
+      { k: "Si une carte contredit la règle", t: "Le texte de la carte l'emporte." },
+    ],
+  },
+  {
+    id: "cartes",
+    title: "Types de cartes",
+    items: [
+      { k: "Combattant", t: "ATK, Valeur et DEF en haut. Se joue dans un emplacement Combattant." },
+      { k: "Magie", t: "Seulement une Valeur. Se joue dans un emplacement Magie." },
+      { k: "Jeton", t: "Le mot « jeton » figure dans l'effet. Compte comme un combattant. Rangé dans une pile à part. Joué par l'effet d'une autre carte, il n'active pas son propre effet. Peut aussi être mis dans le deck (il compte alors dans la limite). Détruit, il va dans la défausse du territoire." },
+      { k: "Commandant", t: "Seulement un effet. Optionnel, choisi avant la partie, posé dans la zone Commandant. Exige 15 combattants de sa faction dans le deck. Son effet s'utilise une fois par tour, pendant votre tour, sauf mention contraire. Ne peut être ni ciblé ni détruit, mais ses effets peuvent être annulés si une carte le prévoit." },
+      { k: "Rareté UR et plus", t: "Valeur en chiffres romains en haut, ATK et DEF au-dessus de la faction." },
+    ],
+  },
+  {
+    id: "debut",
+    title: "Préparation et début",
+    items: [
+      { k: "Mélange", t: "Chaque joueur mélange le deck de son adversaire." },
+      { k: "Qui commence", t: "Tirage au hasard (pile ou face, dé…). Le gagnant choisit de jouer en premier ou en second." },
+      { k: "Main de départ", t: "5 cartes." },
+      { k: "Mulligan", t: "Une seule fois : renvoyer dans le deck autant de cartes que voulu de sa main de départ, mélanger, puis repiocher le même nombre." },
+      { k: "PI de départ", t: "4 PI chacun, sauf effet contraire (commandant par exemple)." },
+      { k: "Premier tour de chaque joueur", t: "Pas de +1 PI au lancement, et aucun gain de PI ni de PV à la phase de calcul. Le premier joueur ne pioche pas à son premier tour (il reste à 5 cartes) ; le second pioche normalement (il passe à 6)." },
+    ],
+  },
+  {
+    id: "tour",
+    title: "Déroulement d'un tour",
+    items: [
+      { k: "Tour de joueur", t: "Les 4 phases d'un joueur : lancement, invocation, combat, calcul." },
+      { k: "Tour de jeu", t: "Un tour de joueur de chacun des deux joueurs. Une durée « X tours » sur une carte compte en tours de jeu, sauf mention contraire." },
+      { k: "1. Lancement", t: "Piocher 1 carte. Gagner 1 PI (pas au premier tour, sauf effet)." },
+      { k: "2. Invocation", t: "Payer les PI pour poser ses cartes dans leurs emplacements. Seule une carte jouée depuis la main active son effet (une carte ressuscitée non, sauf mot-clé comme |En jeu| ou |Destruction|). Les effets se résolvent pendant cette phase si leurs conditions sont remplies. Si un territoire est plein, on peut détruire un de ses combattants (pas via une riposte) ; rejouer un combattant à sa place dans le même territoire rapporte 1 PI tout de suite." },
+      { k: "3. Combat", t: "Un combattant attaque un combattant adverse du même territoire. Il détruit sa cible si son ATK est strictement supérieure à la DEF adverse. Attaque combinée possible avec plusieurs combattants du même territoire : on additionne leurs ATK. La riposte du défenseur s'applique à tous les attaquants impliqués, même si le défenseur est détruit. Chaque combattant attaque une fois par tour (sauf |Double ATK|)." },
+      { k: "Exemples de combat", t: "4 ATK / 2 DEF contre 2 ATK / 2 DEF : le défenseur est détruit. 4/2 contre 3/2 : les deux sont détruits. Trois attaquants 4/2 (12 ATK combinée) contre 8/8 : tous sont détruits." },
+      { k: "4. Calcul PI/PV", t: "Pour chaque territoire, comparer la valeur totale de ses combattants à celle de l'adversaire (les magies ne comptent pas). Seul le joueur actif gagne des points. À partir de son 2e tour." },
+      {
+        k: "Barème du calcul",
+        table: {
+          head: ["Situation dans un territoire", "PV", "PI"],
+          rows: [
+            ["Domination (valeur supérieure)", "2", "1"],
+            ["Égalité (au moins 1 combattant de chaque côté)", "1", "1"],
+            ["Dominé, avec au moins 1 combattant", "1", "2"],
+            ["Dominé, sans combattant", "0", "1"],
+            ["Aucun combattant des deux côtés", "0", "0"],
+          ],
+        },
+      },
+      { k: "Plafond de PI", t: "15 PI au maximum." },
+      { k: "Fin du tour", t: "Le tour de joueur se termine après le calcul ; l'adversaire commence le sien." },
+    ],
+  },
+  {
+    id: "effets",
+    title: "Effets",
+    items: [
+      { k: "Activation", t: "Un effet s'active dès que la carte est jouée depuis la main, une seule fois, sauf mention contraire." },
+      { k: "Durée de X tours", t: "S'applique dès l'activation. Elle expire quand chacun des deux joueurs a terminé X tours individuels depuis l'activation, quel que soit le joueur qui l'a lancée." },
+      { k: "Bonus sur soi-même", t: "Une carte qui donne un bonus (ATK, DEF, Valeur) ne se le donne pas, sauf mention contraire." },
+      { k: "Bonus de territoire", t: "Ne profite qu'aux combattants du joueur qui a joué la carte, sauf mention contraire." },
+      { k: "Portée des magies", t: "Une magie n'est limitée à son territoire que si la carte le précise (ex. Explosion jouée en territoire I peut détruire en territoire III)." },
+      { k: "Portée des combattants", t: "Un effet de combattant qui ne cite pas de territoire vaut pour tous les territoires." },
+    ],
+  },
+  {
+    id: "competences",
+    title: "Compétences",
+    items: [
+      { k: "|En jeu|", t: "Actif tant que la carte est dans un territoire (pas en défausse) et non annulée (|Silence|). Un bonus obtenu grâce à une action en plus reste acquis quand la carte cesse d'agir ; un bonus passif disparaît avec elle." },
+      { k: "|Destruction|", t: "S'active quand la carte est détruite." },
+      { k: "|Silence|", t: "La carte adverse ciblée perd son effet et ses bonus." },
+      { k: "|Vol vie|", t: "Annule la destruction de cette carte en détruisant un autre de vos combattants du même territoire (pas sur une riposte). Le combattant sacrifié ne peut pas utiliser son propre Vol vie. Utilisable aux deux tours, sans limite tant qu'il reste une cible. Inopérant contre une destruction simultanée de toutes les cibles (ex. Red Storm)." },
+      { k: "|Seconde vie|", t: "Annule la première destruction. Peut être redonné une fois consommé, mais pas cumulé. La Fin / Adieux passe outre (sauf sous Silence)." },
+      { k: "|Rempart|", t: "Doit être détruit en premier par les attaques dans son territoire. Les magies peuvent viser les autres combattants." },
+      { k: "|Rempart+|", t: "Doit être détruit en premier, y compris par les magies adverses. Avec plusieurs Remparts, le premier joué a la priorité. Ne protège pas d'une destruction simultanée." },
+      { k: "|Double ATK|", t: "Peut attaquer deux fois par tour." },
+      { k: "|Transformation|", t: "À sa première destruction, ne va pas en défausse : il se transforme (nouvelles stats et effets). Pas de seconde transformation, sauf s'il est rejoué. Le tour de sa transformation, il ne peut plus attaquer (sauf attaque restante grâce à Double ATK)." },
+      { k: "|Caché|", t: "Se pose sans payer, face cachée dans un emplacement Magie. À tout moment (votre tour ou celui de l'adversaire), on peut la révéler en payant son coût pour activer son effet, si les conditions le permettent." },
+      { k: "|Gel(x)|", t: "Gèle un territoire, des deux côtés. Les combattants non -glace- y ont le mal d'invocation. Dure X tours de jeu (1 si non précisé)." },
+      { k: "|Gel+(x)|", t: "Comme Gel, mais aussi sur les territoires adjacents." },
+      { k: "|Mal d'invocation|", t: "Ne peut pas attaquer le tour où il est joué." },
+      { k: "|Miroir|", t: "Le combattant qui l'attaque subit ensuite sa propre attaque, et il est détruit si sa défense est inférieure." },
+      { k: "|Immunité|", t: "Insensible à Gel, Bloquer, Silence et Renvoyer." },
+      { k: "|Immunité+|", t: "Comme Immunité, et ne peut être affecté par aucun effet de carte." },
+      { k: "|Tireur|", t: "Peut attaquer dans les territoires adjacents, subit la riposte, pas d'attaque combinée." },
+      { k: "|Éveil(x)|", t: "Payer X pour obtenir l'effet associé." },
+      { k: "|Vol| / |Déplacer|", t: "Se déplace une fois vers un autre territoire, avant le début de votre phase de combat. Une fois par tour par combattant." },
+      { k: "|Unification+|", t: "Si vous êtes déjà en unification, récupérez en main 1 carte Tian, Yan ou Lin d'une de vos défausses." },
+    ],
+  },
+  {
+    id: "unification",
+    title: "Unification (Kin, saison 3)",
+    items: [
+      { k: "Principe", t: "Les combattants des sous-factions Kin (Tian, Yan, Lin, Mercenaire) débloquent des niveaux d'unification avec des bonus. Le symbole est en bas à gauche du cadre." },
+      { k: "Activation", t: "Avoir au moins 2 sous-factions différentes en jeu sur les 3 territoires (ex. 1 Tian et 2 Mercenaires). Si deux de Tian, Yan, Lin se trouvent dans le même territoire, l'unification ne s'active pas." },
+      { k: "Mercenaires et jetons", t: "Les Mercenaires ne prennent pas les bonus et n'augmentent pas le niveau. Les jetons n'unifient pas. Les combattants ressuscités unifient." },
+      { k: "Durée", t: "Les bonus tiennent au moins jusqu'au début de votre prochain tour, puis tant que les conditions restent remplies. Un même niveau ne peut pas être activé deux fois dans le même tour." },
+      { k: "Silence", t: "L'unification peut être annulée par Silence : le combattant visé perd sa capacité à unifier." },
+      {
+        k: "Niveaux",
+        table: {
+          head: ["Niveau", "Condition (hors Mercenaire)", "Bonus pour Tian / Yan / Lin"],
+          rows: [
+            ["1", "1 sous-faction Kin", "+1 DEF"],
+            ["2", "2 sous-factions différentes", "+1 ATK et +1 pioche"],
+            ["3", "Tian + Yan + Lin", "+1 Valeur et +1 PI"],
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "motscles",
+    title: "Mots-clés",
+    items: [
+      { k: "Adjacent (combattant)", t: "Directement à gauche ou à droite dans le même territoire." },
+      { k: "Adjacent (territoire)", t: "Le territoire directement à gauche ou à droite." },
+      { k: "Bloquer (combattant)", t: "Ne peut ni attaquer ni se déplacer, mais riposte toujours." },
+      { k: "Bloquer (territoire)", t: "Impossible d'y jouer des cartes ; les combattants déjà présents sont bloqués." },
+      { k: "Renvoyer", t: "La carte retourne dans la main de son propriétaire." },
+      { k: "Ressusciter", t: "Remettre en jeu un combattant de la défausse du territoire (pas les magies)." },
+      { k: "Diviser", t: "Arrondi à l'unité supérieure, sauf mention contraire." },
+      { k: "Dépenser / Payer", t: "Les cartes de coût 0 ne comptent pas (ex. Le magicien ne peut pas relancer Potion bleu depuis la défausse)." },
+      { k: "Orthographe", t: "Un mot-clé peut être écrit un peu différemment (Déplacer, Déplacez) : c'est le même." },
+    ],
+  },
+  {
+    id: "speciales",
+    title: "Règles particulières",
+    items: [
+      { k: "Deck vide", t: "Au début de son tour, le joueur qui ne peut plus piocher ne gagne plus de PI et en perd 2, tant que cela dure." },
+      { k: "Main", t: "Pas de limite de cartes en main." },
+      { k: "Carte adverse contrôlée", t: "Si elle doit quitter votre territoire, elle retourne dans la défausse ou la main de son propriétaire (ou dans son territoire s'il en reprend le contrôle)." },
+      { k: "Factions", t: "Aqua, Chaos, Ciel, Nature, Ange, Cosmic, Démon, Dragon, Forêt, Glace, Humain, Orc, Vampire, Kin." },
+    ],
+  },
+  {
+    id: "glossaire",
+    title: "Glossaire",
+    items: [
+      { k: "Attaquant", t: "Combattant qui lance une attaque." },
+      { k: "Défenseur", t: "Combattant attaqué ; il riposte toujours, sauf mention contraire." },
+      { k: "Riposte", t: "Réponse automatique du défenseur après l'attaque." },
+      { k: "PI", t: "Points d'invocation, pour jouer ses cartes." },
+      { k: "PV", t: "Points de victoire, 30 pour gagner." },
+      { k: "Tour adverse", t: "Le tour individuel de votre adversaire." },
+      { k: "Défausse", t: "Où vont les cartes jouées ou détruites (une par territoire)." },
+    ],
+  },
+];

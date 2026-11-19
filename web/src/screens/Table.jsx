@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg } from "../pb.js";
 import { Mat } from "./Mat.jsx";
+import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
 import {
@@ -38,6 +39,7 @@ export default function Table({ go, gameId }) {
   const [vp, setVp] = useState({ w: 360, h: 600 });
   const [focus, setFocus] = useState(null); // null = vue d'ensemble, "mine" / "opp" = loupe sur un tapis
   const [panel, setPanel] = useState("hand");
+  const [wide, setWide] = useState(false); // ordinateur : colonne latérale large (main, réserve, règles)
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
   const [bubble, setBubble] = useState(null); // dernier message adverse affiché sur son tapis
@@ -319,6 +321,7 @@ export default function Table({ go, gameId }) {
       const W = el.clientWidth;
       const H = el.clientHeight;
       setLandscape(mq.matches);
+      setWide(window.matchMedia("(min-width: 1000px) and (min-aspect-ratio: 5/4)").matches);
       if (mq.matches) return setHandH(null);
       const ctrl = 46 + PHASE_H + (hasReserve ? 38 : 0);
       const fitW = (W - 12) / MAT_W;
@@ -362,7 +365,7 @@ export default function Table({ go, gameId }) {
   const nameOf = (st, iid) => st.cards[iid]?.n || "Carte";
 
   // Pose (ou déplace) une carte sur mon tapis, avec aimantation sur les emplacements
-  function placeIn(st, iid, x, y, from) {
+  function placeIn(st, iid, x, y, from, faceDown) {
     const c = st.cards[iid];
     if (!c) return false;
     const dim = CARD[c.o === "l" ? "l" : "p"];
@@ -379,7 +382,7 @@ export default function Table({ go, gameId }) {
     const bh = swap ? dim.w : dim.h;
     cx = clamp(cx, bw / 2, MAT_W - bw / 2);
     cy = clamp(cy, bh / 2, MAT_H - bh / 2);
-    const down = from === "deck" ? true : from === "board" ? !!prev?.down : false;
+    const down = faceDown ? true : from === "deck" ? true : from === "board" ? !!prev?.down : false;
     detach(st, iid);
     st.board.push({ iid, x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, rot, down });
     const where = placeName(cx, cy);
@@ -391,7 +394,7 @@ export default function Table({ go, gameId }) {
     return `sort « ${c.n} » de sa ${PILE_NAMES[from]} vers ${where}`;
   }
 
-  const placeOnBoard = (iid, x, y, from) => mut((st) => placeIn(st, iid, x, y, from));
+  const placeOnBoard = (iid, x, y, from, faceDown) => mut((st) => placeIn(st, iid, x, y, from, faceDown));
 
   const createFromReserve = (tid, x, y) =>
     mut((st) => {
@@ -419,12 +422,15 @@ export default function Table({ go, gameId }) {
     clearTokensOn(iid);
   };
 
-  const placeFree = (iid, from) => {
+  // faceDown : pose face cachée, de préférence dans un emplacement Magie (cartes |Caché|)
+  const placeFree = (iid, from, faceDown) => {
     const st = mineRef.current;
     const taken = (sl) => st.board.some((b) => Math.abs(b.x - (sl.x + sl.w / 2)) < 3 && Math.abs(b.y - (sl.y + sl.h / 2)) < 3);
-    const free = SLOTS.find((sl) => sl.kind !== "commandant" && !taken(sl));
-    if (free) placeOnBoard(iid, free.x + free.w / 2, free.y + free.h / 2, from);
-    else placeOnBoard(iid, 300, 130, from);
+    const free =
+      (faceDown && SLOTS.find((sl) => sl.kind === "magie" && !taken(sl))) ||
+      SLOTS.find((sl) => sl.kind !== "commandant" && !taken(sl));
+    if (free) placeOnBoard(iid, free.x + free.w / 2, free.y + free.h / 2, from, faceDown);
+    else placeOnBoard(iid, 300, 130, from, faceDown);
   };
 
   const toHand = useCallback((iid, from) => {
@@ -936,6 +942,14 @@ export default function Table({ go, gameId }) {
             <button className="back" onClick={() => setFocus(null)} aria-label="Vue d'ensemble">⤡ Les 2 tapis</button>
           </div>
         )}
+        <button
+          className={`btn sm ${wide && panel === "rules" ? "on" : ""}`}
+          onClick={() => (wide ? setPanel((p) => (p === "rules" ? "hand" : "rules")) : setSheet({ kind: "rules" }))}
+          aria-label="Règles"
+          title="Rappel des règles"
+        >
+          📖
+        </button>
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
           💬{unread > 0 && <span className="unread">{unread}</span>}
         </button>
@@ -1006,14 +1020,20 @@ export default function Table({ go, gameId }) {
               ))}
             </div>
           </div>
-          {mine?.reserve?.length > 0 && (
+          {(mine?.reserve?.length > 0 || wide) && (
             <div className="controls2">
               <div className="hand-tabs">
-                <button className={panel === "hand" ? "on" : ""} onClick={() => setPanel("hand")}>Main {mine.hand.length}</button>
-                <button className={panel === "reserve" ? "on" : ""} onClick={() => setPanel("reserve")}>Réserve {mine.reserve.length}</button>
+                <button className={panel === "hand" ? "on" : ""} onClick={() => setPanel("hand")}>Main {mine?.hand.length ?? 0}</button>
+                {mine?.reserve?.length > 0 && (
+                  <button className={panel === "reserve" ? "on" : ""} onClick={() => setPanel("reserve")}>Réserve {mine.reserve.length}</button>
+                )}
+                {wide && <button className={panel === "rules" ? "on" : ""} onClick={() => setPanel("rules")}>📖 Règles</button>}
               </div>
             </div>
           )}
+          {wide && panel === "rules" ? (
+            <RulesPanel />
+          ) : (
           <div
             ref={handRef}
             className={`hand ${hover?.area === "hand" ? "drop-on" : ""}`}
@@ -1049,6 +1069,7 @@ export default function Table({ go, gameId }) {
               </>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -1183,6 +1204,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     if (!c?.tok) {
       if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
       if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+      if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
       for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
       btns.push(["Dessus du deck", () => A.toPile(iid, "deck", zone)]);
       btns.push(["Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
@@ -1347,6 +1369,13 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     );
   }
 
+  if (sheet.kind === "rules") {
+    return (
+      <Sheet open onClose={close} title="Règles">
+        <div style={{ height: "72vh", display: "flex", flexDirection: "column" }}><RulesPanel /></div>
+      </Sheet>
+    );
+  }
   if (sheet.kind === "chat") return <ChatSheet onClose={close} messages={messages} userId={userId} onSend={A.sendMsg} />;
   if (sheet.kind === "mull" && mine) return <MulliganSheet onClose={close} st={mine} onDo={A.mulligan} />;
   if (sheet.kind === "marker") {

@@ -44,8 +44,11 @@ deploy/nginx-resgestae.conf                vhost de resgestae.fr avec la redirec
 - **Unification** : badge UNIF à côté des PI/PV, chaque toucher passe au niveau suivant (– , 1, 2, 3) avec le rappel du bonus. Visible par l'adversaire dès le niveau 1.
 - **Marqueurs de territoire** : « ＋ Marqueur » : Gel, Bloqué, Silence, Immunité, Bonus, Malus ou texte libre, avec une valeur (ex. tours restants) et une couleur, posé sur le territoire choisi. Toucher pour modifier la valeur ou le retirer, glisser pour déplacer, glisser hors du tapis pour retirer.
 - **Tchat** : bouton 💬 (pastille rouge = messages non lus). Réponses rapides en un geste (OK, Attends, Je réagis, Riposte ?, Vol vie ?, À toi, Bien joué !) ou texte libre. Le dernier message adverse apparaît 5 s en bulle sur son tapis.
+- **Jouer face cachée** : toucher une carte de la main > « Poser face cachée » : elle va dans le premier emplacement Magie libre, face cachée (l'adversaire ne voit que le dos, le journal ne donne pas son nom). La glisser ensuite où on veut ; « Révéler » dans sa fiche la retourne.
 - **Mulligan** : toucher le deck > « Mulligan » (ou menu ☰) : choisir les cartes à renvoyer, le deck est mélangé et on repioche le même nombre.
 - **Pile ou face** : menu ☰, résultat visible des deux côtés dans le journal.
+- **Règles** : bouton 📖 en haut. Aide-mémoire rédigé à partir de « Nos Règles s3 » (bases, préparation, phases, barème PI/PV, compétences, unification, mots-clés), avec recherche sans accents ni majuscules et raccourcis par section. Sur ordinateur il s'ouvre dans un onglet de la colonne de droite, à côté de la main, pour garder le plateau visible ; sur téléphone dans un panneau. Le texte est dans `web/src/lib/rules.js` pour le corriger ou le compléter.
+- **Ordinateur** : colonne de droite plus large (30 % de l'écran), main en grille de 3 grandes cartes, boutons et phases agrandis.
 - **Victoire** : un écran s'affiche chez les deux joueurs dès qu'un joueur atteint 30 PV.
 - Recharger la page ramène à la partie en cours.
 
