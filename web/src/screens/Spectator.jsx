@@ -4,7 +4,9 @@ import { Mat } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
-import { normalize, rid } from "../lib/game.js";
+import { normalize, rid, TCG } from "../lib/game.js";
+import { activateTcg, tcgOf } from "../lib/tcg.js";
+import { PILE_BY_ID } from "../lib/mat.js";
 import { playVoice, unlockAudio, onVoiceState } from "../lib/voice.js";
 import { beWatcher, watchCount, specName, setSpecName } from "../lib/tribune.js";
 
@@ -91,6 +93,7 @@ export default function Spectator({ code }) {
       try {
         const g = await pb.collection("games").getFirstListItem(`code="${code}"`, { query: q });
         if (!alive) return;
+        activateTcg(tcgOf(g)); // tapis et règles du jeu de cette partie
         gameRef.current = g;
         setGame(g);
         const [seats, mk, msgs] = await Promise.all([
@@ -248,7 +251,7 @@ export default function Spectator({ code }) {
       <div className="spec-main">
         <div className="viewport" ref={vpRef}>
           {game && vp.w > 0 && (
-            <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
+            <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 ? p2.hand.length : null} />
               <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               <Mat side="mine" st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
@@ -266,7 +269,7 @@ export default function Spectator({ code }) {
         const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
         const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier
         return (
-          <Sheet open={!!pileView} onClose={() => setPileView(null)} title={st ? `${st.name} : Défausse ${{ d1: "I", d2: "II", d3: "III" }[pileView.pile]} · ${arr.length}` : ""}>
+          <Sheet open={!!pileView} onClose={() => setPileView(null)} title={st ? (TCG === "fab" ? `${st.name} : ${PILE_BY_ID[pileView.pile]?.short || ""} · ${arr.length}` : `${st.name} : Défausse ${{ d1: "I", d2: "II", d3: "III" }[pileView.pile]} · ${arr.length}`) : ""}>
             {arr.length === 0 && <p className="muted">Vide.</p>}
             <div className="pile-grid">
               {arr.map((iid) => {

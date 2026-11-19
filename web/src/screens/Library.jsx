@@ -2,12 +2,17 @@ import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { Sheet } from "../components/ui.jsx";
 import { nameKey } from "../lib/deckrules.js";
+import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { StatsFields } from "./Scanner.jsx";
 import FactionPicker from "../components/FactionPicker.jsx";
 import { factionsOf } from "../lib/factions.js";
+import { TCG } from "../lib/game.js";
+import { fabKey, PITCH } from "../lib/deckrules.js";
+import { KindPicker, PitchPicker, FabStats, FAB_CLASSES, FAB_TALENTS, FAB_KIND_LABEL } from "../components/FabFields.jsx";
 
 export default function Library({ go }) {
   const user = me();
+  const fab = TCG === "fab"; // Flesh and Blood : type, couleur de pitch, coût / attaque / défense, classes
   const [cards, setCards] = useState(null);
   const [sel, setSel] = useState(null);
   const [name, setName] = useState("");
@@ -19,7 +24,7 @@ export default function Library({ go }) {
 
   async function load() {
     try {
-      setCards(await pb.collection("cards").getFullList({ filter: `owner="${user.id}"`, sort: "name,-created" }));
+      setCards(await pb.collection("cards").getFullList({ filter: `owner="${user.id}" && ${tcgFilter(currentTcg())}`, sort: "name,-created" }));
     } catch (e) {
       setErr(errMsg(e));
     }
@@ -50,7 +55,12 @@ export default function Library({ go }) {
   }
 
   async function save(patch) {
-    if ("name" in patch) {
+    if (fab && ("name" in patch || "pitch" in patch)) {
+      const nx = { name: patch.name ?? sel.name, pitch: patch.pitch ?? sel.pitch };
+      if (!nx.name) return setErr("Le nom est obligatoire.");
+      const dup = cards.find((c) => c.id !== sel.id && fabKey(c) === fabKey(nx));
+      if (dup) return setErr(`« ${dup.name} »${dup.pitch ? ` (${PITCH[dup.pitch]})` : ""} existe déjà dans votre collection.`);
+    } else if ("name" in patch) {
       if (!patch.name) return setErr("Le nom est obligatoire.");
       const dup = cards.find((c) => c.id !== sel.id && nameKey(c.name) === nameKey(patch.name));
       if (dup) return setErr(`« ${dup.name} » existe déjà dans votre collection. Pour une autre version de la même carte, ajoutez un repère (ex. « ${patch.name} UR »).`);
@@ -155,6 +165,9 @@ export default function Library({ go }) {
               <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
               <div className="cap">{c.name || "Sans nom"}</div>
               {c.kind === "jeton" && <span className="badge">JETON</span>}
+              {fab && c.kind === "heros" && <span className="badge">HÉROS</span>}
+              {fab && c.kind === "arene" && <span className="badge">ÉQUIP.</span>}
+              {fab && c.pitch && <span className="pitch-tag" style={{ background: { r: "#c83a32", y: "#d6b13b", b: "#3b78c8" }[c.pitch] }} />}
               {picking && (
                 <span
                   style={{
@@ -185,13 +198,31 @@ export default function Library({ go }) {
               </div>
               {err && <div className="err">{err}</div>}
             </div>
+            {fab && (
+              <>
+                <KindPicker value={sel.kind || "carte"} onChange={(k) => save(k === "carte" ? { kind: k } : { kind: k, pitch: "" })} />
+                {(sel.kind || "carte") === "carte" && <PitchPicker value={sel.pitch || ""} onChange={(p) => save({ pitch: p })} />}
+              </>
+            )}
             <FactionPicker
               value={factionsOf(sel)}
               onChange={(f) => {
                 setSel({ ...sel, factions: f });
                 save({ factions: f });
               }}
+              {...(fab ? { list: FAB_CLASSES, extra: FAB_TALENTS, label: "Classes et talents" } : null)}
             />
+            {fab ? (
+              <FabStats
+                stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
+                setStats={(st) => {
+                  const patch = { atk: (st.atk || "").slice(0, 6), val: (st.val || "").slice(0, 6), def: (st.def || "").slice(0, 6) };
+                  setSel({ ...sel, ...patch });
+                  clearTimeout(window.__statT);
+                  window.__statT = setTimeout(() => save(patch), 600);
+                }}
+              />
+            ) : (
             <StatsFields
               stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
               setStats={(st) => {
@@ -201,10 +232,13 @@ export default function Library({ go }) {
                 window.__statT = setTimeout(() => save(patch), 600);
               }}
             />
+            )}
             <div className="row" style={{ flexWrap: "wrap" }}>
+              {!fab && (
               <button className={`btn ${sel.kind === "jeton" ? "primary" : ""}`} onClick={() => save({ kind: sel.kind === "jeton" ? "carte" : "jeton" })}>
                 Type : {sel.kind === "jeton" ? "carte jeton" : "carte normale"}
               </button>
+              )}
               <button className="btn" onClick={() => save({ orient: sel.orient === "l" ? "p" : "l" })}>
                 Format : {sel.orient === "l" ? "paysage" : "portrait"}
               </button>

@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { RULES } from "../lib/rules.js";
+import { RULES as RULES_SAFIR } from "../lib/rules.js";
+import { RULES_FAB } from "../lib/rules_fab.js";
+import { TCG } from "../lib/game.js";
 
 // Minuscules sans accents, caractère par caractère (même longueur que le texte d'origine)
 const fold = (s) => Array.from(s).map((c) => c.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()[0] || c).join("");
@@ -34,6 +36,7 @@ const itemText = (it) => [it.k, it.t || "", ...(it.table ? [...it.table.head, ..
 
 // Aide-mémoire des règles avec recherche (sans accents ni majuscules, tous les mots doivent figurer)
 export function RulesPanel() {
+  const RULES = TCG === "fab" ? RULES_FAB : RULES_SAFIR; // aide-mémoire du jeu de la partie
   const [q, setQ] = useState("");
   const boxRef = useRef();
   const words = useMemo(() => fold(q.trim()).split(/\s+/).filter((w) => w.length > 0), [q]);
@@ -47,7 +50,7 @@ export function RulesPanel() {
       });
       return { ...s, items };
     }).filter((s) => s.items.length);
-  }, [words]);
+  }, [words, RULES]);
   const count = sections.reduce((n, s) => n + s.items.length, 0);
 
   const jump = (id) => {

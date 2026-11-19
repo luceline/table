@@ -1,9 +1,9 @@
 import { memo } from "react";
 import {
-  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, rotPt,
+  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
-import { TOKEN_HEX, MARKER_ICON, territoryValues } from "../lib/game.js";
+import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG } from "../lib/game.js";
 
 const GOLD = "rgba(212,176,97,.5)"; // or du thème Jade et laque
 const GOLD_TXT = "rgba(222,190,118,.78)";
@@ -39,7 +39,10 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   }
   for (const p of PILES) {
     els.push(rect(R(p.x, p.y, p.w, p.h), `p${p.id}`));
-    if (p.id === "deck") els.push(text(p.x + p.w / 2, p.y + p.h / 2, "DECK", 8, `pl${p.id}`, { fontWeight: 600 }));
+    if (p.lines) {
+      // Flesh and Blood : libellé sur une ou deux lignes
+      p.lines.forEach((ln, i) => els.push(text(p.x + p.w / 2, p.y + p.h / 2, ln, 6, `pl${i}${p.id}`, { fontWeight: 600 }, (i - (p.lines.length - 1) / 2) * 8)));
+    } else if (p.id === "deck") els.push(text(p.x + p.w / 2, p.y + p.h / 2, "DECK", 8, `pl${p.id}`, { fontWeight: 600 }));
     else {
       els.push(text(p.x + p.w / 2, p.y + p.h / 2, "DÉFAUSSE DU", 4.6, `pl1${p.id}`, {}, -3.5));
       els.push(text(p.x + p.w / 2, p.y + p.h / 2, "TERRITOIRE", 4.6, `pl2${p.id}`, {}, 3.5));
@@ -72,10 +75,10 @@ export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey
       {/* Fond personnel (visible du seul joueur), sous les emplacements du tapis */}
       {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
       {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
-      <MatBackground flip={flip} />
+      <MatBackground flip={flip} kind={MAT_KIND} />
 
       {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}
-      {st && (() => {
+      {st && TCG !== "fab" && (() => {
         const me = territoryValues(st), other = territoryValues(vs);
         // ancré au bord gauche du territoire, loin du titre
         return [10.5, 207.5, 404.5].map((x, t) => {
@@ -107,8 +110,8 @@ export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey
           const showBack = p.id === "deck";
           const dragging = dragKey === `pile:${side}:${p.id}`;
           const cw = (c?.o === "l" ? CARD.l : CARD.p);
-          // Carte portrait couchée pour tenir dans la zone paysage
-          const rot = cw.h > cw.w ? 90 : 0;
+          // Carte portrait couchée pour tenir dans la zone paysage (zones portrait de Flesh and Blood : à l'endroit)
+          const rot = TCG === "fab" ? ((cw.h > cw.w) !== (p.h > p.w) ? 90 : 0) : cw.h > cw.w ? 90 : 0;
           return (
             <div
               key={p.id}

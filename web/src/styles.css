@@ -588,3 +588,8 @@ html { background: var(--bg); }
 .table.has-back .hand-fan .fan i { background: var(--card-back) center / cover; }
 .back-preview { flex: none; width: 92px; aspect-ratio: 63 / 88; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(212,176,97,.55), 0 4px 12px rgba(0,0,0,.5); }
 .back-preview .back { border-radius: 0; }
+/* Flesh and Blood : couleur de pitch */
+.fac.pitch { display: inline-flex; align-items: center; gap: 6px; }
+.fac.pitch .pitch-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pitch); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+.fac.pitch.on { background: var(--pitch, var(--jade)); border-color: var(--pitch, var(--jade)); color: #fff; }
+.pitch-tag { position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0,0,0,.6); }

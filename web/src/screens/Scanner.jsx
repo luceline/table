@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { nameKey } from "../lib/deckrules.js";
+import { currentTcg, tcgFilter } from "../lib/tcg.js";
+import { TCG } from "../lib/game.js";
+import { fabKey } from "../lib/deckrules.js";
+import { KindPicker, PitchPicker, FabStats, FAB_CLASSES, FAB_TALENTS } from "../components/FabFields.jsx";
 import { readCard, preloadOcr } from "../lib/ocr.js";
 import FactionPicker from "../components/FactionPicker.jsx";
 import { takeFullPhoto } from "../lib/photo.js";
@@ -25,18 +29,24 @@ export default function Scanner({ go }) {
   const [reading, setReading] = useState(false); // lecture automatique en cours
   const [readInfo, setReadInfo] = useState(""); // ce que la lecture a trouvé
   const [isToken, setIsToken] = useState(false); // reste actif pour toute une série
+  const fab = TCG === "fab"; // Flesh and Blood : type de carte et couleur de pitch, sans lecture automatique
+  const [fabKind, setFabKind] = useState("carte"); // reste actif pour toute une série
+  const [pitch, setPitch] = useState("");
+  const [fabCards, setFabCards] = useState([]); // { name, pitch } déjà dans la collection
   const [names, setNames] = useState(null); // noms déjà dans la collection
   const [saved, setSaved] = useState(0);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    pb.collection("cards").getFullList({ filter: `owner="${user.id}"`, fields: "id,name" })
-      .then((r) => setNames(r.map((c) => c.name || "")))
+    pb.collection("cards").getFullList({ filter: `owner="${user.id}" && ${tcgFilter(currentTcg())}`, fields: fab ? "id,name,pitch" : "id,name" })
+      .then((r) => { setNames(r.map((c) => c.name || "")); if (fab) setFabCards(r); })
       .catch(() => setNames([]));
   }, []);
 
-  const dupOf = (n) => (names || []).find((x) => nameKey(x) === nameKey(n));
+  const dupOf = fab
+    ? (n) => fabCards.find((x) => fabKey(x) === fabKey({ name: n, pitch }))?.name
+    : (n) => (names || []).find((x) => nameKey(x) === nameKey(n));
 
   async function show(cv) {
     const blob = await toBlob(cv);
@@ -54,6 +64,7 @@ export default function Scanner({ go }) {
     setStats({ atk: "", val: "", def: "" });
     setFactions([]);
     setReadInfo("");
+    if (fab) return setReadInfo("Saisissez le nom de la carte et sa couleur de pitch.");
     if (o !== "p") return setReadInfo("Carte paysage : saisissez le nom à la main.");
     setReading(true);
     try {
@@ -84,21 +95,25 @@ export default function Scanner({ go }) {
     const nm = name.trim();
     if (!nm) return setErr("Donnez le nom de la carte.");
     const dup = dupOf(nm);
+    if (dup && fab) return setErr(`« ${dup} » de cette couleur est déjà dans votre collection : inutile de la scanner à nouveau, le deck permet plusieurs exemplaires.`);
     if (dup) return setErr(`« ${dup} » est déjà dans votre collection : inutile de la scanner à nouveau, le deck permet d'en mettre 2 exemplaires. Pour une autre version de la carte, ajoutez un repère au nom (ex. « ${nm} UR »).`);
     setBusy(true);
     setErr("");
     try {
       const fd = new FormData();
       fd.append("owner", user.id);
+      fd.append("tcg", currentTcg());
       fd.append("name", nm);
       fd.append("orient", orient);
-      fd.append("kind", isToken ? "jeton" : "carte");
+      fd.append("kind", fab ? fabKind : isToken ? "jeton" : "carte");
+      if (fab) fd.append("pitch", fabKind === "carte" ? pitch : "");
       for (const k of ["atk", "val", "def"]) fd.append(k, (stats[k] || "").trim().slice(0, 6));
       fd.append("factions", JSON.stringify(factions));
       fd.append("image", new File([result.blob], "scan.jpg", { type: "image/jpeg" }));
       await pb.collection("cards").create(fd);
       URL.revokeObjectURL(result.url);
       setNames((l) => [...(l || []), nm]);
+      if (fab) setFabCards((l) => [...l, { name: nm, pitch: fabKind === "carte" ? pitch : "" }]);
       setSaved((n) => n + 1);
       setResult(null);
       setShot(null);
@@ -114,7 +129,9 @@ export default function Scanner({ go }) {
     }
   }
 
-  const tokenToggle = (
+  const tokenToggle = fab ? (
+    <KindPicker value={fabKind} onChange={setFabKind} />
+  ) : (
     <div className="row" style={{ marginBottom: 12 }}>
       <button className={`btn sm ${isToken ? "primary" : ""}`} onClick={() => setIsToken(!isToken)}>
         {isToken ? "✓ Cartes jetons" : "Cartes jetons ?"}
@@ -139,16 +156,20 @@ export default function Scanner({ go }) {
           <h2>Ajouter des cartes</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
             Les cartes s'ajoutent avec l'appareil photo, depuis l'appli. Un cadre au format carte s'affiche : placez votre carte
-            dedans, bord à bord, puis validez. Le nom et les valeurs sont ensuite lus automatiquement, à vérifier.
+            dedans, bord à bord, puis validez. {fab ? "Vous saisissez ensuite le nom de la carte." : "Le nom et les valeurs sont ensuite lus automatiquement, à vérifier."}
           </p>
           <ul className="muted small tips">
             <li>Téléphone tenu à 15-20 cm, bien parallèle à la carte : de plus près, il ne fait plus la mise au point.</li>
-            <li>Commandants et cartes en largeur : touchez « Carte en largeur ? » pour coucher le cadre.</li>
+            <li>{fab ? "Cartes en largeur" : "Commandants et cartes en largeur"} : touchez « Carte en largeur ? » pour coucher le cadre.</li>
             <li>Lumière de côté ou indirecte : une lampe juste au-dessus fait des reflets, surtout sur les cartes holographiques.</li>
-            <li>Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet d'en mettre 2 exemplaires.</li>
+            {fab ? (
+              <li>Chaque carte ne s'ajoute qu'une fois (nom et couleur de pitch) : le deck permet plusieurs exemplaires.</li>
+            ) : (
+              <li>Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet d'en mettre 2 exemplaires.</li>
+            )}
           </ul>
           {tokenToggle}
-          <button className="btn primary" onClick={() => { setErr(""); preloadOcr(); setStep("camera"); }}>Ouvrir l'appareil photo</button>
+          <button className="btn primary" onClick={() => { setErr(""); if (!fab) preloadOcr(); setStep("camera"); }}>Ouvrir l'appareil photo</button>
           <div className="spacer" />
           <button className="btn ghost sm" onClick={() => go("library")}>Voir mes cartes ({names?.length ?? "…"})</button>
         </div>
@@ -172,13 +193,23 @@ export default function Scanner({ go }) {
               className="input"
               value={name}
               onChange={(e) => { setName(e.target.value); setErr(""); }}
-              placeholder="Ex. Potion rouge"
+              placeholder={fab ? "Ex. Snatch" : "Ex. Potion rouge"}
               maxLength={120}
             />
             {name.trim() && dupOf(name) && <div className="warn small">Déjà dans votre collection.</div>}
           </div>
-          <StatsFields stats={stats} setStats={setStats} />
-          <FactionPicker value={factions} onChange={setFactions} />
+          {fab ? (
+            <>
+              {fabKind === "carte" && <PitchPicker value={pitch} onChange={setPitch} />}
+              <FabStats stats={stats} setStats={setStats} />
+              <FactionPicker value={factions} onChange={setFactions} list={FAB_CLASSES} extra={FAB_TALENTS} label="Classes et talents" />
+            </>
+          ) : (
+            <>
+              <StatsFields stats={stats} setStats={setStats} />
+              <FactionPicker value={factions} onChange={setFactions} />
+            </>
+          )}
           {tokenToggle}
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button className="btn ghost" onClick={() => { setErr(""); setStep("camera"); }}>↺ Reprendre la photo</button>

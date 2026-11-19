@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrules.js";
+import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { Sheet } from "../components/ui.jsx";
 import { ALL_FACTIONS, KIN_SUB, factionsOf } from "../lib/factions.js";
 
@@ -28,7 +29,7 @@ export default function DeckEditor({ go, deckId }) {
       try {
         const [d, c] = await Promise.all([
           pb.collection("decks").getOne(deckId),
-          pb.collection("cards").getFullList({ filter: `owner="${user.id}"`, sort: "name,-created" }),
+          pb.collection("cards").getFullList({ filter: `owner="${user.id}" && ${tcgFilter(currentTcg())}`, sort: "name,-created" }),
         ]);
         setDeck(d);
         setName(d.name);

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
-import { checkDeck } from "../lib/deckrules.js";
+import { checkDeck, checkDeckFor } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
 import TutoVideo from "../components/TutoVideo.jsx";
 import MatBgSettings, { CardBackSettings } from "../components/MatBgSettings.jsx";
+import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, activateTcg } from "../lib/tcg.js";
 
 export default function Home({ go, pendingJoin, clearJoin }) {
   const user = me();
@@ -17,14 +18,16 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [code, setCode] = useState(pendingJoin || "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tcg, setTcg] = useState(() => activateTcg(currentTcg())); // jeu sélectionné : collection, decks et parties de ce jeu seulement
 
-  async function load() {
+  async function load(id = tcg) {
     try {
+      const f = tcgFilter(id);
       const [c, d, g] = await Promise.all([
-        pb.collection("cards").getFullList({ filter: `owner="${user.id}"`, sort: "-created" }),
-        pb.collection("decks").getFullList({ filter: `owner="${user.id}"`, sort: "-updated" }),
+        pb.collection("cards").getFullList({ filter: `owner="${user.id}" && ${f}`, sort: "-created" }),
+        pb.collection("decks").getFullList({ filter: `owner="${user.id}" && ${f}`, sort: "-updated" }),
         pb.collection("games").getFullList({
-          filter: `(p1="${user.id}" || p2="${user.id}") && status!="finished"`,
+          filter: `(p1="${user.id}" || p2="${user.id}") && status!="finished" && ${f}`,
           sort: "-updated",
           fields: "id,code,p1,p2,n1,n2,status,updated",
         }),
@@ -32,22 +35,32 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       setCards(c);
       setDecks(d);
       setGames(g);
-      setDeckId((cur) => cur || d[0]?.id || "");
+      setDeckId((cur) => (d.some((x) => x.id === cur) ? cur : d[0]?.id || ""));
+      setLoanId((cur) => (d.some((x) => x.id === cur) ? cur : ""));
     } catch (e) {
       setErr(errMsg(e));
     }
   }
   useEffect(() => { load(); }, []);
 
+  function pickTcg(id) {
+    if (id === tcg) return;
+    setCurrentTcg(id);
+    activateTcg(id);
+    setTcg(id);
+    setErr("");
+    load(id);
+  }
+
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
-  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (cardsById[e.card]?.kind === "jeton" ? 0 : e.qty || 0), 0);
+  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0);
 
   const myName = user.name || user.email.split("@")[0];
 
   function myState() {
     const deck = decks.find((d) => d.id === deckId);
     if (!deck) throw new Error("Choisissez un deck.");
-    const chk = checkDeck(deck.entries, cardsById);
+    const chk = checkDeckFor(deck, cardsById);
     if (!chk.ok) throw new Error(`Deck « ${deck.name} » non conforme : ${chk.problems.join(" ")}`);
     return buildState({ name: myName, deck, cardsById });
   }
@@ -56,20 +69,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   function loanSnapshot(deck) {
     const ents = (deck.entries || []).filter((e) => cardsById[e.card] && e.qty > 0);
     const cmd = deck.commander && cardsById[deck.commander];
-    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind, val: c.val });
+    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind, val: c.val, ...(c.pitch ? { pitch: c.pitch } : null) });
     return {
       name: deck.name,
       by: myName,
       entries: ents.map((e) => ({ card: e.card, qty: e.qty })),
       commander: cmd ? cmd.id : "",
       cards: [...ents.map((e) => snap(cardsById[e.card])), ...(cmd ? [snap(cmd)] : [])],
+      ...(deck.format ? { format: deck.format } : null),
     };
   }
 
   function loanState(loan) {
     return buildState({
       name: myName,
-      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries, commander: loan.commander || "" },
+      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries, commander: loan.commander || "", ...(loan.format ? { format: loan.format } : null) },
       cardsById: Object.fromEntries(loan.cards.map((c) => [c.id, c])),
     });
   }
@@ -81,14 +95,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       const state = myState();
       const lent = decks.find((d) => d.id === loanId);
       if (lent) {
-        const chk = checkDeck(lent.entries, cardsById);
+        const chk = checkDeckFor(lent, cardsById);
         if (!chk.ok) throw new Error(`Deck à prêter « ${lent.name} » non conforme : ${chk.problems.join(" ")}`);
       }
       const loan = lent ? loanSnapshot(lent) : null;
       let rec = null;
       for (let i = 0; i < 4 && !rec; i++) {
         try {
-          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: state.name, status: "waiting", loan });
+          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: state.name, status: "waiting", loan, tcg });
         } catch (e) {
           if (i === 3) throw e;
         }
@@ -116,6 +130,11 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       }
       clearJoin();
       if (g.p1 === user.id || g.p2 === user.id) return go("table", { gameId: g.id });
+      if (tcgOf(g) !== tcg) {
+        // partie d'un autre jeu : on bascule sur ce jeu pour choisir un de ses decks
+        pickTcg(tcgOf(g));
+        throw new Error(`Cette partie est une partie de ${tcgName(tcgOf(g))}. Le jeu a été sélectionné : choisissez un deck puis touchez à nouveau « Rejoindre ».`);
+      }
       if (g.p2) throw new Error("Cette partie a déjà deux joueurs.");
       if (g.loan?.cards?.length) {
         // Deck prêté disponible : direct si je n'ai pas de deck, sinon je choisis
@@ -167,7 +186,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     const name = prompt("Nom du deck", `Deck ${decks.length + 1}`);
     if (!name) return;
     try {
-      const d = await pb.collection("decks").create({ owner: user.id, name: name.trim(), entries: [] });
+      const d = await pb.collection("decks").create({ owner: user.id, name: name.trim(), entries: [], tcg });
       go("deck", { deckId: d.id });
     } catch (e) {
       setErr(errMsg(e));
@@ -181,6 +200,16 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <span className="muted small">{user.name || user.email}</span>
         <button className="btn sm ghost" onClick={() => pb.authStore.clear()}>Déconnexion</button>
       </div>
+
+      {TCG_LIST.length > 1 && (
+        <div className="tcg-pick" role="tablist" aria-label="Jeu">
+          {TCG_LIST.map((g) => (
+            <button key={g.id} role="tab" aria-selected={tcg === g.id} className={tcg === g.id ? "on" : ""} onClick={() => pickTcg(g.id)}>
+              {g.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {err && <div className="err">{err}</div>}
 
@@ -198,7 +227,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <label>Mon deck pour cette partie</label>
               <select className="input" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : ", non conforme"})</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -207,7 +236,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <select className="input" value={loanId} onChange={(e) => setLoanId(e.target.value)}>
                 <option value="">Aucun prêt</option>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : ", non conforme"})</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -290,9 +319,9 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           {decks.map((d) => (
             <div className="list-item" key={d.id}>
               <span className="grow">{d.name}</span>
-              <span className={`small ${checkDeck(d.entries, cardsById).ok ? "muted" : "warn"}`}>
+              <span className={`small ${checkDeckFor(d, cardsById).ok ? "muted" : "warn"}`}>
                 {deckSize(d)} cartes{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
-                {checkDeck(d.entries, cardsById).ok ? "" : " · non conforme"}
+                {checkDeckFor(d, cardsById).ok ? "" : " · non conforme"}
               </span>
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>
