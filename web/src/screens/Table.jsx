@@ -227,7 +227,8 @@ export default function Table({ go, gameId }) {
   useEffect(() => {
     const el = mainRef.current;
     if (!el) return;
-    const mq = window.matchMedia("(orientation: landscape) and (max-height: 560px)");
+    // Mise en page « côte à côte » : téléphone en paysage, ou ordinateur / tablette en paysage
+    const mq = window.matchMedia("(orientation: landscape) and (max-height: 560px), (min-width: 1000px) and (min-aspect-ratio: 5/4)");
     const compute = () => {
       const W = el.clientWidth;
       const H = el.clientHeight;

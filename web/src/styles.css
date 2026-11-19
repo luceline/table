@@ -163,6 +163,15 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .02em;
 @media (orientation: portrait), (min-height: 561px) {
   .main-area { flex-direction: column; }
 }
+/* Ordinateur / tablette en paysage : plateau à gauche, main et commandes dans une colonne à droite */
+@media (min-width: 1000px) and (min-aspect-ratio: 5/4) {
+  .main-area { flex-direction: row; }
+  .table .side { width: 320px; border-top: 0; border-left: 1px solid var(--line); }
+  .controls { flex-wrap: wrap; overflow: visible; }
+  .hand { flex: 1; flex-wrap: wrap; align-content: flex-start; align-items: flex-start; overflow-y: auto; overflow-x: hidden; min-height: 0; gap: 10px; }
+  .hcard { width: 92px; height: 128px; }
+  .hcard.l { width: 128px; height: 92px; }
+}
 
 .controls2 { display: flex; align-items: center; gap: 10px; padding: 0 8px 6px; min-height: 34px; }
 .hand-tabs { display: flex; gap: 6px; flex: 1; min-width: 0; }
