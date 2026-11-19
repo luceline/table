@@ -593,3 +593,8 @@ html { background: var(--bg); }
 .fac.pitch .pitch-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pitch); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
 .fac.pitch.on { background: var(--pitch, var(--jade)); border-color: var(--pitch, var(--jade)); color: #fff; }
 .pitch-tag { position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0,0,0,.6); }
+/* Sélecteur de jeu (accueil) */
+.tcg-pick { display: flex; gap: 6px; margin: 0 0 12px; }
+.tcg-pick button { flex: 1; padding: 10px 12px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-family: var(--serif); font-size: 15px; letter-spacing: .04em; cursor: pointer; }
+.tcg-pick button:hover { border-color: var(--gold2); }
+.tcg-pick button.on { background: var(--lacquer); border-color: var(--lacquer); color: #fff3e2; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 4px rgba(255,220,180,.35); }
