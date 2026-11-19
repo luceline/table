@@ -583,3 +583,8 @@ html { background: var(--bg); }
 .matbg-none { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: var(--muted); }
 .matbg-range { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .matbg-range input { accent-color: var(--gold); }
+/* Dos des cartes personnel (visible du seul joueur) */
+.table.has-back div.back { background: var(--card-back) center / cover; border: 1px solid rgba(212,176,97,.75); }
+.table.has-back .hand-fan .fan i { background: var(--card-back) center / cover; }
+.back-preview { flex: none; width: 92px; aspect-ratio: 63 / 88; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(212,176,97,.55), 0 4px 12px rgba(0,0,0,.5); }
+.back-preview .back { border-radius: 0; }

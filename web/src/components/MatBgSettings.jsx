@@ -12,7 +12,8 @@ export function matBgOf(user) {
   return { url: fileUrl("users", user.id, user.mat_bg), dim: user.mat_dim ?? DEFAULT_DIM }; // enregistré avec l'image
 }
 
-async function toMatImage(file) {
+// Recadre au centre au rapport largeur/hauteur voulu, réduit à maxW de large au plus, en JPEG
+async function toRatioImage(file, ratio, maxW) {
   const img = await new Promise((ok, ko) => {
     const u = URL.createObjectURL(file);
     const i = new Image();
@@ -21,11 +22,10 @@ async function toMatImage(file) {
     i.src = u;
   });
   const sw = img.naturalWidth, sh = img.naturalHeight;
-  // recadrage centré au format 2:1
-  let cw = sw, ch = sw / 2;
-  if (ch > sh) { ch = sh; cw = sh * 2; }
+  let cw = sw, ch = sw / ratio;
+  if (ch > sh) { ch = sh; cw = sh * ratio; }
   const cx = (sw - cw) / 2, cy = (sh - ch) / 2;
-  const ow = Math.min(MAT_BG_W, Math.round(cw)), oh = Math.round(ow / 2);
+  const ow = Math.min(maxW, Math.round(cw)), oh = Math.round(ow / ratio);
   const cv = document.createElement("canvas");
   cv.width = ow;
   cv.height = oh;
@@ -34,8 +34,9 @@ async function toMatImage(file) {
   g.drawImage(img, cx, cy, cw, ch, 0, 0, ow, oh);
   URL.revokeObjectURL(img.src);
   const blob = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.86));
-  return { blob, w: ow, h: oh, small: cw < 1200 };
+  return { blob, w: ow, h: oh, small: cw < maxW / 2 };
 }
+const toMatImage = (file) => toRatioImage(file, 2, MAT_BG_W);
 
 export default function MatBgSettings() {
   const [user, setUser] = useState(me());
@@ -120,6 +121,79 @@ export default function MatBgSettings() {
         <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pick} />
       </div>
       {msg && <p className="small muted" style={{ marginBottom: 0 }}>{msg}</p>}
+    </div>
+  );
+}
+
+// ---------- Dos des cartes ----------
+// Image idéale : 630 x 880 px, au format d'une carte (63 x 88 mm). Recadrée au centre, JPEG.
+export const BACK_W = 630;
+export const BACK_H = 880;
+
+export function cardBackOf(user) {
+  return user?.card_back ? fileUrl("users", user.id, user.card_back) : null;
+}
+
+export function CardBackSettings() {
+  const [user, setUser] = useState(me());
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const input = useRef();
+  const url = cardBackOf(user);
+
+  async function pick(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const { blob, w, h, small } = await toRatioImage(f, BACK_W / BACK_H, BACK_W);
+      const fd = new FormData();
+      fd.append("card_back", new File([blob], "dos.jpg", { type: "image/jpeg" }));
+      const rec = await pb.collection("users").update(user.id, fd);
+      setUser(rec);
+      setMsg(small ? `Image enregistrée (${w} x ${h} px). Elle est petite : elle risque d'être floue en grand.` : `Image enregistrée (${w} x ${h} px).`);
+    } catch (err) {
+      setMsg(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const rec = await pb.collection("users").update(user.id, { card_back: null });
+      setUser(rec);
+      setMsg("Dos d'origine rétabli.");
+    } catch (err) {
+      setMsg(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card-box">
+      <h2>Dos des cartes</h2>
+      <div className="row" style={{ alignItems: "flex-start", gap: 14, flexWrap: "nowrap" }}>
+        <div className="back-preview">
+          <div className="back" style={url ? { background: `url("${url}") center / cover` } : null} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            Une image pour le dos des cartes (decks, cartes face cachée, main de l'adversaire). Vous seul la voyez.
+            Image idéale : <b>630 x 880 px</b> (format d'une carte, 63 x 88 mm). Une autre taille est recadrée au centre.
+          </p>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button className="btn primary" disabled={busy} onClick={() => input.current?.click()}>{busy ? "Envoi…" : url ? "Changer l'image" : "Choisir une image"}</button>
+            {url && <button className="btn" disabled={busy} onClick={remove}>Retirer</button>}
+            <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pick} />
+          </div>
+          {msg && <p className="small muted" style={{ marginBottom: 0 }}>{msg}</p>}
+        </div>
+      </div>
     </div>
   );
 }

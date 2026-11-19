@@ -4,7 +4,7 @@ import { buildState, genCode } from "../lib/game.js";
 import { checkDeck } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
 import TutoVideo from "../components/TutoVideo.jsx";
-import MatBgSettings from "../components/MatBgSettings.jsx";
+import MatBgSettings, { CardBackSettings } from "../components/MatBgSettings.jsx";
 
 export default function Home({ go, pendingJoin, clearJoin }) {
   const user = me();
@@ -301,6 +301,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       </div>
 
       <MatBgSettings />
+      <CardBackSettings />
     </div>
   );
 }

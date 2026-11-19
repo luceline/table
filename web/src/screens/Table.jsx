@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
 import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
-import { matBgOf } from "../components/MatBgSettings.jsx";
+import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
@@ -1072,7 +1072,12 @@ export default function Table({ go, gameId }) {
   const ticker = opp?.log?.length ? logLine(opp.name, opp.log[opp.log.length - 1].m) : "";
 
   return (
-    <div className="table" onContextMenu={(e) => e.preventDefault()} onPointerDownCapture={unlockAudio} style={{ WebkitTouchCallout: "none" }}>
+    <div
+      className={`table ${cardBackOf(user) ? "has-back" : ""}`}
+      onContextMenu={(e) => e.preventDefault()}
+      onPointerDownCapture={unlockAudio}
+      style={{ WebkitTouchCallout: "none", ...(cardBackOf(user) ? { "--card-back": `url("${cardBackOf(user)}")` } : null) }}
+    >
       <div className="tbar">
         <button className="btn sm ghost icon" onClick={() => go("home")} aria-label="Quitter">←</button>
         {opp ? (
