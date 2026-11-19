@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pb, errMsg } from "../pb.js";
+import TutoVideo from "../components/TutoVideo.jsx";
 
 export default function Auth() {
   const [mode, setMode] = useState("login");
@@ -60,6 +61,7 @@ export default function Auth() {
           {busy ? "…" : mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
       </form>
+      <div style={{ marginTop: 22 }}><TutoVideo /></div>
       <InstallHelp />
     </div>
   );

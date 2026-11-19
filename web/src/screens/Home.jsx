@@ -3,6 +3,7 @@ import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
 import { checkDeck } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
+import TutoVideo from "../components/TutoVideo.jsx";
 
 export default function Home({ go, pendingJoin, clearJoin }) {
   const user = me();
@@ -181,6 +182,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       </div>
 
       {err && <div className="err">{err}</div>}
+
+      <TutoVideo key={cards.length ? "o" : "n"} open={!cards.length} />
 
       <div className="card-box">
         <h2>Jouer</h2>
