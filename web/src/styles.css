@@ -384,3 +384,143 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .loupe-btn.in-panel { position: static; flex: none; width: 32px; height: 32px; font-size: 14px; }
 .spec-panel > .hand-tabs { flex: none; }
 .spectator .tbar a.btn { text-decoration: none; color: inherit; }
+
+/* ======================================================================
+   Thème « Jade et laque » : laque noire, rouge laque, jade, filets d'or.
+   Bloc final : il remplace les couleurs et formes des blocs précédents.
+   ====================================================================== */
+:root {
+  --bg: #141110;
+  --bg2: #0f0c0b;
+  --panel: #1d1816;
+  --line: #4a3a24;
+  --text: #f1e8d8;
+  --muted: #b4a78e;
+  --gold: #d4b061;
+  --gold2: #a8873e;
+  --accent: #3fa37f;
+  --lacquer: #b0302a;
+  --lacquer-dark: #8a1e18;
+  --jade: #3fa37f;
+  --jade-light: #7fd8b0;
+  --danger: #e0614f;
+  --ok: #7fd8b0;
+  --mine: #12271f;
+  --opp: #261010;
+  --serif: "Zen Antique", "Iowan Old Style", Georgia, serif;
+  --sans: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --rule: inset 0 0 0 3px var(--panel), inset 0 0 0 4px rgba(212,176,97,.35); /* double filet d'or */
+}
+body { background: radial-gradient(ellipse at 85% 0%, rgba(176,48,42,.22), transparent 45%), radial-gradient(ellipse at 0% 100%, rgba(63,163,127,.18), transparent 50%), var(--bg) fixed; }
+h1, h2, h3 { font-weight: 400; letter-spacing: .04em; }
+
+/* Boutons : laque et filets */
+.btn { border-radius: 3px; border-color: var(--line); background: var(--panel); }
+.btn:hover { border-color: var(--gold2); }
+.btn.primary { background: var(--lacquer); color: #fff3e2; border: 0; font-family: var(--serif); font-weight: 400; letter-spacing: .08em; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 4px rgba(255,220,180,.35), 0 3px 10px rgba(0,0,0,.45); }
+.btn.ghost { background: transparent; border-color: var(--gold2); color: #f0d79a; }
+.btn.sm { border-radius: 3px; }
+.input { border-radius: 3px; background: var(--bg2); border-color: var(--line); }
+.input:focus { outline-color: var(--gold); }
+.card-box { border-radius: 4px; background: linear-gradient(#1d1816, #171311); border-color: var(--line); box-shadow: var(--rule), 0 6px 20px rgba(0,0,0,.35); }
+.list-item { border-radius: 3px; background: #171311; }
+.tabs button, .hand-tabs button { border-radius: 3px; }
+.tabs button.on, .hand-tabs button.on { background: rgba(63,163,127,.16); border-color: var(--jade); color: var(--jade-light); }
+.thumb { border-radius: 3px; border-color: var(--line); }
+.badge { background: var(--lacquer); color: #fff3e2; border-radius: 2px; }
+.chip { border-radius: 3px; }
+.code { color: var(--gold); }
+
+/* Logo : sceau « S » + nom */
+.brand { font-family: var(--serif); color: #f6eedd; letter-spacing: .1em; display: flex; align-items: center; gap: 10px; }
+.brand::before { content: "S"; flex: none; width: 1.25em; height: 1.25em; display: inline-flex; align-items: center; justify-content: center; background: var(--lacquer); color: #fff3e2; border-radius: 3px; transform: rotate(-5deg); font-size: .9em; letter-spacing: 0; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 3px rgba(255,220,180,.35); }
+.auth .brand { justify-content: center; }
+
+/* Panneaux du bas, bulles, messages */
+.sheet { border-radius: 6px 6px 0 0; background: linear-gradient(#1d1816, #151110); border-color: var(--gold2); border-top: 2px solid var(--gold); }
+.sheet .grab { background: var(--gold2); }
+.toast { background: rgba(23,19,17,.96); border-color: var(--gold2); border-radius: 3px; }
+.bubble { background: #2a1512; border-color: var(--lacquer); border-radius: 4px; }
+.bubble.voice { background: #13281f; border-color: var(--jade); }
+.banner { background: var(--lacquer); color: #fff3e2; border-radius: 4px; font-family: var(--serif); font-weight: 400; letter-spacing: .04em; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 4px rgba(255,220,180,.35), 0 10px 40px rgba(0,0,0,.7); }
+.win { border-radius: 6px; border-color: var(--gold); box-shadow: var(--rule), 0 20px 60px rgba(0,0,0,.8); }
+.win h2 { font-family: var(--serif); font-weight: 400; }
+.msg.me { background: #13281f; }
+.msg.op { background: #2a1512; }
+.fac { border-radius: 2px; }
+.fac.on { background: var(--jade); border-color: var(--jade); color: #06140e; }
+.tuto-play { background: var(--lacquer); color: #fff3e2; border-radius: 3px; transform: rotate(-4deg); }
+.spec-badge { background: var(--lacquer); color: #fff3e2; border-radius: 2px; }
+.install-os.here { border-color: var(--jade); background: rgba(63,163,127,.08); }
+
+/* Table de jeu */
+.table { background: radial-gradient(ellipse at 90% 0%, rgba(176,48,42,.2), transparent 40%), radial-gradient(ellipse at 0% 100%, rgba(63,163,127,.16), transparent 45%), #100d0c; }
+.tbar { background: #0f0c0b; border-bottom: 1px solid var(--gold2); box-shadow: 0 1px 0 #2a1f10; }
+.tbar .who b { font-family: var(--serif); font-weight: 400; }
+.mat { border-radius: 3px; box-shadow: 0 0 0 1px rgba(212,176,97,.55), 0 0 0 4px rgba(15,12,11,.9), 0 0 0 5px rgba(212,176,97,.25), 0 8px 26px rgba(0,0,0,.55); }
+.mat.mine { background: radial-gradient(ellipse at 30% 20%, #1f4a3b 0%, #12271f 75%); }
+.mat.opp { background: radial-gradient(ellipse at 70% 80%, #4a1a16 0%, #261010 75%); }
+.bcard { border-radius: 2px; }
+.back { background:
+  radial-gradient(circle at 50% 50%, transparent 0 26%, rgba(212,176,97,.45) 27% 30%, transparent 31%),
+  repeating-radial-gradient(circle at 0 100%, #7a1e18 0 5px, #8e2a22 5px 10px);
+  border: 1.5px solid rgba(212,176,97,.75); }
+.pile .count { background: rgba(15,12,11,.85); color: var(--gold); border-color: var(--gold2); }
+.slot-hi { border-color: var(--jade-light); background: rgba(63,163,127,.18); border-radius: 2px; }
+.hcard { border-radius: 4px; outline: 1px solid rgba(212,176,97,.7); outline-offset: 2px; }
+.side { background: #0f0c0b; border-color: var(--gold2); }
+.hand.drop-on { background: rgba(63,163,127,.1); box-shadow: inset 0 0 0 2px var(--jade); }
+.loupe-btn { border-color: var(--gold2); background: rgba(15,12,11,.88); }
+
+/* Barre PI / PV : bandeau coloré par camp */
+.score.opp { background: linear-gradient(90deg, rgba(176,48,42,.3), rgba(176,48,42,.04)); border-left: 4px solid var(--lacquer); }
+.score.mine { background: linear-gradient(90deg, rgba(63,163,127,.28), rgba(63,163,127,.04)); border-left: 4px solid var(--jade); }
+.score.side.opp { background: linear-gradient(180deg, rgba(176,48,42,.3), rgba(176,48,42,.05)); border-left: 0; border-top: 4px solid var(--lacquer); }
+.score.side.mine { background: linear-gradient(0deg, rgba(63,163,127,.28), rgba(63,163,127,.05)); border-left: 0; border-bottom: 4px solid var(--jade); }
+.score .sname { font-family: var(--serif); }
+.score .sname .nm { color: #f6eedd; font-size: 15px; }
+.stat { background: transparent; border: 0; padding: 0; gap: 0; }
+.stat .val { position: relative; width: 44px; height: 44px; min-width: 44px; justify-content: center; }
+.stat .val small { position: absolute; top: -6px; padding: 0 3px; background: #17120f; color: var(--gold); font-size: 8px; letter-spacing: .08em; border-radius: 2px; z-index: 1; }
+.stat .val b { position: relative; color: #fff; font-size: 19px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+/* PI : pièce de jade percée d'un trou carré */
+.stat.pi .val { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6fd3ae, #1f6a50); border: 2px solid var(--gold); box-shadow: 0 2px 5px rgba(0,0,0,.6); }
+.stat.pi .val::before { content: ""; position: absolute; width: 24px; height: 24px; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1px solid rgba(240,215,154,.6); background: rgba(10,30,22,.55); }
+.stat.pi b { color: #fff; }
+/* PV : lanterne de laque */
+.stat.pv .val { height: 48px; border-radius: 40% / 30%; background: radial-gradient(circle at 50% 40%, #ff8a5a, var(--lacquer) 70%); border-top: 3px solid #2a1a10; border-bottom: 3px solid #2a1a10; box-shadow: 0 0 12px rgba(255,120,70,.4); }
+.stat.pv b { color: #fff; }
+.stat button { width: 26px; color: var(--gold); }
+.score.side .stat .val { width: 40px; min-width: 40px; height: 40px; }
+.score.side .stat.pv .val { height: 44px; }
+.score.side .stat .val b { font-size: 18px; }
+/* Unification : sceau */
+.unif { border-radius: 3px; transform: rotate(-5deg); border: 1px dashed var(--gold2); background: transparent; }
+.unif small { color: var(--gold2); }
+.unif.u1, .unif.u2, .unif.u3 { border: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,.35), inset 0 0 0 4px rgba(255,220,180,.35); }
+.unif.u1 { background: var(--jade); } .unif.u1 b, .unif.u1 small { color: #f2fff8; }
+.unif.u2 { background: #a8873e; } .unif.u2 b, .unif.u2 small { color: #fff8e6; }
+.unif.u3 { background: var(--lacquer); } .unif.u3 b, .unif.u3 small { color: #fff3e2; }
+/* Pastilles de phase */
+.phase-chip { border-radius: 2px; font-family: var(--sans); }
+.phase-chip.lan { background: var(--jade); color: #06140e; }
+.phase-chip.inv { background: var(--gold); color: #1a1205; }
+.phase-chip.com { background: var(--lacquer); color: #fff3e2; }
+.phase-chip.cal { background: #5f7f9e; color: #fff; }
+/* Barre des phases : lames de laque, sceau de fin */
+.phases { gap: 3px; }
+.phases .ph { border-radius: 2px; border: 0; border-top: 2px solid #4a3a20; border-bottom: 2px solid #4a3a20; background: #1b1614; color: #cdbf9f; font-family: var(--serif); }
+.phases .ph.on { border-color: var(--gold); font-weight: 400; }
+.phases .ph.lan.on { background: linear-gradient(#4fb38f, #2a7a5e); color: #f2fff8; }
+.phases .ph.inv.on { background: linear-gradient(#e0c072, #a8873e); color: #1a1205; }
+.phases .ph.com.on { background: linear-gradient(#c43a32, var(--lacquer-dark)); color: #fff3e2; }
+.phases .ph.cal.on { background: linear-gradient(#7a9ab8, #4a6a88); color: #fff; }
+.phases .ph.end { border: 0; border-radius: 3px; background: var(--lacquer); color: #fff3e2; transform: rotate(-3deg); margin: 0 4px; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 4px rgba(255,220,180,.35), 0 3px 8px rgba(0,0,0,.5); }
+.phases .ph.end:disabled { opacity: .4; }
+/* Journal */
+.log-list .me { color: #a9dcc4; }
+.log-list .op { color: #f0c1b4; }
+html { background: var(--bg); }
+.brand.grow { white-space: nowrap; letter-spacing: .05em; font-size: 22px; }
+.list-item .btn.primary { background: transparent; color: #f0d79a; border: 1px solid var(--gold2); box-shadow: none; }
+.score.aimable { outline-color: var(--lacquer); border-radius: 3px; }

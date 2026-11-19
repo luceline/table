@@ -5,22 +5,22 @@ import {
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON } from "../lib/game.js";
 
-const GOLD = "rgba(214,190,140,.55)";
-const GOLD_TXT = "rgba(214,190,140,.72)";
+const GOLD = "rgba(212,176,97,.5)"; // or du thème Jade et laque
+const GOLD_TXT = "rgba(222,190,118,.78)";
 
 // Fond du tapis en SVG (coordonnées mm). flip = tapis adverse vu en rotation 180°, textes gardés à l'endroit.
 export const MatBackground = memo(function MatBackground({ flip }) {
   const R = (x, y, w, h) => (flip ? { x: MAT_W - x - w, y: MAT_H - y - h, w, h } : { x, y, w, h });
   const P = (x, y) => (flip ? { x: MAT_W - x, y: MAT_H - y } : { x, y });
   const rect = (r, key, extra = {}) => (
-    <rect key={key} x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="rgba(0,0,0,.18)" stroke={GOLD} strokeWidth={0.45} {...extra} />
+    <rect key={key} x={r.x} y={r.y} width={r.w} height={r.h} rx={1.5} fill="rgba(0,0,0,.2)" stroke={GOLD} strokeWidth={0.45} {...extra} />
   );
   const text = (x, y, t, size, key, extra = {}, dy = 0) => {
     const p0 = P(x, y);
     const p = { x: p0.x, y: p0.y + dy };
     return (
       <text key={key} x={p.x} y={p.y} fontSize={size} fill={GOLD_TXT} textAnchor="middle" dominantBaseline="central"
-        fontFamily="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" letterSpacing={size * 0.08} {...extra}>
+        fontFamily="Zen Antique, Iowan Old Style, Georgia, serif" letterSpacing={size * 0.08} {...extra}>
         {t}
       </text>
     );
