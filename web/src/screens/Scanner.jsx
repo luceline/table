@@ -22,7 +22,8 @@ export function nameFromFile(filename) {
   n = n.replace(/^\s*\d+\s*[-_.)]\s*/, "");
   n = n.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
   if (!n || /^\d[\d\s-]*$/.test(n)) return "";
-  if (/^(img|image|pxl|dsc|dcim|photo|scan|capture|screenshot|signal|whatsapp|wa\d|mvimg|burst|cimg|p\d{6,})/i.test(n)) return "";
+  // Nom générique seulement s'il est suivi d'un numéro (« IMG_1234 », « Scan 2026… ») : « Scan imprécis » reste un vrai nom
+  if (/^(img|image|pxl|dsc|dcim|photo|scan|capture(?: d.?.cran)?|screenshot|signal|whatsapp|wa|mvimg|burst|cimg)[\s_-]*(\d|image\b|$)/i.test(n) || /^p\d{6,}/i.test(n)) return "";
   return n.slice(0, 120);
 }
 
@@ -45,6 +46,16 @@ export default function Scanner({ go }) {
   const [result, setResult] = useState(null); // { url, blob }
   const [name, setName] = useState("");
   const [isToken, setIsToken] = useState(false); // reste actif pour toute une série
+  // Import depuis la galerie : par défaut, la photo est considérée comme déjà détourée (scan du téléphone)
+  // et simplement mise au format carte. Réglage mémorisé sur l'appareil.
+  const [fitAll, setFitAll] = useState(() => {
+    try { return localStorage.getItem("table_fit_all") !== "0"; } catch { return true; }
+  });
+  const toggleFitAll = () => {
+    const v = !fitAll;
+    setFitAll(v);
+    try { localStorage.setItem("table_fit_all", v ? "1" : "0"); } catch {}
+  };
   const [saved, setSaved] = useState(0);
   const [total, setTotal] = useState(0);
   const [progress, setProgress] = useState(null); // { done, n, auto }
@@ -86,7 +97,8 @@ export default function Scanner({ go }) {
   }
 
   // Photos déjà détourées : enregistrées directement. Les autres passent par l'ajustement des coins.
-  async function onFiles(e) {
+  // fromGallery : photos importées (scans du téléphone) ; sinon photo prise avec l'appareil
+  async function onFiles(e, fromGallery) {
     const files = [...(e.target.files || [])];
     e.target.value = "";
     if (!files.length) return;
@@ -100,7 +112,8 @@ export default function Scanner({ go }) {
       try {
         const cv = await loadImage(files[i]);
         const nm = nameFromFile(files[i].name);
-        const o = croppedOrient(cv);
+        // Scan considéré comme déjà détouré : orientation d'après la forme de l'image
+        const o = croppedOrient(cv) || (fromGallery && fitAll ? (cv.width > cv.height ? "l" : "p") : null);
         if (o) {
           const [w, h] = OUT[o];
           await upload(await canvasToBlob(resizeTo(cv, w, h)), o, nm);
@@ -178,8 +191,8 @@ export default function Scanner({ go }) {
         {saved > 0 && <span className="chip">{saved} enregistrée{saved > 1 ? "s" : ""}</span>}
       </div>
 
-      <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={onFiles} />
-      <input ref={galRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+      <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFiles(e, false)} />
+      <input ref={galRef} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e, true)} />
       {err && <div className="err">{err}</div>}
       {report && <div className="card-box small" style={{ padding: "10px 14px" }}>{report}</div>}
 
@@ -187,11 +200,21 @@ export default function Scanner({ go }) {
         <div className="card-box">
           <h2>Ajouter des cartes</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Photos déjà détourées au format carte (par l'appli photo ou un scanner de documents) : elles sont ajoutées directement, sans validation.
+            « Importer des photos » : les cartes scannées avec le téléphone sont mises directement au format de jeu (63 x 88), sans validation.
             Le nom du fichier devient le nom de la carte (« 3 - Potion rouge.jpg » donne « Potion rouge »).
-            Pour une photo de la carte posée sur la table : fond uni et contrasté, sans reflet, carte entière. Les coins sont détectés et vous pourrez les ajuster.
+            « Prendre une photo » : carte posée sur un fond uni, les coins sont détectés et vous pourrez les ajuster.
           </p>
           {tokenToggle}
+          <div className="row" style={{ marginBottom: 12 }}>
+            <button className={`btn sm ${fitAll ? "primary" : ""}`} onClick={toggleFitAll}>
+              {fitAll ? "✓ Scans déjà détourés" : "Scans déjà détourés ?"}
+            </button>
+            <span className="muted small grow">
+              {fitAll
+                ? "Les photos importées sont redimensionnées sans recadrage."
+                : "Seules les images déjà au format carte sont importées directement ; les autres passent par le recadrage."}
+            </span>
+          </div>
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button className="btn primary" onClick={() => camRef.current?.click()} disabled={busy}>Prendre une photo</button>
             <button className="btn" onClick={() => galRef.current?.click()} disabled={busy}>Importer des photos</button>
