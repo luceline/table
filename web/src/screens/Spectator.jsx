@@ -22,6 +22,7 @@ export default function Spectator({ code }) {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState("");
   const [view, setView] = useState(null); // carte agrandie
+  const [pileView, setPileView] = useState(null); // défausse ouverte : { who, pile }
   const [pings, setPings] = useState([]);
   const [sound, setSound] = useState(false);
   const [speaking, setSpeaking] = useState(null);
@@ -162,6 +163,10 @@ export default function Spectator({ code }) {
 
   // Toucher une carte visible : agrandissement
   function press(e, src) {
+    if (src.type === "pile") {
+      if (src.pile === "deck") return setToast("Le deck est caché");
+      return setPileView({ who: src.side === "mine" ? "p1" : "p2", pile: src.pile });
+    }
     if (src.type !== "board" && src.type !== "oppboard") return;
     const st = src.side === "mine" ? p1 : p2;
     const b = st?.board.find((x) => x.iid === src.iid);
@@ -257,7 +262,27 @@ export default function Spectator({ code }) {
 
       {speaking && <div className="bubble voice spec-bubble">🔊 <b>{speaking.name}</b> parle…</div>}
       <Toast text={toast} onDone={() => setToast("")} ms={3500} />
-      <Sheet open={!!view} onClose={() => setView(null)} title={view?.title || view?.c?.n || "Carte"}>
+      {(() => {
+        const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
+        const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier
+        return (
+          <Sheet open={!!pileView} onClose={() => setPileView(null)} title={st ? `${st.name} : Défausse ${{ d1: "I", d2: "II", d3: "III" }[pileView.pile]} · ${arr.length}` : ""}>
+            {arr.length === 0 && <p className="muted">Vide.</p>}
+            <div className="pile-grid">
+              {arr.map((iid) => {
+                const c = st.cards[iid];
+                return (
+                  <div key={iid} className="thumb" style={c?.o === "l" ? { aspectRatio: "88 / 63" } : null} onClick={() => { setView({ c, back: pileView }); setPileView(null); }}>
+                    <img src={cardUrl(c)} alt={c?.n} />
+                    <div className="cap">{c?.n}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </Sheet>
+        );
+      })()}
+      <Sheet open={!!view} onClose={() => { if (view?.back) setPileView(view.back); setView(null); }} title={view?.title || view?.c?.n || "Carte"}>
         {view && (
           <div className="preview">
             <img src={cardUrl(view.c, true)} alt={view.c.n} />
