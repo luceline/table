@@ -369,3 +369,4 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .fac-sum .fac { cursor: default; }
 .ok-txt { color: var(--ok); }
 .cmd-chosen { max-width: 190px; text-align: center; }
+.sheet.arming { pointer-events: none; }

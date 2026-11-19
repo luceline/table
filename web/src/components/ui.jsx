@@ -1,16 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+// Panneau du bas. Il s'ouvre souvent au relâchement du doigt (toucher une carte) : sur téléphone, le navigateur envoie
+// ensuite un « clic fantôme » au même endroit, qui tomberait sur un bouton du panneau (Défausse, Sur le deck…).
+// Le panneau ignore donc les touchers pendant ses premières 450 ms.
 export function Sheet({ open, onClose, title, children }) {
+  const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!open) return;
     const k = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [open, onClose]);
+  useEffect(() => {
+    if (!open) {
+      setArmed(false);
+      return;
+    }
+    const t = setTimeout(() => setArmed(true), 450);
+    return () => clearTimeout(t);
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="sheet-back" onPointerDown={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className="sheet" role="dialog">
+    <div className="sheet-back" onPointerDown={(e) => armed && e.target === e.currentTarget && onClose?.()}>
+      <div className={`sheet ${armed ? "" : "arming"}`} role="dialog">
         <div className="grab" />
         {title && <h3>{title}</h3>}
         {children}
