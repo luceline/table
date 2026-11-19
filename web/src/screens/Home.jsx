@@ -54,21 +54,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   // Instantané du deck prêté, stocké dans la partie
   function loanSnapshot(deck) {
     const ents = (deck.entries || []).filter((e) => cardsById[e.card] && e.qty > 0);
+    const cmd = deck.commander && cardsById[deck.commander];
+    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind });
     return {
       name: deck.name,
       by: myName,
       entries: ents.map((e) => ({ card: e.card, qty: e.qty })),
-      cards: ents.map((e) => {
-        const c = cardsById[e.card];
-        return { id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind };
-      }),
+      commander: cmd ? cmd.id : "",
+      cards: [...ents.map((e) => snap(cardsById[e.card])), ...(cmd ? [snap(cmd)] : [])],
     };
   }
 
   function loanState(loan) {
     return buildState({
       name: myName,
-      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries },
+      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries, commander: loan.commander || "" },
       cardsById: Object.fromEntries(loan.cards.map((c) => [c.id, c])),
     });
   }
@@ -282,7 +282,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
             <div className="list-item" key={d.id}>
               <span className="grow">{d.name}</span>
               <span className={`small ${checkDeck(d.entries, cardsById).ok ? "muted" : "warn"}`}>
-                {deckSize(d)} cartes{checkDeck(d.entries, cardsById).ok ? "" : " · non conforme"}
+                {deckSize(d)} cartes{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
+                {checkDeck(d.entries, cardsById).ok ? "" : " · non conforme"}
               </span>
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>

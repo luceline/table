@@ -255,7 +255,8 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .msg.op { align-self: flex-start; background: #35252f; }
 .msg .t { font-size: 10px; color: var(--muted); margin-left: 8px; }
 .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.bubble { position: fixed; transform: translateX(-50%); width: max-content; z-index: 82; max-width: 80vw; background: #35252f; border: 1px solid #d6a0b5; border-radius: 14px; padding: 8px 14px; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.6); animation: up .2s ease-out; cursor: pointer; }
+.bubble { position: fixed; transform: translateX(-50%); width: max-content; z-index: 82; max-width: 80vw; background: #35252f; border: 1px solid #d6a0b5; border-radius: 14px; padding: 8px 14px; font-size: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.6); animation: bubble-in .2s ease-out; cursor: pointer; }
+@keyframes bubble-in { from { transform: translate(-50%, 20px); opacity: .4 } to { transform: translate(-50%, 0); opacity: 1 } }
 .banner { position: fixed; transform: translate(-50%, -50%); width: max-content; z-index: 83; background: var(--gold); color: #1a160e; font-weight: 700; border-radius: 14px; padding: 12px 18px; font-size: 16px; text-align: center; max-width: 86vw; box-shadow: 0 10px 40px rgba(0,0,0,.7); animation: fade .2s; cursor: pointer; }
 .win-back { position: fixed; inset: 0; z-index: 120; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; animation: fade .25s; }
 .win { background: var(--panel); border: 2px solid var(--gold); border-radius: 18px; padding: 24px 28px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.8); }
@@ -342,3 +343,29 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .tuto-video.tel { max-height: 78vh; aspect-ratio: 720 / 1560; height: 78vh; }
 .tuto-video.pc { width: 100%; aspect-ratio: 1280 / 900; }
 .install { margin-top: 14px; }
+.talk-btn { touch-action: none; -webkit-user-select: none; user-select: none; }
+.talk-btn.on { background: #b3261e; border-color: #ff6b6b; transform: scale(1.12); }
+.rec-pill { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 4px; background: rgba(40,12,12,.96); border: 2px solid #ff6b6b; border-radius: 18px; padding: 14px 22px; font-size: 26px; font-weight: 800; box-shadow: 0 10px 40px rgba(0,0,0,.7); pointer-events: none; width: max-content; max-width: 90vw; text-align: center; }
+.rec-pill .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #ff4040; animation: pulse 1s infinite; vertical-align: middle; }
+.rec-pill.cancel { border-color: var(--muted); background: rgba(30,30,36,.96); }
+.bubble.voice { border-color: #7fd1a0; background: #1d2e26; }
+.voice-msg { background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; color: inherit; font: inherit; cursor: pointer; }
+.cam2 { position: relative; height: calc(100dvh - 180px); min-height: 320px; border-radius: 12px; overflow: hidden; background: #000; }
+.cam2 video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cam2 svg { position: absolute; inset: 0; pointer-events: none; }
+.cam-bar { margin-top: 10px; gap: 8px; }
+.tips { margin: 0 0 12px; padding-left: 18px; }
+.tips li { margin: 3px 0; }
+.cmd-box { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 16px; background: rgba(214,190,140,.04); }
+.cmd-chosen { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.cmd-chosen img.l { width: 150px; aspect-ratio: 88 / 63; object-fit: cover; border-radius: 6px; }
+.cmd-chosen img.p { height: 150px; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; }
+.cmd-grid { max-height: 55vh; overflow-y: auto; }
+.fac-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fac { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 11px; font-size: 13px; cursor: pointer; }
+.fac.on { border-color: var(--gold2); color: #1a160e; background: var(--gold); font-weight: 600; }
+.fac.sub { font-style: italic; }
+.fac-sum { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; }
+.fac-sum .fac { cursor: default; }
+.ok-txt { color: var(--ok); }
+.cmd-chosen { max-width: 190px; text-align: center; }

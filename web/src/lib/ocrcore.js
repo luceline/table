@@ -113,21 +113,25 @@ export async function recognize(ort, sess, chars, img) {
 const letters = (s) => s.replace(/[^A-Za-zÀ-ÿ]/g, "").length;
 export const cleanName = (s) => s.replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, "").replace(/\s+/g, " ").trim();
 
-// Nom : dernière ligne centrée du tiers bas de la carte (sous l'effet, au-dessus du numéro de série et de l'artiste)
-export async function findName(ort, det, rec, chars, card) {
+// Nom : dernière ligne centrée du tiers bas de la carte (sous l'effet, au-dessus du numéro de série et de l'artiste).
+// Factions : la ligne centrée juste au-dessus du nom (« -Kin/Chaos/Nature- »), si tous ses mots sont des factions.
+export async function findName(ort, det, rec, chars, card, parseFactions = null) {
   const y0 = Math.round(card.height * 0.66);
   const bottom = crop(card, 0, y0, card.width, card.height - y0);
   const boxes = (await detect(ort, det, bottom))
     .map((b) => ({ ...b, cx: b.x + b.w / 2 }))
     .filter((b) => Math.abs(b.cx - card.width / 2) < card.width * 0.17 && b.w > card.width * 0.12)
     .sort((a, b) => b.y + b.h - (a.y + a.h));
-  for (const b of boxes.slice(0, 3)) {
+  let name = "", factions = [];
+  for (const b of boxes.slice(0, 4)) {
     const r = await recognize(ort, rec, chars, crop(bottom, b.x, b.y, b.w, b.h));
-    if (r.s.includes("/") || letters(r.s) < 3 || /\d{3}/.test(r.s)) continue;
-    const name = cleanName(r.s);
-    if (r.score >= 0.55 && letters(name) >= 3) return name;
+    if (letters(r.s) < 2 || /\d{3}/.test(r.s)) continue;
+    const fl = parseFactions ? parseFactions(cleanName(r.s)) : null;
+    if (name && fl) { factions = fl; break; }
+    if (!name && !r.s.includes("/") && r.score >= 0.55 && letters(cleanName(r.s)) >= 3) { name = cleanName(r.s); continue; }
+    if (!name && fl) { factions = fl; break; }
   }
-  return "";
+  return parseFactions ? { name, factions } : name;
 }
 
 // Pastille de chiffre : agrandie, contraste étiré puis seuillée

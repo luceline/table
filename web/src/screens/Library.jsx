@@ -3,6 +3,8 @@ import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { Sheet } from "../components/ui.jsx";
 import { nameKey } from "../lib/deckrules.js";
 import { StatsFields } from "./Scanner.jsx";
+import FactionPicker from "../components/FactionPicker.jsx";
+import { factionsOf } from "../lib/factions.js";
 
 export default function Library({ go }) {
   const user = me();
@@ -183,6 +185,13 @@ export default function Library({ go }) {
               </div>
               {err && <div className="err">{err}</div>}
             </div>
+            <FactionPicker
+              value={factionsOf(sel)}
+              onChange={(f) => {
+                setSel({ ...sel, factions: f });
+                save({ factions: f });
+              }}
+            />
             <StatsFields
               stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
               setStats={(st) => {

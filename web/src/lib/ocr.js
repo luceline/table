@@ -4,6 +4,7 @@
 // Fichiers servis depuis /ocr/ (voir scripts/ocr-assets.mjs), chargés au premier scan seulement.
 // Résultats indicatifs : le joueur valide ou corrige ; une valeur incertaine est laissée vide.
 import { findName, findStats } from "./ocrcore.js";
+import { parseFactionLine } from "./factions.js";
 
 const BASE = `${import.meta.env.BASE_URL}ocr/`;
 
@@ -75,9 +76,9 @@ export async function readCard(cv) {
   c.height = 880;
   c.getContext("2d").drawImage(cv, 0, 0, 630, 880);
   const card = toImg(c);
-  const [name, stats] = await Promise.all([
-    loadPaddle().then((m) => findName(m.ort, m.det, m.rec, m.chars, card)).catch(() => ""),
+  const [found, stats] = await Promise.all([
+    loadPaddle().then((m) => findName(m.ort, m.det, m.rec, m.chars, card, parseFactionLine)).catch(() => ({ name: "", factions: [] })),
     loadTess().then((w) => findStats(w, card, async (img) => toCanvas(img))).catch(() => ({ atk: "", val: "", def: "" })),
   ]);
-  return { name, ...stats };
+  return { name: found.name, factions: found.factions, ...stats };
 }

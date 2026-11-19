@@ -49,6 +49,14 @@ export function buildState({ name, deck, cardsById }) {
       ids.push(iid);
     }
   }
+  // Commandant (facultatif) : hors du deck, posé d'office dans la zone Commandant
+  const board = [];
+  const cmd = deck.commander && cardsById[deck.commander];
+  if (cmd) {
+    const iid = rid(7);
+    cards[iid] = { c: cmd.id, f: cmd.image, n: cmd.name || "Commandant", o: cmd.orient || "l", cmd: true };
+    board.push(commanderSpot(iid, cards[iid].o));
+  }
   return {
     name,
     deckId: deck.id,
@@ -58,12 +66,17 @@ export function buildState({ name, deck, cardsById }) {
     deck: shuffle(ids),
     hand: [],
     piles: { d1: [], d2: [], d3: [] },
-    board: [],
+    board,
     pi: START_PI,
     pv: START_PV,
     ...TURN_RESET,
-    log: [{ t: Date.now(), m: `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""})` }],
+    log: [{ t: Date.now(), m: `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""}${cmd ? `, commandant « ${cmd.name} »` : ""})` }],
   };
+}
+
+// Zone Commandant du tapis (x 6.5, y 226, 88 x 63) ; une carte portrait y est couchée
+export function commanderSpot(iid, o) {
+  return { iid, x: 6.5 + 44, y: 226 + 31.5, rot: o === "p" ? 90 : 0, down: false };
 }
 
 export const START_PI = 4;
@@ -88,13 +101,14 @@ export const TURN_RESET = { phase: null, turn: 0, unif: 0, arrows: [], mull: fal
 export function resetState(s) {
   const cards = {};
   for (const [k, v] of Object.entries(s.cards)) if (!v.tok) cards[k] = v;
+  const cmd = Object.keys(cards).filter((k) => cards[k].cmd);
   return {
     ...s,
     cards,
-    deck: shuffle(Object.keys(cards)),
+    deck: shuffle(Object.keys(cards).filter((k) => !cards[k].cmd)),
     hand: [],
     piles: { d1: [], d2: [], d3: [] },
-    board: [],
+    board: cmd.map((k) => commanderSpot(k, cards[k].o)),
     pi: START_PI,
     pv: START_PV,
     ...TURN_RESET,

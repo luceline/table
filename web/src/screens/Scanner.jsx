@@ -1,22 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
-import { detectCard, cardShape, warp, canvasToBlob, quadIsLandscape, rotateCorners } from "../lib/scan.js";
 import { nameKey } from "../lib/deckrules.js";
 import { readCard, preloadOcr } from "../lib/ocr.js";
+import FactionPicker from "../components/FactionPicker.jsx";
 
-const OUT = { p: [630, 880], l: [880, 630] };
+// Taille d'enregistrement des cartes (assez grand pour lire l'effet en jeu)
+const OUT = { p: [900, 1257], l: [1257, 900] };
+const RATIO = { p: 63 / 88, l: 88 / 63 };
+
+const toBlob = (cv, q = 0.9) => new Promise((r) => cv.toBlob(r, "image/jpeg", q));
 
 // Ajout de cartes uniquement par l'appareil photo, dans l'appli (pas d'import de fichiers) :
-// la carte doit être détectée (forme et proportions d'une carte), puis redressée au format 63 x 88.
+// le joueur place sa carte dans un cadre au format carte et valide ; on découpe exactement le cadre.
 export default function Scanner({ go }) {
   const user = me();
-  const [step, setStep] = useState("intro"); // intro | camera | edit | result
-  const [src, setSrc] = useState(null); // photo capturée (canvas)
-  const [quad, setQuad] = useState(null);
+  const [step, setStep] = useState("intro"); // intro | camera | result
   const [orient, setOrient] = useState("p");
+  const [shot, setShot] = useState(null); // canvas de la carte découpée
   const [result, setResult] = useState(null); // { url, blob }
   const [name, setName] = useState("");
   const [stats, setStats] = useState({ atk: "", val: "", def: "" });
+  const [factions, setFactions] = useState([]);
   const [reading, setReading] = useState(false); // lecture automatique en cours
   const [readInfo, setReadInfo] = useState(""); // ce que la lecture a trouvé
   const [isToken, setIsToken] = useState(false); // reste actif pour toute une série
@@ -33,40 +37,46 @@ export default function Scanner({ go }) {
 
   const dupOf = (n) => (names || []).find((x) => nameKey(x) === nameKey(n));
 
-  function onCapture(cv, q) {
-    setSrc(cv);
-    setQuad(q);
-    setOrient(quadIsLandscape(q) ? "l" : "p");
-    setResult(null);
-    setErr("");
-    setStep("edit");
+  async function show(cv) {
+    const blob = await toBlob(cv);
+    if (result) URL.revokeObjectURL(result.url);
+    setShot(cv);
+    setResult({ url: URL.createObjectURL(blob), blob });
   }
 
-  async function validate() {
-    if (!cardShape(quad).ok) return setErr("Les coins ne dessinent pas une carte (proportions 63 x 88). Replacez-les sur les coins de la carte.");
+  // Photo prise : affichage, puis lecture automatique du nom et des valeurs (cartes portrait)
+  async function onCapture(cv, o) {
     setErr("");
-    setBusy(true);
-    await new Promise((r) => setTimeout(r, 20));
-    const [w, h] = OUT[orient];
-    const out = warp(src, quad, w, h);
-    const blob = await canvasToBlob(out);
-    setResult({ url: URL.createObjectURL(blob), blob });
-    setBusy(false);
+    setOrient(o);
+    await show(cv);
     setStep("result");
-    // Lecture automatique du nom et des valeurs (cartes portrait) : simple proposition, à valider
     setStats({ atk: "", val: "", def: "" });
+    setFactions([]);
     setReadInfo("");
-    if (orient !== "p") return setReadInfo("Carte paysage : saisissez le nom à la main.");
+    if (o !== "p") return setReadInfo("Carte paysage : saisissez le nom à la main.");
     setReading(true);
     try {
-      const r = await readCard(out);
+      const r = await readCard(cv);
       if (r.name) setName((cur) => cur || r.name);
       setStats({ atk: r.atk, val: r.val, def: r.def });
-      const found = [r.name && "nom", (r.atk || r.val || r.def) && "valeurs"].filter(Boolean);
-      setReadInfo(found.length ? `Lu automatiquement : ${found.join(" et ")}. Vérifiez et corrigez si besoin.` : "Rien n'a pu être lu : saisissez le nom à la main.");
+      if (r.factions?.length) setFactions(r.factions);
+      const found = [r.name && "nom", r.factions?.length && "factions", (r.atk || r.val || r.def) && "valeurs"].filter(Boolean);
+      setReadInfo(found.length ? `Lu automatiquement : ${found.join(", ")}. Vérifiez et corrigez si besoin.` : "Rien n'a pu être lu : saisissez le nom à la main.");
     } finally {
       setReading(false);
     }
+  }
+
+  // Carte tenue à l'envers dans le cadre : rotation d'un demi-tour
+  async function flip() {
+    const c = document.createElement("canvas");
+    c.width = shot.width;
+    c.height = shot.height;
+    const ctx = c.getContext("2d");
+    ctx.translate(c.width, c.height);
+    ctx.rotate(Math.PI);
+    ctx.drawImage(shot, 0, 0);
+    await show(c);
   }
 
   async function save() {
@@ -83,15 +93,17 @@ export default function Scanner({ go }) {
       fd.append("orient", orient);
       fd.append("kind", isToken ? "jeton" : "carte");
       for (const k of ["atk", "val", "def"]) fd.append(k, (stats[k] || "").trim().slice(0, 6));
+      fd.append("factions", JSON.stringify(factions));
       fd.append("image", new File([result.blob], "scan.jpg", { type: "image/jpeg" }));
       await pb.collection("cards").create(fd);
       URL.revokeObjectURL(result.url);
       setNames((l) => [...(l || []), nm]);
       setSaved((n) => n + 1);
       setResult(null);
-      setSrc(null);
+      setShot(null);
       setName("");
       setStats({ atk: "", val: "", def: "" });
+      setFactions([]);
       setReadInfo("");
       setStep("camera");
     } catch (e) {
@@ -125,10 +137,15 @@ export default function Scanner({ go }) {
         <div className="card-box">
           <h2>Ajouter des cartes</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Les cartes s'ajoutent en les photographiant avec l'appareil photo, depuis l'appli. Posez la carte à plat sur un fond uni
-            et contrasté (table sombre pour une carte claire), sans reflet : son contour est détecté automatiquement, puis la carte est redressée au format de jeu.
-            Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet ensuite d'en mettre 2 exemplaires.
+            Les cartes s'ajoutent avec l'appareil photo, depuis l'appli. Un cadre au format carte s'affiche : placez votre carte
+            dedans, bord à bord, puis validez. Le nom et les valeurs sont ensuite lus automatiquement, à vérifier.
           </p>
+          <ul className="muted small tips">
+            <li>Carte bien à plat, téléphone tenu bien parallèle au-dessus.</li>
+            <li>Commandants et cartes en largeur : touchez « Format : paysage » pour coucher le cadre.</li>
+            <li>Lumière de côté ou indirecte : une lampe juste au-dessus fait des reflets, surtout sur les cartes holographiques.</li>
+            <li>Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet d'en mettre 2 exemplaires.</li>
+          </ul>
           {tokenToggle}
           <button className="btn primary" onClick={() => { setErr(""); preloadOcr(); setStep("camera"); }}>Ouvrir l'appareil photo</button>
           <div className="spacer" />
@@ -136,33 +153,16 @@ export default function Scanner({ go }) {
         </div>
       )}
 
-      {step === "camera" && <Camera onCapture={onCapture} onClose={() => setStep("intro")} setErr={setErr} />}
-
-      {step === "edit" && src && (
-        <>
-          <p className="muted small" style={{ marginTop: 0 }}>
-            Carte détectée. Ajustez les coins si besoin (le trait bleu marque le haut : « Pivoter » si besoin), puis redressez.
-          </p>
-          <CornerEditor src={src} quad={quad} setQuad={setQuad} />
-          <div className="spacer" />
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            <button className="btn" onClick={() => setQuad(rotateCorners(quad))}>↻ Pivoter</button>
-            <button className="btn" onClick={() => setOrient(orient === "p" ? "l" : "p")}>
-              {orient === "p" ? "Portrait" : "Paysage"}
-            </button>
-            <span className="grow" />
-            <button className="btn ghost" onClick={() => { setErr(""); setStep("camera"); }}>Reprendre la photo</button>
-            <button className="btn primary" onClick={validate} disabled={busy}>Redresser</button>
-          </div>
-        </>
-      )}
+      {step === "camera" && <Camera orient={orient} setOrient={setOrient} onCapture={onCapture} onClose={() => setStep("intro")} />}
 
       {step === "result" && result && (
         <>
           <div className="scan-result">
-            <img src={result.url} alt="Carte redressée" />
+            <img src={result.url} alt="Carte photographiée" />
           </div>
-          <div className="spacer" />
+          <div className="row" style={{ justifyContent: "center", margin: "8px 0" }}>
+            <button className="btn sm" onClick={flip}>↻ Retourner (carte à l'envers)</button>
+          </div>
           {reading && <div className="card-box small" style={{ padding: "8px 12px" }}>Lecture du nom et des valeurs…</div>}
           {!reading && readInfo && <div className="muted small" style={{ marginBottom: 8 }}>{readInfo}</div>}
           <div className="field">
@@ -173,16 +173,16 @@ export default function Scanner({ go }) {
               onChange={(e) => { setName(e.target.value); setErr(""); }}
               placeholder="Ex. Potion rouge"
               maxLength={120}
-              autoFocus
             />
             {name.trim() && dupOf(name) && <div className="warn small">Déjà dans votre collection.</div>}
           </div>
           <StatsFields stats={stats} setStats={setStats} />
+          <FactionPicker value={factions} onChange={setFactions} />
           {tokenToggle}
           <div className="row" style={{ flexWrap: "wrap" }}>
-            <button className="btn ghost" onClick={() => setStep("edit")}>← Ajuster</button>
+            <button className="btn ghost" onClick={() => { setErr(""); setStep("camera"); }}>↺ Reprendre la photo</button>
             <span className="grow" />
-            <button className="btn primary" onClick={save} disabled={busy || !name.trim() || !!dupOf(name)}>Enregistrer et scanner la suivante</button>
+            <button className="btn primary" onClick={save} disabled={busy || reading || !name.trim() || !!dupOf(name)}>Enregistrer et scanner la suivante</button>
           </div>
         </>
       )}
@@ -217,19 +217,25 @@ export function StatsFields({ stats, setStats }) {
   );
 }
 
-// Viseur : flux vidéo de l'appareil photo, détection de la carte en direct, capture en pleine résolution
-function Camera({ onCapture, onClose, setErr }) {
+// Position du cadre dans la zone de visée (px), au format carte, le plus grand possible
+function frameRect(cw, ch, orient) {
+  const r = RATIO[orient];
+  let fw = cw * 0.88, fh = fw / r;
+  if (fh > ch * 0.88) {
+    fh = ch * 0.88;
+    fw = fh * r;
+  }
+  return { x: (cw - fw) / 2, y: (ch - fh) / 2, w: fw, h: fh };
+}
+
+// Viseur plein écran avec cadre-guide ; « Valider » découpe exactement la zone du cadre
+function Camera({ orient, setOrient, onCapture, onClose }) {
+  const boxRef = useRef();
   const videoRef = useRef();
   const streamRef = useRef(null);
   const [ready, setReady] = useState(false);
-  const [live, setLive] = useState(null); // { q, ok, vw, vh } détection en direct
   const [fail, setFail] = useState("");
-  const [msg, setMsg] = useState("");
-
-  const stop = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  }, []);
+  const [box, setBox] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     let alive = true;
@@ -245,6 +251,12 @@ function Camera({ onCapture, onClose, setErr }) {
         });
         if (!alive) return st.getTracks().forEach((t) => t.stop());
         streamRef.current = st;
+        // Mise au point continue quand l'appareil le permet (Android)
+        const track = st.getVideoTracks()[0];
+        try {
+          const caps = track.getCapabilities?.() || {};
+          if (caps.focusMode?.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+        } catch (_) {}
         const v = videoRef.current;
         v.srcObject = st;
         await v.play().catch(() => {});
@@ -259,42 +271,36 @@ function Camera({ onCapture, onClose, setErr }) {
     })();
     return () => {
       alive = false;
-      stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [stop]);
+  }, []);
 
-  // Détection en direct, sur une image réduite, environ 3 fois par seconde
   useEffect(() => {
-    if (!ready) return;
-    const small = document.createElement("canvas");
-    const t = setInterval(() => {
-      const v = videoRef.current;
-      if (!v || !v.videoWidth) return;
-      const k = 480 / Math.max(v.videoWidth, v.videoHeight);
-      small.width = Math.round(v.videoWidth * k);
-      small.height = Math.round(v.videoHeight * k);
-      small.getContext("2d").drawImage(v, 0, 0, small.width, small.height);
-      const r = detectCard(small);
-      setLive(r.q ? { q: r.q, ok: r.ok, vw: small.width, vh: small.height } : null);
-    }, 330);
-    return () => clearInterval(t);
-  }, [ready]);
+    const el = boxRef.current;
+    if (!el) return;
+    const upd = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    upd();
+    const ro = new ResizeObserver(upd);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fail]);
 
   function capture() {
     const v = videoRef.current;
-    if (!v?.videoWidth) return;
-    const cv = document.createElement("canvas");
-    cv.width = v.videoWidth;
-    cv.height = v.videoHeight;
-    cv.getContext("2d").drawImage(v, 0, 0);
-    const r = detectCard(cv);
-    if (!r.ok) {
-      setMsg(r.why);
-      return;
-    }
-    setErr("");
-    stop();
-    onCapture(cv, r.q);
+    if (!v?.videoWidth || !box.w) return;
+    // La vidéo remplit la zone (object-fit: cover) : conversion du cadre affiché en pixels de la vidéo
+    const s = Math.max(box.w / v.videoWidth, box.h / v.videoHeight);
+    const ox = (box.w - v.videoWidth * s) / 2, oy = (box.h - v.videoHeight * s) / 2;
+    const f = frameRect(box.w, box.h, orient);
+    const [W, H] = OUT[orient];
+    const c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(v, (f.x - ox) / s, (f.y - oy) / s, f.w / s, f.h / s, 0, 0, W, H);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    onCapture(c, orient);
   }
 
   if (fail) {
@@ -306,115 +312,35 @@ function Camera({ onCapture, onClose, setErr }) {
     );
   }
 
-  const pts = live ? live.q.map((p) => `${p.x},${p.y}`).join(" ") : "";
+  const f = box.w ? frameRect(box.w, box.h, orient) : null;
   return (
     <>
-      <div className="cam">
+      <div className="cam2" ref={boxRef}>
         <video ref={videoRef} playsInline muted />
-        {live && (
-          <svg viewBox={`0 0 ${live.vw} ${live.vh}`} preserveAspectRatio="none">
-            <polygon points={pts} fill={live.ok ? "rgba(79,191,127,.18)" : "rgba(255,179,92,.12)"} stroke={live.ok ? "#4fbf7f" : "#ffb35c"} strokeWidth={live.vw / 160} />
+        {f && (
+          <svg width={box.w} height={box.h}>
+            {/* zone sombre autour du cadre */}
+            <path
+              fillRule="evenodd"
+              fill="rgba(0,0,0,.6)"
+              d={`M0,0H${box.w}V${box.h}H0Z M${f.x},${f.y}V${f.y + f.h}H${f.x + f.w}V${f.y}Z`}
+            />
+            <rect x={f.x} y={f.y} width={f.w} height={f.h} rx={f.w * 0.045} fill="none" stroke="#d6be8c" strokeWidth="3" />
+            {[[f.x, f.y, 1, 1], [f.x + f.w, f.y, -1, 1], [f.x, f.y + f.h, 1, -1], [f.x + f.w, f.y + f.h, -1, -1]].map(([x, y, dx, dy], i) => (
+              <path key={i} d={`M${x + dx * 26},${y} L${x},${y} L${x},${y + dy * 26}`} fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" />
+            ))}
           </svg>
         )}
-        <div className={`cam-hint ${live?.ok ? "ok" : ""}`}>
-          {!ready ? "Ouverture de l'appareil photo…" : live?.ok ? "Carte détectée ✓" : "Cadrez une carte sur un fond uni"}
-        </div>
+        <div className="cam-hint">{ready ? "Placez la carte dans le cadre, bord à bord" : "Ouverture de l'appareil photo…"}</div>
       </div>
-      {msg && <div className="err">{msg}</div>}
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="row cam-bar">
         <button className="btn ghost" onClick={onClose}>Fermer</button>
+        <button className="btn" onClick={() => setOrient(orient === "p" ? "l" : "p")}>
+          {orient === "p" ? "Format : portrait" : "Format : paysage"}
+        </button>
         <span className="grow" />
-        <button className="btn primary cam-shot" onClick={() => { setMsg(""); capture(); }} disabled={!ready}>Capturer</button>
+        <button className="btn primary cam-shot" onClick={capture} disabled={!ready}>Valider</button>
       </div>
     </>
-  );
-}
-
-function CornerEditor({ src, quad, setQuad }) {
-  const wrapRef = useRef();
-  const cvRef = useRef();
-  const loupeRef = useRef();
-  const [drag, setDrag] = useState(null); // { i, cx, cy }
-
-  useEffect(() => {
-    const cv = cvRef.current;
-    cv.width = src.width;
-    cv.height = src.height;
-    cv.getContext("2d").drawImage(src, 0, 0);
-  }, [src]);
-
-  const r = Math.max(src.width, src.height) * 0.028;
-
-  function toImg(e) {
-    const rect = wrapRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * src.width;
-    const y = ((e.clientY - rect.top) / rect.height) * src.height;
-    return {
-      x: Math.max(0, Math.min(src.width, x)),
-      y: Math.max(0, Math.min(src.height, y)),
-      lx: e.clientX - rect.left,
-      ly: e.clientY - rect.top,
-      rw: rect.width,
-    };
-  }
-
-  function down(i, e) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    const p = toImg(e);
-    setDrag({ i, lx: p.lx, ly: p.ly });
-  }
-
-  function move(e) {
-    if (!drag) return;
-    const p = toImg(e);
-    const q = quad.map((c, j) => (j === drag.i ? { x: p.x, y: p.y } : c));
-    setQuad(q);
-    setDrag({ ...drag, lx: p.lx, ly: p.ly });
-    drawLoupe(p.x, p.y);
-  }
-
-  function drawLoupe(x, y) {
-    const lc = loupeRef.current;
-    if (!lc) return;
-    const size = 220;
-    lc.width = size;
-    lc.height = size;
-    const ctx = lc.getContext("2d");
-    const zoom = 3 * (src.width / wrapRef.current.getBoundingClientRect().width) / 2;
-    const s = size / zoom / 2;
-    ctx.drawImage(src, x - s / 2, y - s / 2, s, s, 0, 0, size, size);
-    ctx.strokeStyle = "#d6be8c";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size);
-    ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2);
-    ctx.stroke();
-  }
-
-  useEffect(() => {
-    if (drag) drawLoupe(quad[drag.i].x, quad[drag.i].y);
-  }, [drag?.i]);
-
-  const pts = quad.map((p) => `${p.x},${p.y}`).join(" ");
-  const loupeLeft = drag ? (drag.lx > 140 ? drag.lx - 130 : drag.lx + 20) : 0;
-  const loupeTop = drag ? Math.max(0, drag.ly - 140) : 0;
-
-  return (
-    <div className="scan-stage" ref={wrapRef} onPointerMove={move} onPointerUp={() => setDrag(null)} onPointerCancel={() => setDrag(null)}>
-      <canvas ref={cvRef} />
-      <svg viewBox={`0 0 ${src.width} ${src.height}`} preserveAspectRatio="none">
-        <polygon points={pts} fill="rgba(214,190,140,.12)" stroke="#d6be8c" strokeWidth={r * 0.18} />
-        <line x1={quad[0].x} y1={quad[0].y} x2={quad[1].x} y2={quad[1].y} stroke="#6aa3ff" strokeWidth={r * 0.3} />
-        {quad.map((p, i) => (
-          <circle key={i} className="handle" cx={p.x} cy={p.y} r={r} strokeWidth={r * 0.15} onPointerDown={(e) => down(i, e)} style={{ touchAction: "none" }} />
-        ))}
-      </svg>
-      {drag && (
-        <div className="loupe" style={{ left: loupeLeft, top: loupeTop }}>
-          <canvas ref={loupeRef} />
-        </div>
-      )}
-    </div>
   );
 }

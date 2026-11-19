@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pb, me, cardUrl, errMsg } from "../pb.js";
+import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
+import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
@@ -48,6 +49,7 @@ export default function Table({ go, gameId }) {
   const [winner, setWinner] = useState(null);
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche
   const [pings, setPings] = useState([]); // [{owner: "mine"|"opp", iid, k}]
+  const [speaking, setSpeaking] = useState(null); // message vocal en cours de lecture
   const mainRef = useRef();
   const sheetRef = useRef(null);
   const msgIds = useRef(new Set());
@@ -158,7 +160,8 @@ export default function Table({ go, gameId }) {
     setMessages((l) => [...l, m].slice(-200));
     if (m.author !== user.id) {
       if (sheetRef.current !== "chat") setUnread((n) => n + 1);
-      setBubble({ name: m.name, text: m.text, k: m.id });
+      if (m.audio) playVoice(fileUrl("messages", m.id, m.audio), { name: m.name, dur: m.dur, id: m.id });
+      else setBubble({ name: m.name, text: m.text, k: m.id });
     }
   }, [user.id]);
 
@@ -676,6 +679,28 @@ export default function Table({ go, gameId }) {
     }
   };
 
+  useEffect(() => {
+    onVoiceState(setSpeaking);
+    return () => onVoiceState(null);
+  }, []);
+
+  // Talkie-walkie : envoi d'un message vocal
+  const sendVoice = async ({ blob, dur, mime }) => {
+    try {
+      const fd = new FormData();
+      fd.append("game", gameId);
+      fd.append("author", user.id);
+      fd.append("name", mineRef.current?.name || user.name || "");
+      fd.append("text", "");
+      fd.append("dur", String(Math.round(dur * 10) / 10));
+      fd.append("audio", new File([blob], `vocal.${extFor(mime)}`, { type: mime.split(";")[0] }));
+      const rec = await pb.collection("messages").create(fd);
+      applyMsg(rec);
+    } catch (e) {
+      setToast(`Message vocal non envoyé : ${errMsg(e)}`);
+    }
+  };
+
   // ---------- Marqueurs de territoire ----------
   const addMarker = ({ label, v, t, color }) => {
     const n = tokRef.current.filter((m) => m.side === mySide && m.label && terrOf(m.x) === t && !m.on).length;
@@ -959,7 +984,7 @@ export default function Table({ go, gameId }) {
   const ticker = opp?.log?.length ? logLine(opp.name, opp.log[opp.log.length - 1].m) : "";
 
   return (
-    <div className="table" onContextMenu={(e) => e.preventDefault()} style={{ WebkitTouchCallout: "none" }}>
+    <div className="table" onContextMenu={(e) => e.preventDefault()} onPointerDownCapture={unlockAudio} style={{ WebkitTouchCallout: "none" }}>
       <div className="tbar">
         <button className="btn sm ghost icon" onClick={() => go("home")} aria-label="Quitter">←</button>
         {opp ? (
@@ -995,6 +1020,7 @@ export default function Table({ go, gameId }) {
         >
           📖
         </button>
+        {canRecord() && <TalkButton onClip={sendVoice} setToast={setToast} />}
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
           💬{unread > 0 && <span className="unread">{unread}</span>}
         </button>
@@ -1161,6 +1187,17 @@ export default function Table({ go, gameId }) {
           onClick={() => { setBubble(null); setSheet({ kind: "chat" }); }}
         >
           <b>{bubble.name}</b> {bubble.text}
+        </div>
+      )}
+      {speaking && (
+        <div
+          className="bubble voice"
+          style={(() => {
+            const r = oppMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
+            return r ? { top: r.top + 10, left: r.left + r.width / 2 } : null;
+          })()}
+        >
+          🔊 <b>{speaking.name}</b> parle{speaking.dur ? ` (${Math.round(speaking.dur)} s)` : ""}…
         </div>
       )}
       {banner && (
@@ -1430,6 +1467,94 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   return null;
 }
 
+// Talkie-walkie : maintenir pour parler, relâcher pour envoyer, glisser hors du bouton pour annuler
+function TalkButton({ onClip, setToast }) {
+  const [rec, setRec] = useState(null);
+  const [sec, setSec] = useState(0);
+  const [cancel, setCancel] = useState(false);
+  const h = useRef(null);
+  const st = useRef({ down: false, x0: 0, y0: 0, cancel: false });
+
+  async function finish(send) {
+    st.current.down = false;
+    const cur = h.current;
+    h.current = null;
+    setRec(null);
+    if (!cur) return;
+    const clip = await cur.stop(send && !st.current.cancel);
+    if (!clip) return;
+    if (clip.dur < 0.6) return setToast("Trop court : restez appuyé pendant que vous parlez.");
+    onClip(clip);
+  }
+
+  useEffect(() => {
+    if (!rec) return;
+    const t = setInterval(() => {
+      const v = (performance.now() - rec.t0) / 1000;
+      setSec(v);
+      if (v >= MAX_SEC) finish(true);
+    }, 200);
+    return () => clearInterval(t);
+  }, [rec]);
+
+  async function down(e) {
+    if (e.button > 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    st.current = { down: true, x0: e.clientX, y0: e.clientY, cancel: false };
+    setCancel(false);
+    try {
+      const r = await startRecording();
+      if (!st.current.down) {
+        await r.stop(false);
+        return setToast("Micro prêt : restez appuyé sur 🎤 pendant que vous parlez.");
+      }
+      h.current = r;
+      setRec(r);
+      setSec(0);
+      navigator.vibrate?.(20);
+    } catch (_) {
+      st.current.down = false;
+      setToast("Micro inaccessible : autorisez-le pour ce site dans les réglages du navigateur.");
+    }
+  }
+  function move(e) {
+    if (!st.current.down) return;
+    const c = Math.hypot(e.clientX - st.current.x0, e.clientY - st.current.y0) > 90;
+    st.current.cancel = c;
+    setCancel(c);
+  }
+  function up() {
+    if (!h.current) {
+      st.current.down = false;
+      return;
+    }
+    finish(true);
+  }
+
+  return (
+    <>
+      <button
+        className={`btn sm talk-btn ${rec ? "on" : ""}`}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={() => finish(false)}
+        aria-label="Talkie-walkie : maintenir pour parler"
+        title="Maintenir pour parler"
+      >
+        🎤
+      </button>
+      {rec && (
+        <div className={`rec-pill ${cancel ? "cancel" : ""}`}>
+          <span className="dot" /> {Math.floor(sec)} s
+          <span className="muted small">{cancel ? "Relâchez pour annuler" : `Relâchez pour envoyer · glissez pour annuler · ${MAX_SEC} s max`}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 // Journal des deux joueurs, du plus récent au plus ancien. ⚠ = action sur le deck à surveiller (recherche, consultation)
 function Journal({ mine, opp, onlyOpp }) {
   const [filter, setFilter] = useState(onlyOpp ? "opp" : "all");
@@ -1474,7 +1599,13 @@ function ChatSheet({ onClose, messages, userId, onSend }) {
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.author === userId ? "me" : "op"}`}>
             {m.author !== userId && <b>{m.name} </b>}
-            {m.text}
+            {m.audio ? (
+              <button className="voice-msg" onClick={() => playVoice(fileUrl("messages", m.id, m.audio), { name: m.name, dur: m.dur, id: m.id })}>
+                ▶ 🎤 message vocal{m.dur ? ` · ${Math.round(m.dur)} s` : ""}
+              </button>
+            ) : (
+              m.text
+            )}
             <span className="t">{new Date(m.created.replace(" ", "T")).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
         ))}
