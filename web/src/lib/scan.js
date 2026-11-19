@@ -151,7 +151,7 @@ export function detectCard(canvas) {
   const r = findCard(canvas);
   if (!r) return { ok: false, why: "Aucune carte détectée. Posez la carte sur un fond uni et contrasté, entière dans le cadre." };
   if (!cardShape(r.q).ok) return { ok: false, q: r.q, why: "La forme détectée n'a pas les proportions d'une carte. Cadrez la carte seule, bien à plat." };
-  if (r.fill < 0.82) return { ok: false, q: r.q, why: "Contour de carte incomplet. Évitez les reflets et les objets autour de la carte." };
+  if (r.fill < 0.7) return { ok: false, q: r.q, why: "Contour de carte incomplet. Évitez les reflets et les objets autour de la carte." };
   return { ok: true, q: r.q };
 }
 

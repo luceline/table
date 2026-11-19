@@ -6,3 +6,8 @@ pocketbase/*.zip
 pocketbase/CHANGELOG.md
 pocketbase/LICENSE.md
 .DS_Store
+# Fichiers OCR copiés depuis node_modules par web/scripts/ocr-assets.mjs (rec.onnx et keys.txt restent versionnés)
+web/public/ocr/*
+!web/public/ocr/rec.onnx
+!web/public/ocr/det.onnx
+!web/public/ocr/keys.txt

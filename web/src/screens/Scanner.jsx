@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { detectCard, cardShape, warp, canvasToBlob, quadIsLandscape, rotateCorners } from "../lib/scan.js";
 import { nameKey } from "../lib/deckrules.js";
+import { readCard, preloadOcr } from "../lib/ocr.js";
 
 const OUT = { p: [630, 880], l: [880, 630] };
 
@@ -15,6 +16,9 @@ export default function Scanner({ go }) {
   const [orient, setOrient] = useState("p");
   const [result, setResult] = useState(null); // { url, blob }
   const [name, setName] = useState("");
+  const [stats, setStats] = useState({ atk: "", val: "", def: "" });
+  const [reading, setReading] = useState(false); // lecture automatique en cours
+  const [readInfo, setReadInfo] = useState(""); // ce que la lecture a trouvé
   const [isToken, setIsToken] = useState(false); // reste actif pour toute une série
   const [names, setNames] = useState(null); // noms déjà dans la collection
   const [saved, setSaved] = useState(0);
@@ -44,10 +48,25 @@ export default function Scanner({ go }) {
     setBusy(true);
     await new Promise((r) => setTimeout(r, 20));
     const [w, h] = OUT[orient];
-    const blob = await canvasToBlob(warp(src, quad, w, h));
+    const out = warp(src, quad, w, h);
+    const blob = await canvasToBlob(out);
     setResult({ url: URL.createObjectURL(blob), blob });
     setBusy(false);
     setStep("result");
+    // Lecture automatique du nom et des valeurs (cartes portrait) : simple proposition, à valider
+    setStats({ atk: "", val: "", def: "" });
+    setReadInfo("");
+    if (orient !== "p") return setReadInfo("Carte paysage : saisissez le nom à la main.");
+    setReading(true);
+    try {
+      const r = await readCard(out);
+      if (r.name) setName((cur) => cur || r.name);
+      setStats({ atk: r.atk, val: r.val, def: r.def });
+      const found = [r.name && "nom", (r.atk || r.val || r.def) && "valeurs"].filter(Boolean);
+      setReadInfo(found.length ? `Lu automatiquement : ${found.join(" et ")}. Vérifiez et corrigez si besoin.` : "Rien n'a pu être lu : saisissez le nom à la main.");
+    } finally {
+      setReading(false);
+    }
   }
 
   async function save() {
@@ -63,6 +82,7 @@ export default function Scanner({ go }) {
       fd.append("name", nm);
       fd.append("orient", orient);
       fd.append("kind", isToken ? "jeton" : "carte");
+      for (const k of ["atk", "val", "def"]) fd.append(k, (stats[k] || "").trim().slice(0, 6));
       fd.append("image", new File([result.blob], "scan.jpg", { type: "image/jpeg" }));
       await pb.collection("cards").create(fd);
       URL.revokeObjectURL(result.url);
@@ -71,6 +91,8 @@ export default function Scanner({ go }) {
       setResult(null);
       setSrc(null);
       setName("");
+      setStats({ atk: "", val: "", def: "" });
+      setReadInfo("");
       setStep("camera");
     } catch (e) {
       setErr(errMsg(e));
@@ -108,7 +130,7 @@ export default function Scanner({ go }) {
             Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet ensuite d'en mettre 2 exemplaires.
           </p>
           {tokenToggle}
-          <button className="btn primary" onClick={() => { setErr(""); setStep("camera"); }}>Ouvrir l'appareil photo</button>
+          <button className="btn primary" onClick={() => { setErr(""); preloadOcr(); setStep("camera"); }}>Ouvrir l'appareil photo</button>
           <div className="spacer" />
           <button className="btn ghost sm" onClick={() => go("library")}>Voir mes cartes ({names?.length ?? "…"})</button>
         </div>
@@ -141,6 +163,8 @@ export default function Scanner({ go }) {
             <img src={result.url} alt="Carte redressée" />
           </div>
           <div className="spacer" />
+          {reading && <div className="card-box small" style={{ padding: "8px 12px" }}>Lecture du nom et des valeurs…</div>}
+          {!reading && readInfo && <div className="muted small" style={{ marginBottom: 8 }}>{readInfo}</div>}
           <div className="field">
             <label>Nom de la carte (obligatoire)</label>
             <input
@@ -153,6 +177,7 @@ export default function Scanner({ go }) {
             />
             {name.trim() && dupOf(name) && <div className="warn small">Déjà dans votre collection.</div>}
           </div>
+          <StatsFields stats={stats} setStats={setStats} />
           {tokenToggle}
           <div className="row" style={{ flexWrap: "wrap" }}>
             <button className="btn ghost" onClick={() => setStep("edit")}>← Ajuster</button>
@@ -161,6 +186,33 @@ export default function Scanner({ go }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ATK / Valeur / DEF : facultatifs (la carte reste lisible en jeu en la touchant)
+export function StatsFields({ stats, setStats }) {
+  const f = (k, label) => (
+    <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+      <label>{label}</label>
+      <input
+        className="input stat-in"
+        value={stats[k] || ""}
+        inputMode="numeric"
+        maxLength={6}
+        onChange={(e) => setStats({ ...stats, [k]: e.target.value })}
+        placeholder="–"
+      />
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        {f("atk", "ATK")}
+        {f("val", "Valeur")}
+        {f("def", "DEF")}
+      </div>
+      <div className="muted small" style={{ marginTop: 4 }}>Facultatif. Une magie n'a qu'une Valeur.</div>
     </div>
   );
 }

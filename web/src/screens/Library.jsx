@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { Sheet } from "../components/ui.jsx";
 import { nameKey } from "../lib/deckrules.js";
+import { StatsFields } from "./Scanner.jsx";
 
 export default function Library({ go }) {
   const user = me();
@@ -182,6 +183,15 @@ export default function Library({ go }) {
               </div>
               {err && <div className="err">{err}</div>}
             </div>
+            <StatsFields
+              stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
+              setStats={(st) => {
+                const patch = { atk: (st.atk || "").slice(0, 6), val: (st.val || "").slice(0, 6), def: (st.def || "").slice(0, 6) };
+                setSel({ ...sel, ...patch });
+                clearTimeout(window.__statT);
+                window.__statT = setTimeout(() => save(patch), 600);
+              }}
+            />
             <div className="row" style={{ flexWrap: "wrap" }}>
               <button className={`btn ${sel.kind === "jeton" ? "primary" : ""}`} onClick={() => save({ kind: sel.kind === "jeton" ? "carte" : "jeton" })}>
                 Type : {sel.kind === "jeton" ? "carte jeton" : "carte normale"}
