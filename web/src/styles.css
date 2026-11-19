@@ -433,7 +433,6 @@ h1, h2, h3 { font-weight: 400; letter-spacing: .04em; }
 
 /* Logo : sceau « S » + nom */
 .brand { font-family: var(--serif); color: #f6eedd; letter-spacing: .1em; display: flex; align-items: center; gap: 10px; }
-.brand::before { content: "S"; flex: none; width: 1.25em; height: 1.25em; display: inline-flex; align-items: center; justify-content: center; background: var(--lacquer); color: #fff3e2; border-radius: 3px; transform: rotate(-5deg); font-size: .9em; letter-spacing: 0; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 3px rgba(255,220,180,.35); }
 .auth .brand { justify-content: center; }
 
 /* Panneaux du bas, bulles, messages */
