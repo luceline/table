@@ -188,7 +188,8 @@ export default function Spectator({ code }) {
     : Math.max(0.2, Math.min(avW / MAT_W, (avH - 2 * BAR) / (2 * MAT_H + GAP)));
   const L = boardLayout(side, null, s);
   const tokens = (who) => marks.filter((t) => t.side === who);
-  const count = (st) => (st ? `main ${st.hand.length} · deck ${st.deck.length}` : "");
+  // mains et decks : dans la barre de chaque joueur (sur le tapis, l'étiquette cachait commandant et défausse)
+  const count = (st) => (st ? `deck ${st.deck.length}` : "");
   const lastLog = [p1, p2]
     .filter(Boolean)
     .map((st) => ({ st, l: st.log?.[st.log.length - 1] }))
@@ -243,13 +244,11 @@ export default function Spectator({ code }) {
         <div className="viewport" ref={vpRef}>
           {game && vp.w > 0 && (
             <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
-              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} />
+              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 ? p2.hand.length : null} />
               <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               <Mat side="mine" st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
-              <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} />
+              <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 ? p1.hand.length : null} />
               <Arrows L={L} s={s} mine={p1} opp={p2} />
-              <div className="spec-count top" style={{ left: L.opp.mat.left + 6, top: L.opp.mat.top + 4 }}>{count(p2)}</div>
-              <div className="spec-count" style={{ left: L.mine.mat.left + 6, top: L.mine.mat.top + MAT_H * s - 24 }}>{count(p1)}</div>
             </div>
           )}
         </div>

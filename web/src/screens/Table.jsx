@@ -1148,7 +1148,7 @@ export default function Table({ go, gameId }) {
               <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
+                    <ScorePanel st={opp} hand={opp ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
                     <Mat side="opp" st={opp} vs={mine} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
                   </>
                 )}
@@ -1984,7 +1984,7 @@ function Stat({ label, k, v, cls, onSet }) {
 }
 
 // Compteurs PI / PV bien visibles à côté de chaque tapis (seul le propriétaire peut les modifier)
-export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra }) {
+export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra, sub, hand }) {
   const ph = st?.phase ? PHASE_BY_ID[st.phase] : null;
   const unif = st?.unif || 0;
   return (
@@ -1995,8 +1995,11 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra 
     >
       <div className="sname">
         <span className="nm">{st?.name || (mine ? "Moi" : "Adversaire")}</span>
-        <span className={`phase-chip ${st?.phase || "off"}`}>
-          {ph ? `T${st.turn} · ${ph.label}` : st?.turn ? `T${st.turn} · attend` : "en attente"}
+        <span className="srow">
+          <span className={`phase-chip ${st?.phase || "off"}`}>
+            {ph ? `T${st.turn} · ${ph.label}` : st?.turn ? `T${st.turn} · attend` : "en attente"}
+          </span>
+          {sub && <span className="ssub">{sub}</span>}
         </span>
       </div>
       {(mine || unif > 0) && (
@@ -2004,6 +2007,15 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra 
           <small>UNIF</small>
           <b>{unif || "–"}</b>
         </button>
+      )}
+      {hand != null && (
+        <div className="hand-fan" title={`${hand} carte${hand > 1 ? "s" : ""} en main`} aria-label={`${hand} cartes en main`}>
+          <div className="fan">
+            <i /><i /><i />
+          </div>
+          <b>{hand}</b>
+          <small>main</small>
+        </div>
       )}
       <Stat label="PI" k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine && !onAim ? onSet : null} />
       <Stat label="PV" k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
