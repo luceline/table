@@ -2,13 +2,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg } from "../pb.js";
 import { Mat } from "./Mat.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
-import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
-import { normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX } from "../lib/game.js";
+import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
+import {
+  normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
+  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON,
+} from "../lib/game.js";
 
 const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
 const BAR = 48; // bandeau PI/PV en portrait (px écran)
 const RAIL = 96; // colonne PI/PV en paysage (px écran)
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
+const PHASE_H = 40; // barre des phases au-dessus de la main (portrait)
+const WIN_PV = 30;
+const QUICK = ["OK", "Attends", "Je réagis", "Riposte ?", "Vol vie ?", "À toi", "Bien joué !"];
+const ARROW_HEX = { atk: "#ff3b3b", cib: "#4ba3ff" };
+const terrOf = (x) => (x < 201.5 ? 0 : x < 398.5 ? 1 : 2);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export default function Table({ go, gameId }) {
@@ -30,7 +38,19 @@ export default function Table({ go, gameId }) {
   const [vp, setVp] = useState({ w: 360, h: 600 });
   const [focus, setFocus] = useState(null); // null = vue d'ensemble, "mine" / "opp" = loupe sur un tapis
   const [panel, setPanel] = useState("hand");
+  const [messages, setMessages] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [bubble, setBubble] = useState(null); // dernier message adverse affiché sur son tapis
+  const [banner, setBanner] = useState(""); // « À vous de jouer »
+  const [winner, setWinner] = useState(null);
+  const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche
+  const [pings, setPings] = useState([]); // [{owner: "mine"|"opp", iid, k}]
   const mainRef = useRef();
+  const sheetRef = useRef(null);
+  const msgIds = useRef(new Set());
+  const lastOppPhase = useRef(undefined);
+  const lastPing = useRef(null);
+  const pvPrev = useRef({});
 
   const mineRef = useRef(null);
   const oppRef = useRef(null);
@@ -79,6 +99,12 @@ export default function Table({ go, gameId }) {
     setMarks(i < 0 ? [...cur, rec] : cur.map((t) => (t.id === rec.id ? rec : t)));
   }, []);
 
+  const addPing = useCallback((owner, iid) => {
+    const k = rid(6);
+    setPings((l) => [...l, { owner, iid, k }]);
+    setTimeout(() => setPings((l) => l.filter((x) => x.k !== k)), 2800);
+  }, []);
+
   const applySeat = useCallback((rec) => {
     if (rec.player === user.id) {
       seatRef.current = rec.id;
@@ -102,17 +128,48 @@ export default function Table({ go, gameId }) {
         setSheet({ kind: "view", c: o.cards[rv.iid], title: `${o.name} vous montre`, hint: o.cards[rv.iid].n });
       }
       lastReveal.current = rv ? rv.t : 0;
+      // Fin du tour adverse : c'est à moi
+      if (lastOppPhase.current && !o.phase) setBanner(`${o.name} a fini son tour : à vous de jouer !`);
+      lastOppPhase.current = o.phase || null;
+      // Carte signalée par l'adversaire (appui long)
+      const pg = o.ping;
+      if (pg && lastPing.current !== null && pg.t > lastPing.current) {
+        const owner = pg.s === "me" ? "opp" : "mine";
+        const st2 = owner === "opp" ? o : mineRef.current;
+        const b = st2?.board.find((x) => x.iid === pg.iid);
+        if (b) {
+          addPing(owner, pg.iid);
+          const nm = b.down && owner === "opp" ? "une carte face cachée" : `« ${st2.cards[pg.iid]?.n || "carte"} »`;
+          setToast(`${o.name} signale ${nm}`);
+        }
+      }
+      lastPing.current = pg ? pg.t : 0;
     }
     oppRef.current = o;
     setOpp(o);
+  }, [user.id, addPing]);
+
+  const applyMsg = useCallback((m) => {
+    if (msgIds.current.has(m.id)) return;
+    msgIds.current.add(m.id);
+    setMessages((l) => [...l, m].slice(-200));
+    if (m.author !== user.id) {
+      if (sheetRef.current !== "chat") setUnread((n) => n + 1);
+      setBubble({ name: m.name, text: m.text, k: m.id });
+    }
   }, [user.id]);
 
   const loadAll = useCallback(async () => {
-    const [g, seats, marks] = await Promise.all([
+    const [g, seats, marks, msgs] = await Promise.all([
       pb.collection("games").getOne(gameId),
       pb.collection("seats").getFullList({ filter: `game="${gameId}"` }),
       pb.collection("marks").getFullList({ filter: `game="${gameId}"` }),
+      pb.collection("messages").getList(1, 100, { filter: `game="${gameId}"`, sort: "-created" }).catch(() => ({ items: [] })),
     ]);
+    // Messages déjà lus : pas de bulle au chargement
+    const fresh = msgs.items.filter((m) => !msgIds.current.has(m.id)).reverse();
+    fresh.forEach((m) => msgIds.current.add(m.id));
+    if (fresh.length) setMessages((l) => [...l, ...fresh].sort((a, b) => (a.created < b.created ? -1 : 1)).slice(-200));
     applyGame(g);
     const pending = tokRef.current.filter((t) => pendMarks.current[t.id] > 0);
     setMarks([...marks.filter((m) => !pendMarks.current[m.id]), ...pending]);
@@ -137,6 +194,9 @@ export default function Table({ go, gameId }) {
         unsubs.push(await pb.collection("marks").subscribe("*", (e) => {
           if (e.record.game === gameId) applyMark(e.action, e.record);
         }, { filter: `game="${gameId}"` }));
+        unsubs.push(await pb.collection("messages").subscribe("*", (e) => {
+          if (e.action === "create" && e.record.game === gameId) applyMsg(e.record);
+        }, { filter: `game="${gameId}"` }).catch(() => null));
       } catch (e) {
         setErr(errMsg(e));
       }
@@ -152,7 +212,33 @@ export default function Table({ go, gameId }) {
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("online", refresh);
     };
-  }, [gameId, loadAll, applyGame, applySeat, applyMark]);
+  }, [gameId, loadAll, applyGame, applySeat, applyMark, applyMsg]);
+
+  // Victoire : un joueur atteint 30 PV (pas au chargement d'une partie déjà gagnée)
+  useEffect(() => {
+    for (const [k, st] of [["mine", mine], ["opp", opp]]) {
+      if (!st) continue;
+      const prev = pvPrev.current[k];
+      if (prev !== undefined && prev < WIN_PV && st.pv >= WIN_PV) setWinner({ name: st.name || (k === "mine" ? "Vous" : "L'adversaire"), mine: k === "mine" });
+      pvPrev.current[k] = st.pv;
+    }
+  }, [mine?.pv, opp?.pv]);
+
+  useEffect(() => {
+    sheetRef.current = sheet?.kind || null;
+    if (sheet?.kind === "chat") setUnread(0);
+  }, [sheet]);
+
+  useEffect(() => {
+    if (!bubble) return;
+    const t = setTimeout(() => setBubble(null), 5000);
+    return () => clearTimeout(t);
+  }, [bubble]);
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(""), 3500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   const pushMine = useCallback(async () => {
     const sy = sync.current;
@@ -234,7 +320,7 @@ export default function Table({ go, gameId }) {
       const H = el.clientHeight;
       setLandscape(mq.matches);
       if (mq.matches) return setHandH(null);
-      const ctrl = 46 + (hasReserve ? 38 : 0);
+      const ctrl = 46 + PHASE_H + (hasReserve ? 38 : 0);
       const fitW = (W - 12) / MAT_W;
       const boardH = BOARD_H * fitW + 2 * BAR + 12;
       setHandH(clamp(H - ctrl - boardH, 112, 250));
@@ -431,6 +517,131 @@ export default function Table({ go, gameId }) {
     tokRef.current.filter((t) => t.side === mySide).forEach((t) => delMark(t.id));
   };
 
+  // ---------- Tour, phases, unification ----------
+  const setPhase = (id) =>
+    mut((st) => {
+      if (st.phase === id) return false;
+      const start = !st.phase;
+      if (start) st.turn = (st.turn || 0) + 1;
+      st.phase = id;
+      if (id === "cal") st.arrows = [];
+      const lb = PHASE_BY_ID[id].label;
+      return start ? `commence son tour ${st.turn} : ${lb}` : `passe en phase ${lb}`;
+    });
+
+  const endTurn = () =>
+    mut((st) => {
+      if (!st.phase) return false;
+      st.phase = null;
+      st.arrows = [];
+      return `termine son tour ${st.turn}`;
+    });
+
+  const cycleUnif = () => {
+    const n = ((mineRef.current?.unif || 0) + 1) % 4;
+    mut((st) => {
+      st.unif = n;
+      return n ? `passe en Unification ${n} (${UNIF_BONUS[n]})` : "n'est plus en Unification";
+    });
+    setToast(n ? `Unification ${n} : ${UNIF_BONUS[n]}` : "Unification retirée");
+  };
+
+  const coin = () => {
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? "Pile" : "Face";
+    mut(() => `lance une pièce : ${r}`);
+    setToast(`Pièce : ${r}`);
+  };
+
+  const mulligan = (ids) =>
+    mut((st) => {
+      const back = ids.filter((iid) => st.hand.includes(iid));
+      if (!back.length) return false;
+      st.hand = st.hand.filter((x) => !back.includes(x));
+      st.deck = shuffle([...st.deck, ...back]);
+      for (let i = 0; i < back.length && st.deck.length; i++) st.hand.push(st.deck.pop());
+      st.mull = true;
+      return `fait un mulligan : ${back.length} carte${back.length > 1 ? "s" : ""} renvoyée${back.length > 1 ? "s" : ""} et repiochée${back.length > 1 ? "s" : ""}`;
+    });
+
+  // ---------- Flèches et signalements ----------
+  const descTarget = (to) => {
+    const o = oppRef.current;
+    const m = mineRef.current;
+    if (to.p) return to.s === "opp" ? "l'adversaire" : "lui-même";
+    if (to.t != null) return `${to.s === "opp" ? "le Territoire adverse" : "son Territoire"} ${ROMAN[to.t]}`;
+    const st = to.s === "opp" ? o : m;
+    const b = st?.board.find((x) => x.iid === to.iid);
+    if (!b) return "une carte";
+    if (b.down && to.s === "opp") return "une carte face cachée";
+    return `« ${st.cards[to.iid]?.n || "carte"} »`;
+  };
+
+  const addArrow = (a, to) =>
+    mut((st) => {
+      if (!st.board.some((b) => b.iid === a.iid)) return false;
+      if (!to.p && to.t == null && to.s === "me" && to.iid === a.iid) return false;
+      st.arrows = [...(st.arrows || []), { id: rid(6), from: a.iid, to, k: a.k }];
+      const src = `« ${nameOf(st, a.iid)} »`;
+      return a.k === "atk" ? `attaque ${descTarget(to)} avec ${src}` : `cible ${descTarget(to)} avec ${src}`;
+    });
+
+  const clearArrows = (iid) =>
+    mut((st) => {
+      const before = st.arrows?.length || 0;
+      st.arrows = iid ? st.arrows.filter((a) => a.from !== iid) : [];
+      return before === st.arrows.length ? false : true;
+    });
+
+  const pingCard = (owner, iid) => {
+    addPing(owner, iid);
+    navigator.vibrate?.(25);
+    mut((st) => {
+      st.ping = { iid, s: owner === "mine" ? "me" : "opp", t: Date.now() };
+      return true;
+    });
+  };
+
+  const startAim = (iid, k) => {
+    setSheet(null);
+    setAim({ iid, k });
+  };
+
+  function aimAt(to) {
+    const a = aim;
+    setAim(null);
+    if (a) addArrow(a, to);
+  }
+
+  // Tap sur une zone vide du plateau pendant le choix d'une cible : vise le territoire
+  function boardDown(e) {
+    if (!aim || e.target.closest?.(".loupe-btn, .score")) return;
+    const loc = locate(e.clientX, e.clientY);
+    if (!loc || (loc.area !== "mine" && loc.area !== "opp")) return;
+    if (loc.y > 222) return setToast("Touchez une carte, un territoire ou le compteur adverse.");
+    aimAt({ s: loc.area === "mine" ? "me" : "opp", t: terrOf(loc.x) });
+  }
+
+  // ---------- Tchat ----------
+  const sendMsg = async (text) => {
+    const t = (text || "").trim().slice(0, 300);
+    if (!t) return;
+    try {
+      const rec = await pb.collection("messages").create({ game: gameId, author: user.id, name: mineRef.current?.name || user.name || "", text: t });
+      applyMsg(rec);
+    } catch (e) {
+      setToast(errMsg(e));
+    }
+  };
+
+  // ---------- Marqueurs de territoire ----------
+  const addMarker = ({ label, v, t, color }) => {
+    const n = tokRef.current.filter((m) => m.side === mySide && m.label && terrOf(m.x) === t && !m.on).length;
+    const dx = [0, -62, 62, -31, 31][n % 5];
+    const dy = Math.floor(n / 5) * 14;
+    addMark({ side: mySide, color: color || "white", v: v || 0, label: label.slice(0, 40), x: TITLES[t].x + dx, y: 24 + dy, on: null });
+    mut(() => `pose le marqueur « ${label}${v ? ` ${v}` : ""} » sur son Territoire ${ROMAN[t]}`);
+  };
+
   // ---------- Glisser-déposer ----------
   function locate(cx, cy) {
     const inR = (r) => r && cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom;
@@ -487,9 +698,12 @@ export default function Table({ go, gameId }) {
     const sc = sRef.current;
     let g;
     if (src.type === "token" || src.type === "palette") {
-      const color = src.type === "palette" ? src.color : tokRef.current.find((t) => t.id === src.id)?.color;
+      const tk = src.type === "token" ? tokRef.current.find((t) => t.id === src.id) : null;
+      const color = src.type === "palette" ? src.color : tk?.color;
       const d = Math.max(30, 10 * sc);
-      g = { tok: true, color, w: d, h: d, v: src.type === "token" ? tokRef.current.find((t) => t.id === src.id)?.v : 1 };
+      g = tk?.label
+        ? { pill: true, color, label: tk.label, v: tk.v }
+        : { tok: true, color, w: d, h: d, v: tk ? tk.v : 1 };
       setDragKey(src.type === "token" ? `token:${src.id}` : null);
     } else if (src.type === "reserve") {
       const tpl = mineRef.current.reserve.find((r) => r.tid === src.tid);
@@ -525,8 +739,10 @@ export default function Table({ go, gameId }) {
     const d = dragRef.current;
     if (!d) return;
     if (!d.started) {
+      if (d.long) return;
       if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
-      if (!canDrag(d.src)) return;
+      clearTimeout(d.timer);
+      if (!canDrag(d.src) || aim) return;
       d.started = true;
       beginDrag(d.src, e);
     }
@@ -546,6 +762,8 @@ export default function Table({ go, gameId }) {
     detachListeners();
     dragRef.current = null;
     if (!d) return;
+    clearTimeout(d.timer);
+    if (d.long) return;
     if (d.started) {
       const loc = locate(e.clientX, e.clientY);
       endDrag();
@@ -553,10 +771,12 @@ export default function Table({ go, gameId }) {
     } else tap(d.src);
   };
   handlers.current.cancel = () => {
+    clearTimeout(dragRef.current?.timer);
     detachListeners();
     dragRef.current = null;
     endDrag();
   };
+  handlers.current.ping = (src) => pingCard(src.type === "board" ? "mine" : "opp", src.iid);
   const L = useRef({
     move: (e) => handlers.current.move(e),
     up: (e) => handlers.current.up(e),
@@ -578,7 +798,16 @@ export default function Table({ go, gameId }) {
     if (e.button > 0) return;
     e.stopPropagation();
     detachListeners();
-    dragRef.current = { src, x0: e.clientX, y0: e.clientY, started: false };
+    const d = { src, x0: e.clientX, y0: e.clientY, started: false };
+    // Appui long sur une carte en jeu : la signaler à l'adversaire
+    if (src.type === "board" || src.type === "oppboard") {
+      d.timer = setTimeout(() => {
+        if (dragRef.current !== d || d.started) return;
+        d.long = true;
+        handlers.current.ping(src);
+      }, 550);
+    }
+    dragRef.current = d;
     window.addEventListener("pointermove", L.move, { passive: false });
     window.addEventListener("pointerup", L.up);
     window.addEventListener("pointercancel", L.cancel);
@@ -596,6 +825,8 @@ export default function Table({ go, gameId }) {
     if (src.type === "token") {
       if (loc?.area === "opp") return setToast("Chacun ne joue que sur son côté du plateau.");
       if (!loc || loc.area === "hand") return delMark(src.id);
+      const tk = tokRef.current.find((t) => t.id === src.id);
+      if (tk?.label) return updMark(src.id, { side: mySide, on: null, dx: 0, dy: 0, x: clamp(loc.x, 15, MAT_W - 15), y: clamp(loc.y, 6, MAT_H - 6) });
       return updMark(src.id, { side: mySide, ...attachAt(mySide, clamp(loc.x, 4, MAT_W - 4), clamp(loc.y, 4, MAT_H - 4), src.id) });
     }
     if (src.type === "reserve") {
@@ -624,6 +855,14 @@ export default function Table({ go, gameId }) {
 
   function tap(src) {
     const o = oppRef.current;
+    if (aim) {
+      if (src.type === "board") {
+        if (src.iid === aim.iid) return setAim(null);
+        return aimAt({ s: "me", iid: src.iid });
+      }
+      if (src.type === "oppboard") return aimAt({ s: "opp", iid: src.iid });
+      return setToast("Touchez une carte, un territoire ou le compteur adverse.");
+    }
     switch (src.type) {
       case "hand":
         return setSheet({ kind: "card", iid: src.iid, zone: "hand" });
@@ -632,17 +871,20 @@ export default function Table({ go, gameId }) {
       case "oppboard": {
         const b = o?.board.find((x) => x.iid === src.iid);
         if (!b) return;
-        if (b.down) return setToast("Carte face cachée");
-        return setSheet({ kind: "view", c: o.cards[src.iid] });
+        if (b.down) return setToast("Carte face cachée (appui long pour la signaler)");
+        return setSheet({ kind: "view", c: o.cards[src.iid], ping: { owner: "opp", iid: src.iid } });
       }
       case "pile":
         if (src.side === "mine") return setSheet(src.pile === "deck" ? { kind: "deck" } : { kind: "pile", pile: src.pile, side: "mine" });
         if (src.pile === "deck") return setToast(`Deck adverse : ${o?.deck.length || 0} carte(s)`);
         return setSheet({ kind: "pile", pile: src.pile, side: "opp" });
-      case "token":
-        return setSheet({ kind: "token", id: src.id });
+      case "token": {
+        const t = tokRef.current.find((x) => x.id === src.id);
+        return setSheet(t?.label ? { kind: "marker", id: src.id } : { kind: "token", id: src.id });
+      }
       case "opptoken": {
         const t = tokRef.current.find((x) => x.id === src.id);
+        if (t?.label) return setToast(`Marqueur adverse : ${t.label}${t.v ? ` ${t.v}` : ""}`);
         return t && setToast(`Jeton adverse : ${t.v}`);
       }
       case "reserve": {
@@ -694,6 +936,9 @@ export default function Table({ go, gameId }) {
             <button className="back" onClick={() => setFocus(null)} aria-label="Vue d'ensemble">⤡ Les 2 tapis</button>
           </div>
         )}
+        <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
+          💬{unread > 0 && <span className="unread">{unread}</span>}
+        </button>
         <button className="btn sm" onClick={() => setSheet({ kind: "menu" })} aria-label="Menu">☰</button>
       </div>
 
@@ -719,32 +964,36 @@ export default function Table({ go, gameId }) {
                 {focus ? "⤡" : "🔍"}
               </button>
             );
+            const aimPanel = (side) => (aim ? () => aimAt({ s: side === "mine" ? "me" : "opp", p: true }) : null);
             return (
-              <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
+              <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} />
-                    <Mat side="opp" st={opp} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} />
+                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} />
+                    <Mat side="opp" st={opp} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
                     {loupe("opp", L.opp.mat)}
                   </>
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" st={mine} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} />
-                    <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} />
+                    <Mat side="mine" st={mine} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
                 )}
+                <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} />
               </div>
             );
           })()}
         </div>
 
         <div className="side">
+          <PhaseBar st={mine} opp={opp} onPhase={setPhase} onEnd={endTurn} onClear={() => clearArrows()} />
           <div className="controls">
             <button className="btn sm primary" onClick={() => draw(1)} disabled={!mine}>
               Piocher <span style={{ opacity: 0.7 }}>({mine?.deck.length ?? 0})</span>
             </button>
+            <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>
             <div className="palette" title="Jetons : faites glisser sur une carte ou un tapis">
               {TOKEN_COLORS.map((c) => (
                 <div
@@ -803,7 +1052,12 @@ export default function Table({ go, gameId }) {
         </div>
       </div>
 
-      {ghost && (
+      {ghost?.pill && (
+        <div ref={ghostRef} className="drag-ghost pill tmarker" style={{ left: ghost.x, top: ghost.y, borderColor: TOKEN_HEX[ghost.color] || "#ccc", fontSize: 13 }}>
+          {MARKER_ICON[ghost.label] ? `${MARKER_ICON[ghost.label]} ` : ""}{ghost.label}{ghost.v ? <b>{ghost.v}</b> : null}
+        </div>
+      )}
+      {ghost && !ghost.pill && (
         <div
           ref={ghostRef}
           className={`drag-ghost ${ghost.tok ? "tok" : ""}`}
@@ -818,6 +1072,48 @@ export default function Table({ go, gameId }) {
           }}
         >
           {ghost.tok ? ghost.v : ghost.src ? <img src={ghost.src} alt="" /> : <div className="back" />}
+        </div>
+      )}
+
+      {aim && (
+        <div className="aim-bar">
+          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} avec « {mine?.cards[aim.iid]?.n} » : touchez la cible (carte, territoire ou compteur adverse)</span>
+          <button className="btn sm" onClick={() => setAim(null)}>Annuler</button>
+        </div>
+      )}
+      {bubble && (
+        <div
+          className="bubble"
+          key={bubble.k}
+          style={(() => {
+            const r = oppMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
+            return r ? { top: r.top + 10, left: r.left + r.width / 2 } : null;
+          })()}
+          onClick={() => { setBubble(null); setSheet({ kind: "chat" }); }}
+        >
+          <b>{bubble.name}</b> {bubble.text}
+        </div>
+      )}
+      {banner && (
+        <div
+          className="banner"
+          style={(() => {
+            const r = myMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
+            return r ? { top: r.top + r.height / 2, left: r.left + r.width / 2 } : null;
+          })()}
+          onClick={() => setBanner("")}
+        >
+          {banner}
+        </div>
+      )}
+      {winner && (
+        <div className="win-back" onClick={() => setWinner(null)}>
+          <div className="win">
+            <div className="cup">🏆</div>
+            <h2>{winner.mine ? "Victoire !" : `${winner.name} gagne`}</h2>
+            <p className="muted">{winner.mine ? "Vous atteignez" : `${winner.name} atteint`} {WIN_PV} PV.</p>
+            <button className="btn primary">Fermer</button>
+          </div>
         </div>
       )}
 
@@ -841,13 +1137,18 @@ export default function Table({ go, gameId }) {
         opp={opp}
         tokens={tokens}
         meta={meta}
-        actions={{ draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard, hasOpp: !!opp }}
+        messages={messages}
+        userId={user.id}
+        actions={{
+          draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
+          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, hasOpp: !!opp,
+        }}
       />
     </div>
   );
 }
 
-function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
+function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId }) {
   const close = () => setSheet(null);
   const A = actions;
   if (!sheet) return null;
@@ -858,6 +1159,15 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
     const b = mine.board.find((x) => x.iid === iid);
     const run = (f) => () => { f(); close(); };
     const btns = [];
+    const nArrows = (mine.arrows || []).filter((a) => a.from === iid).length;
+    const aimBtns = b ? (
+      <div className="actions" style={{ marginBottom: 8 }}>
+        <button className="btn atk" onClick={() => A.startAim(iid, "atk")}>⚔ Attaquer</button>
+        <button className="btn cib" onClick={() => A.startAim(iid, "cib")}>🎯 Cibler</button>
+        <button className="btn" onClick={run(() => A.pingCard("mine", iid))}>📍 Signaler</button>
+        {nArrows > 0 && <button className="btn" onClick={run(() => A.clearArrows(iid))}>Retirer ses flèches ({nArrows})</button>}
+      </div>
+    ) : null;
     if (c?.tok) {
       if (b) {
         btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
@@ -880,6 +1190,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
     return (
       <Sheet open onClose={close} title={c?.n}>
         <div className="preview"><img src={cardUrl(c, true)} alt={c?.n} /></div>
+        {aimBtns}
         <div className="actions">
           {btns.map(([label, f]) => (
             <button key={label} className="btn" onClick={run(f)}>{label}</button>
@@ -894,6 +1205,11 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
       <Sheet open onClose={close} title={sheet.title || sheet.c?.n}>
         <div className="preview"><img src={cardUrl(sheet.c, true)} alt={sheet.c?.n} /></div>
         {sheet.hint && <p className="muted small" style={{ textAlign: "center" }}>{sheet.hint}</p>}
+        {sheet.ping && (
+          <button className="btn" style={{ width: "100%" }} onClick={() => { A.pingCard(sheet.ping.owner, sheet.ping.iid); close(); }}>
+            📍 Signaler cette carte
+          </button>
+        )}
       </Sheet>
     );
   }
@@ -908,6 +1224,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
           ))}
           <button className="btn" onClick={run(A.shuffleDeck)}>Mélanger</button>
           <button className="btn" onClick={() => setSheet({ kind: "pile", pile: "deck", side: "mine" })}>Chercher dans le deck</button>
+          <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>
         </div>
       </Sheet>
     );
@@ -1010,6 +1327,8 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
           </div>
         )}
         <div className="actions" style={{ marginBottom: 14 }}>
+          <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
+          <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>
           <button className="btn" onClick={() => { A.shuffleDeck(); close(); }}>Mélanger mon deck</button>
           <button className="btn" onClick={() => { close(); A.resetMine(); }}>Tout remettre dans le deck</button>
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
@@ -1027,7 +1346,225 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions }) {
       </Sheet>
     );
   }
+
+  if (sheet.kind === "chat") return <ChatSheet onClose={close} messages={messages} userId={userId} onSend={A.sendMsg} />;
+  if (sheet.kind === "mull" && mine) return <MulliganSheet onClose={close} st={mine} onDo={A.mulligan} />;
+  if (sheet.kind === "marker") {
+    const t = sheet.id ? tokens.find((x) => x.id === sheet.id) : null;
+    if (sheet.id && !t) return null;
+    return <MarkerSheet onClose={close} t={t} onCreate={A.addMarker} onUpd={(p) => A.updMark(sheet.id, p)} onDel={() => A.delMark(sheet.id)} />;
+  }
   return null;
+}
+
+function ChatSheet({ onClose, messages, userId, onSend }) {
+  const [txt, setTxt] = useState("");
+  const listRef = useRef();
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+  const send = (t) => {
+    onSend(t);
+    setTxt("");
+  };
+  return (
+    <Sheet open onClose={onClose} title="Tchat">
+      <div className="chat-list" ref={listRef}>
+        {messages.length === 0 && <span className="muted small">Aucun message. Les réponses rapides s'envoient en un geste.</span>}
+        {messages.map((m) => (
+          <div key={m.id} className={`msg ${m.author === userId ? "me" : "op"}`}>
+            {m.author !== userId && <b>{m.name} </b>}
+            {m.text}
+            <span className="t">{new Date(m.created.replace(" ", "T")).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        ))}
+      </div>
+      <div className="quick">
+        {QUICK.map((q) => (
+          <button key={q} className="btn sm" onClick={() => send(q)}>{q}</button>
+        ))}
+      </div>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); send(txt); }}>
+        <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Votre message" maxLength={300} />
+        <button className="btn primary" disabled={!txt.trim()}>Envoyer</button>
+      </form>
+    </Sheet>
+  );
+}
+
+function MulliganSheet({ onClose, st, onDo }) {
+  const [sel, setSel] = useState([]);
+  const tog = (iid) => setSel((l) => (l.includes(iid) ? l.filter((x) => x !== iid) : [...l, iid]));
+  return (
+    <Sheet open onClose={onClose} title="Mulligan">
+      <p className="muted small" style={{ marginTop: 0 }}>
+        Touchez les cartes à renvoyer. Elles retournent dans le deck, il est mélangé, puis vous repiochez le même nombre. Une seule fois par partie.
+        {st.mull && <b> Vous avez déjà fait un mulligan.</b>}
+      </p>
+      <div className="pile-grid">
+        {st.hand.map((iid) => {
+          const c = st.cards[iid];
+          return (
+            <div key={iid} className={`thumb ${sel.includes(iid) ? "sel" : ""}`} style={c?.o === "l" ? { aspectRatio: "88 / 63" } : null} onClick={() => tog(iid)}>
+              <img src={cardUrl(c)} alt={c?.n} />
+              <div className="cap">{c?.n}</div>
+              {sel.includes(iid) && <span className="badge">↺</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="spacer" />
+      <button className="btn primary" style={{ width: "100%" }} disabled={!sel.length} onClick={() => { onDo(sel); onClose(); }}>
+        Renvoyer {sel.length} carte{sel.length > 1 ? "s" : ""} et repiocher
+      </button>
+    </Sheet>
+  );
+}
+
+function MarkerSheet({ onClose, t, onCreate, onUpd, onDel }) {
+  const editing = !!t;
+  const [label, setLabel] = useState(t?.label || "Gel");
+  const [v, setV] = useState(t ? t.v || 0 : 1);
+  const [terr, setTerr] = useState(0);
+  const [color, setColor] = useState(t?.color || "blue");
+  const set = (patch) => {
+    if ("label" in patch) setLabel(patch.label);
+    if ("v" in patch) setV(patch.v);
+    if ("color" in patch) setColor(patch.color);
+    if (editing) onUpd(patch);
+  };
+  return (
+    <Sheet open onClose={onClose} title={editing ? "Marqueur de territoire" : "Nouveau marqueur de territoire"}>
+      <div className="quick" style={{ marginBottom: 10 }}>
+        {MARKER_PRESETS.map((p) => (
+          <button key={p} className={`btn sm ${label === p ? "on" : ""}`} onClick={() => set({ label: p })}>
+            {MARKER_ICON[p]} {p}
+          </button>
+        ))}
+      </div>
+      <div className="field">
+        <label>Texte</label>
+        <input className="input" value={label} maxLength={40} onChange={(e) => setLabel(e.target.value)} onBlur={() => editing && label.trim() && onUpd({ label: label.trim() })} />
+      </div>
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap" }}>
+        <div className="row">
+          <span className="muted small">Valeur</span>
+          <button className="btn icon" onClick={() => set({ v: Math.max(0, v - 1) })}>−</button>
+          <b style={{ minWidth: 26, textAlign: "center", fontSize: 20 }}>{v || "–"}</b>
+          <button className="btn icon" onClick={() => set({ v: Math.min(99, v + 1) })}>+</button>
+        </div>
+        <div className="row">
+          {TOKEN_COLORS.map((c) => (
+            <button key={c.id} onClick={() => set({ color: c.id })} aria-label={c.label}
+              style={{ width: 28, height: 28, borderRadius: "50%", border: color === c.id ? "3px solid #fff" : "2px solid #0008", background: c.hex, cursor: "pointer" }} />
+          ))}
+        </div>
+      </div>
+      {!editing && (
+        <div className="row" style={{ marginBottom: 12 }}>
+          <span className="muted small">Territoire</span>
+          {ROMAN.map((r, i) => (
+            <button key={r} className={`btn sm ${terr === i ? "on" : ""}`} onClick={() => setTerr(i)}>{r}</button>
+          ))}
+        </div>
+      )}
+      {editing ? (
+        <button className="btn danger" style={{ width: "100%" }} onClick={() => { onDel(); onClose(); }}>Retirer le marqueur</button>
+      ) : (
+        <button className="btn primary" style={{ width: "100%" }} disabled={!label.trim()} onClick={() => { onCreate({ label: label.trim(), v, t: terr, color }); onClose(); }}>
+          Poser sur le Territoire {ROMAN[terr]}
+        </button>
+      )}
+      <p className="muted small">La valeur sert de compteur (ex. tours de Gel restants), à baisser à la main. Le marqueur se déplace en le faisant glisser ; hors du tapis, il est retiré.</p>
+    </Sheet>
+  );
+}
+
+// Barre des phases du joueur (au-dessus de la main)
+function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
+  if (!st) return <div className="phases" />;
+  const n = st.arrows?.length || 0;
+  return (
+    <div className="phases">
+      {!st.phase && <span className="turn-hint">{opp?.phase ? `Tour de ${opp.name}` : "Votre tour ?"}</span>}
+      {PHASES.map((p) => (
+        <button key={p.id} className={`ph ${p.id} ${st.phase === p.id ? "on" : ""}`} onClick={() => onPhase(p.id)} title={p.label}>
+          {p.short}
+        </button>
+      ))}
+      {n > 0 && <button className="ph clr" onClick={onClear} title="Effacer mes flèches">✕ {n}</button>}
+      <button className="ph end" onClick={onEnd} disabled={!st.phase}>Fin ⏎</button>
+    </div>
+  );
+}
+
+// Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
+function Arrows({ L, s, mine, opp, aim }) {
+  const pos = (owner, tgt) => {
+    const m = L[owner];
+    if (!m) return null;
+    if (tgt.p) return { x: m.panel.left + m.panel.width / 2, y: m.panel.top + m.panel.height / 2 };
+    const st = owner === "mine" ? mine : opp;
+    let x, y;
+    if (tgt.iid) {
+      const b = st?.board.find((q) => q.iid === tgt.iid);
+      if (!b) return null;
+      x = b.x;
+      y = b.y;
+    } else if (tgt.t != null) {
+      x = TITLES[tgt.t].x;
+      y = 125;
+    } else return null;
+    return owner === "mine"
+      ? { x: m.mat.left + x * s, y: m.mat.top + y * s }
+      : { x: m.mat.left + (MAT_W - x) * s, y: m.mat.top + (MAT_H - y) * s };
+  };
+  const list = [];
+  const seen = {};
+  for (const [owner, st] of [["mine", mine], ["opp", opp]]) {
+    for (const a of st?.arrows || []) {
+      const p0 = pos(owner, { iid: a.from });
+      const tOwner = a.to.s === "me" ? owner : owner === "mine" ? "opp" : "mine";
+      const p1 = pos(tOwner, a.to);
+      if (!p0 || !p1) continue;
+      // Attaque combinée : les flèches vers une même cible s'écartent les unes des autres
+      const key = `${tOwner}:${a.to.iid || a.to.t || (a.to.p ? "p" : "")}`;
+      seen[key] = (seen[key] || 0) + 1;
+      const i = seen[key] - 1;
+      const bend = (i % 2 ? -1 : 1) * (0.15 + 0.12 * Math.floor((i + 1) / 2));
+      list.push({ id: `${owner}${a.id}`, p0, p1, bend, k: a.k === "atk" ? "atk" : "cib" });
+    }
+  }
+  const src = aim ? pos("mine", { iid: aim.iid }) : null;
+  if (!list.length && !src) return null;
+  const sw = Math.max(3, 1.3 * s * 3);
+  return (
+    <svg className="arrows" width={L.w} height={L.h}>
+      <defs>
+        {Object.entries(ARROW_HEX).map(([k, c]) => (
+          <marker key={k} id={`ah-${k}`} viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill={c} stroke="#000" strokeWidth="0.8" />
+          </marker>
+        ))}
+      </defs>
+      {list.map(({ id, p0, p1, k, bend }) => {
+        const dx = p1.x - p0.x, dy = p1.y - p0.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const cx = (p0.x + p1.x) / 2 - (dy / len) * len * bend;
+        const cy = (p0.y + p1.y) / 2 + (dx / len) * len * bend;
+        const d = `M${p0.x},${p0.y} Q${cx},${cy} ${p1.x},${p1.y}`;
+        return (
+          <g key={id}>
+            <path d={d} fill="none" stroke="rgba(0,0,0,.65)" strokeWidth={sw + 3} strokeLinecap="round" />
+            <path d={d} fill="none" stroke={ARROW_HEX[k]} strokeWidth={sw} strokeLinecap="round" markerEnd={`url(#ah-${k})`} className="arrow-line" />
+            <circle cx={p0.x} cy={p0.y} r={sw * 1.4} fill={ARROW_HEX[k]} stroke="#000" strokeWidth="1" />
+          </g>
+        );
+      })}
+      {src && <circle cx={src.x} cy={src.y} r={18} fill="none" stroke={ARROW_HEX[aim.k]} strokeWidth="3" className="aim-src" />}
+    </svg>
+  );
 }
 
 // Position des tapis et des panneaux PI/PV (px écran)
@@ -1069,12 +1606,29 @@ function Stat({ label, k, v, cls, onSet }) {
 }
 
 // Compteurs PI / PV bien visibles à côté de chaque tapis (seul le propriétaire peut les modifier)
-function ScorePanel({ st, mine, layout, box, onSet }) {
+function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif }) {
+  const ph = st?.phase ? PHASE_BY_ID[st.phase] : null;
+  const unif = st?.unif || 0;
   return (
-    <div className={`score ${layout} ${mine ? "mine" : "opp"}`} style={box}>
-      <span className="sname">{st?.name || (mine ? "Moi" : "Adversaire")}</span>
-      <Stat label="PI" k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine ? onSet : null} />
-      <Stat label="PV" k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine ? onSet : null} />
+    <div
+      className={`score ${layout} ${mine ? "mine" : "opp"} ${onAim ? "aimable" : ""} ${ph ? "active" : ""}`}
+      style={box}
+      onClick={onAim || undefined}
+    >
+      <div className="sname">
+        <span className="nm">{st?.name || (mine ? "Moi" : "Adversaire")}</span>
+        <span className={`phase-chip ${st?.phase || "off"}`}>
+          {ph ? `T${st.turn} · ${ph.label}` : st?.turn ? `T${st.turn} · attend` : "en attente"}
+        </span>
+      </div>
+      {(mine || unif > 0) && (
+        <button className={`unif u${unif}`} onClick={(e) => { if (onAim) return; e.stopPropagation(); onUnif?.(); }} title={unif ? UNIF_BONUS[unif] : "Unification"}>
+          <small>UNIF</small>
+          <b>{unif || "–"}</b>
+        </button>
+      )}
+      <Stat label="PI" k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine && !onAim ? onSet : null} />
+      <Stat label="PV" k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
     </div>
   );
 }

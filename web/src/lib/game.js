@@ -61,12 +61,29 @@ export function buildState({ name, deck, cardsById }) {
     board: [],
     pi: START_PI,
     pv: START_PV,
+    ...TURN_RESET,
     log: [{ t: Date.now(), m: `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""})` }],
   };
 }
 
 export const START_PI = 4;
 export const START_PV = 0;
+
+// Phases d'un tour de joueur (règles « Nos Règles s3 », chapitre VI)
+export const PHASES = [
+  { id: "lan", label: "Lancement", short: "Lanc." },
+  { id: "inv", label: "Invocation", short: "Invoc." },
+  { id: "com", label: "Combat", short: "Combat" },
+  { id: "cal", label: "Calcul PI/PV", short: "Calcul" },
+];
+export const PHASE_BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
+
+// Bonus rappelés sous le badge d'unification (Saison 3, Kin)
+export const UNIF_BONUS = ["", "+1 DEF", "+1 ATK, +1 pioche", "+1 Valeur, +1 PI"];
+
+// phase = null hors de son tour ; turn = numéro de son tour (début de tour à début de tour suivant)
+// arrows = flèches d'attaque / de ciblage ; mull = mulligan déjà fait
+export const TURN_RESET = { phase: null, turn: 0, unif: 0, arrows: [], mull: false };
 
 export function resetState(s) {
   const cards = {};
@@ -80,11 +97,14 @@ export function resetState(s) {
     board: [],
     pi: START_PI,
     pv: START_PV,
+    ...TURN_RESET,
+    ping: null,
+    reveal: null,
   };
 }
 
 export function emptyState() {
-  return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { d1: [], d2: [], d3: [] }, board: [], pi: START_PI, pv: START_PV, log: [] };
+  return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { d1: [], d2: [], d3: [] }, board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
 }
 
 export function normalize(s) {
@@ -93,6 +113,7 @@ export function normalize(s) {
     ...emptyState(),
     ...s,
     piles: { d1: [], d2: [], d3: [], ...(s.piles || {}) },
+    arrows: Array.isArray(s.arrows) ? s.arrows : [],
   };
 }
 
@@ -123,4 +144,8 @@ export const TOKEN_COLORS = [
   { id: "gold", hex: "#d6a93b", label: "Or" },
   { id: "white", hex: "#e8e6e0", label: "Blanc" },
 ];
+// Marqueurs de territoire prêts à l'emploi (texte libre aussi possible)
+export const MARKER_PRESETS = ["Gel", "Bloqué", "Silence", "Immunité", "Bonus", "Malus"];
+export const MARKER_ICON = { Gel: "❄", "Bloqué": "⛔", Silence: "🔇", "Immunité": "🛡", Bonus: "▲", Malus: "▼" };
+
 export const TOKEN_HEX = Object.fromEntries(TOKEN_COLORS.map((c) => [c.id, c.hex]));

@@ -3,7 +3,7 @@ import {
   MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, rotPt,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
-import { TOKEN_HEX } from "../lib/game.js";
+import { TOKEN_HEX, MARKER_ICON } from "../lib/game.js";
 
 const GOLD = "rgba(214,190,140,.55)";
 const GOLD_TXT = "rgba(214,190,140,.72)";
@@ -51,7 +51,7 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   );
 });
 
-export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting }) {
+export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming }) {
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
@@ -65,7 +65,7 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
   return (
     <div
       ref={matRef}
-      className={`mat ${mine ? "mine" : "opp"}`}
+      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""}`}
       style={{ top, left, width: MAT_W * s, height: MAT_H * s }}
     >
       <MatBackground flip={flip} />
@@ -153,6 +153,26 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
           ty = b.y + oy;
         }
         const p = pt(tx, ty);
+        if (t.label) {
+          // Marqueur de territoire : pastille avec texte et valeur
+          const fs = Math.max(11, 5 * s);
+          return (
+            <div
+              key={t.id}
+              className={`tmarker ${t.color}`}
+              style={{
+                left: p.x,
+                top: p.y,
+                fontSize: fs,
+                borderColor: TOKEN_HEX[t.color] || "#ccc",
+                opacity: dragKey === `token:${t.id}` ? 0.3 : 1,
+              }}
+              onPointerDown={(e) => onPress(e, { type: mine ? "token" : "opptoken", id: t.id })}
+            >
+              {MARKER_ICON[t.label] ? `${MARKER_ICON[t.label]} ` : ""}{t.label}{t.v ? <b>{t.v}</b> : null}
+            </div>
+          );
+        }
         const d = Math.max(20, 8 * s);
         return (
           <div
@@ -173,6 +193,19 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
           </div>
         );
       })}
+
+      {/* Signalements (appui long) */}
+      {st &&
+        pings.map((pg) => {
+          const b = st.board.find((x) => x.iid === pg.iid);
+          const c = b && st.cards[b.iid];
+          if (!c) return null;
+          const dim = c.o === "l" ? CARD.l : CARD.p;
+          const swap = (b.rot || 0) % 180 !== 0;
+          const w = (swap ? dim.h : dim.w) * s, h = (swap ? dim.w : dim.h) * s;
+          const p = pt(b.x, b.y);
+          return <div key={pg.k} className="ping-ring" style={{ left: p.x - w / 2 - 4, top: p.y - h / 2 - 4, width: w + 8, height: h + 8 }} />;
+        })}
 
       {waiting}
     </div>

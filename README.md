@@ -38,13 +38,23 @@ deploy/nginx-resgestae.conf                vhost de resgestae.fr avec la redirec
   - PI / PV : départ à PI 4 et PV 0 ; boutons − / + du compteur à côté de son tapis.
 - **Mélanger** : toucher le deck, ou menu ☰ > « Mélanger mon deck ».
 - **Journal** : chaque action est tracée (menu ☰), la dernière action adverse s'affiche en haut.
+- **Phases et tour** : barre Lanc. / Invoc. / Combat / Calcul au-dessus de la main. Toucher une phase hors de son tour commence un nouveau tour (compteur T1, T2… : un tour va du début de son tour au début du suivant). « Fin ⏎ » passe la main : l'adversaire voit « À vous de jouer ». La phase de chacun s'affiche sous son nom, à côté des PI/PV (Combat en rouge).
+- **Flèches** : toucher une de ses cartes en jeu > « ⚔ Attaquer » (rouge) ou « 🎯 Cibler » (bleu), puis toucher la cible : carte adverse ou à soi, zone d'un territoire, ou compteur PI/PV de l'adversaire. Attaque combinée : une flèche par attaquant vers la même cible, elles s'écartent automatiquement. Effacées au passage en phase Calcul, en fin de tour, avec « ✕ n » dans la barre des phases, ou carte par carte.
+- **Signaler une carte** : appui long sur n'importe quelle carte en jeu (à soi ou adverse) : elle clignote en jaune chez les deux joueurs avec un message. Aussi via « 📍 Signaler » dans la fiche de la carte.
+- **Unification** : badge UNIF à côté des PI/PV, chaque toucher passe au niveau suivant (– , 1, 2, 3) avec le rappel du bonus. Visible par l'adversaire dès le niveau 1.
+- **Marqueurs de territoire** : « ＋ Marqueur » : Gel, Bloqué, Silence, Immunité, Bonus, Malus ou texte libre, avec une valeur (ex. tours restants) et une couleur, posé sur le territoire choisi. Toucher pour modifier la valeur ou le retirer, glisser pour déplacer, glisser hors du tapis pour retirer.
+- **Tchat** : bouton 💬 (pastille rouge = messages non lus). Réponses rapides en un geste (OK, Attends, Je réagis, Riposte ?, Vol vie ?, À toi, Bien joué !) ou texte libre. Le dernier message adverse apparaît 5 s en bulle sur son tapis.
+- **Mulligan** : toucher le deck > « Mulligan » (ou menu ☰) : choisir les cartes à renvoyer, le deck est mélangé et on repioche le même nombre.
+- **Pile ou face** : menu ☰, résultat visible des deux côtés dans le journal.
+- **Victoire** : un écran s'affiche chez les deux joueurs dès qu'un joueur atteint 30 PV.
 - Recharger la page ramène à la partie en cours.
 
 ## Architecture des données
 
 - `games` : code, joueurs, statut ;
 - `seats` : l'état de jeu de chaque joueur (un enregistrement par joueur). Chacun n'écrit que le sien : deux actions simultanées des deux joueurs ne peuvent pas s'écraser ;
-- `marks` : un enregistrement par jeton, pour la même raison.
+- `marks` : un enregistrement par jeton ou marqueur de territoire (champ `label`), pour la même raison ;
+- `messages` : le tchat de la partie (lecture par les deux joueurs, chacun n'écrit qu'en son nom).
 
 ## Installation sur le VPS : https://table.resgestae.fr
 
