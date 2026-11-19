@@ -52,7 +52,7 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   );
 });
 
-export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator }) {
+export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator }) {
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
@@ -66,9 +66,12 @@ export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, on
   return (
     <div
       ref={matRef}
-      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""}`}
+      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""}`}
       style={{ top, left, width: MAT_W * s, height: MAT_H * s }}
     >
+      {/* Fond personnel (visible du seul joueur), sous les emplacements du tapis */}
+      {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
+      {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
       <MatBackground flip={flip} />
 
       {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}

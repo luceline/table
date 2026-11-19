@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
 import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
+import { matBgOf } from "../components/MatBgSettings.jsx";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
@@ -1154,7 +1155,7 @@ export default function Table({ go, gameId }) {
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" st={mine} vs={opp} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" st={mine} vs={opp} bg={matBgOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
                     <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
