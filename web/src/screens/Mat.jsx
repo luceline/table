@@ -3,7 +3,7 @@ import {
   MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, rotPt,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
-import { TOKEN_HEX, MARKER_ICON } from "../lib/game.js";
+import { TOKEN_HEX, MARKER_ICON, territoryValues } from "../lib/game.js";
 
 const GOLD = "rgba(212,176,97,.5)"; // or du thème Jade et laque
 const GOLD_TXT = "rgba(222,190,118,.78)";
@@ -51,7 +51,7 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   );
 });
 
-export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator }) {
+export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator }) {
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
@@ -69,6 +69,28 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
       style={{ top, left, width: MAT_W * s, height: MAT_H * s }}
     >
       <MatBackground flip={flip} />
+
+      {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}
+      {st && (() => {
+        const me = territoryValues(st), other = territoryValues(vs);
+        // ancré au bord gauche du territoire (bord droit pour le tapis adverse retourné), loin du titre
+        return [10.5, 207.5, 404.5].map((x, t) => {
+          const a = me[t], o = other[t];
+          if (!a.n && !o.n) return null;
+          const p = pt(x, 24);
+          const cls = !vs ? "" : a.sum > o.sum ? "dom" : a.sum < o.sum ? "sub" : "eq";
+          return (
+            <div
+              key={t}
+              className={`tval ${cls}`}
+              style={{ left: p.x, top: p.y, fontSize: s >= 1 ? Math.round(10.5 * s) : 10, transform: flip ? "translate(-100%, -50%)" : "translate(0, -50%)" }}
+              title={`Valeur des combattants du territoire ${t + 1} (indicatif, hors effets des cartes)`}
+            >
+              {s >= 1 && <small>val</small>}{a.sum}{a.unknown ? <i>?</i> : null}
+            </div>
+          );
+        });
+      })()}
 
       {hi && <div className="slot-hi" style={box(hi.x, hi.y, hi.w, hi.h)} />}
 
@@ -173,18 +195,19 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
             </div>
           );
         }
-        const d = Math.max(20, 8 * s);
+        // Taille liée à celle des cartes : petits sur téléphone (zone de toucher élargie en CSS), 20 px max sur ordinateur
+        const d = Math.round(Math.min(20, Math.max(13, CARD.p.w * s * 0.3)));
         return (
           <div
             key={t.id}
-            className={`token ${t.color}`}
+            className={`token ${t.color} ${d < 18 ? "small" : ""}`}
             style={{
               left: p.x - d / 2,
               top: p.y - d / 2,
               width: d,
               height: d,
               background: `radial-gradient(circle at 35% 30%, #fff8, ${TOKEN_HEX[t.color] || "#ccc"} 55%)`,
-              fontSize: d * 0.48,
+              fontSize: d < 18 ? d * 0.66 : d * 0.48,
               opacity: dragKey === `token:${t.id}` ? 0.3 : 1,
             }}
             onPointerDown={(e) => onPress(e, { type: mine ? "token" : "opptoken", id: t.id })}

@@ -55,7 +55,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   function loanSnapshot(deck) {
     const ents = (deck.entries || []).filter((e) => cardsById[e.card] && e.qty > 0);
     const cmd = deck.commander && cardsById[deck.commander];
-    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind });
+    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind, val: c.val });
     return {
       name: deck.name,
       by: myName,

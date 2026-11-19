@@ -218,8 +218,8 @@ export default function Spectator({ code }) {
           {game && vp.w > 0 && (
             <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} />
-              <Mat side="opp" st={p2} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
-              <Mat side="mine" st={p1} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
+              <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
+              <Mat side="mine" st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
               <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} />
               <Arrows L={L} s={s} mine={p1} opp={p2} />
               <div className="spec-count top" style={{ left: L.opp.mat.left + 6, top: L.opp.mat.top + 4 }}>{count(p2)}</div>

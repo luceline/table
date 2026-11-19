@@ -524,3 +524,13 @@ html { background: var(--bg); }
 .brand.grow { white-space: nowrap; letter-spacing: .05em; font-size: 22px; }
 .list-item .btn.primary { background: transparent; color: #f0d79a; border: 1px solid var(--gold2); box-shadow: none; }
 .score.aimable { outline-color: var(--lacquer); border-radius: 3px; }
+/* Jetons de couleur réduits sur téléphone : filet plus fin, zone de toucher élargie */
+.token.small { box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 1px 3px rgba(0,0,0,.6); line-height: 1; letter-spacing: -.02em; }
+.token.small::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+/* Valeur par territoire : sceau « val » à côté du titre, or si le joueur domine ce territoire */
+.tval { position: absolute; z-index: 4; pointer-events: none; display: flex; align-items: baseline; gap: 3px; padding: 1px 6px; border-radius: 2px; font-family: var(--serif); font-weight: 400; color: #f1e8d8; background: rgba(15,12,11,.82); border: 1px solid var(--gold2); line-height: 1.25; white-space: nowrap; }
+.tval small { font-family: var(--sans); font-size: .62em; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.tval i { font-style: normal; font-size: .75em; margin-left: -2px; color: var(--muted); }
+.tval.dom { background: linear-gradient(#e0c072, #a8873e); color: #1a1205; border-color: #f0d79a; box-shadow: 0 0 8px rgba(212,176,97,.45); }
+.tval.dom small, .tval.dom i { color: #3a2a0a; }
+.tval.sub { opacity: .75; }

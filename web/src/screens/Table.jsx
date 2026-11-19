@@ -463,8 +463,8 @@ export default function Table({ go, gameId }) {
     else placeOnBoard(iid, 300, 130, from, faceDown);
   };
 
+  // Les cartes jetons se déplacent comme les autres (détruites, elles vont en défausse du territoire)
   const toHand = useCallback((iid, from) => {
-    if (mineRef.current?.cards[iid]?.tok) return removeTokenCard(iid);
     if (from === "board") clearTokensOn(iid);
     mut((st) => {
       const c = st.cards[iid];
@@ -479,7 +479,6 @@ export default function Table({ go, gameId }) {
   }, [mut]);
 
   const toPile = useCallback((iid, pid, from, bottom = false) => {
-    if (mineRef.current?.cards[iid]?.tok) return removeTokenCard(iid);
     if (from === "board") clearTokensOn(iid);
     mut((st) => {
       const c = st.cards[iid];
@@ -1069,12 +1068,12 @@ export default function Table({ go, gameId }) {
                 {L.opp && (
                   <>
                     <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
-                    <Mat side="opp" st={opp} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
+                    <Mat side="opp" st={opp} vs={mine} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
                   </>
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" st={mine} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" st={mine} vs={opp} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
                     <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
@@ -1287,26 +1286,19 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         {nArrows > 0 && <button className="btn" onClick={run(() => A.clearArrows(iid))}>Retirer ses flèches ({nArrows})</button>}
       </div>
     ) : null;
-    if (c?.tok) {
-      if (b) {
-        btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
-        btns.push([b.down ? "Révéler" : "Face cachée", () => A.flipCard(iid)]);
-      }
-      btns.push(["Retirer le jeton", () => A.removeTokenCard(iid)]);
-    } else if (zone === "hand") {
+    if (zone === "hand") {
       if (A.hasOpp) btns.push(["Montrer à l'adversaire", () => A.showCard(iid)]);
     } else if (zone === "board" && b) {
       btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
       btns.push([b.down ? "Révéler" : "Face cachée", () => A.flipCard(iid)]);
     }
-    if (!c?.tok) {
-      if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
-      if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
-      if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
-      for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
-      btns.push(["Dessus du deck", () => A.toPile(iid, "deck", zone)]);
-      btns.push(["Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
-    }
+    if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
+    if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+    if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
+    for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
+    btns.push(["Dessus du deck", () => A.toPile(iid, "deck", zone)]);
+    btns.push(["Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
+    if (c?.tok) btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
     return (
       <Sheet open onClose={close} title={c?.n}>
         <div className="preview"><img src={cardUrl(c, true)} alt={c?.n} /></div>

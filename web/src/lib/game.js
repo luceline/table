@@ -37,7 +37,7 @@ export function buildState({ name, deck, cardsById }) {
   for (const e of deck.entries || []) {
     const rec = cardsById[e.card];
     if (!rec || !(e.qty > 0)) continue;
-    const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p" };
+    const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p", v: parseVal(rec.val) };
     // Cartes jetons : modèles en réserve, copies illimitées, jamais dans le deck
     if (rec.kind === "jeton") {
       reserve.push({ tid: rec.id, ...base });
@@ -164,3 +164,35 @@ export const MARKER_PRESETS = ["Gel", "Bloqué", "Silence", "Immunité", "Bonus"
 export const MARKER_ICON = { Gel: "❄", "Bloqué": "⛔", Silence: "🔇", "Immunité": "🛡", Bonus: "▲", Malus: "▼" };
 
 export const TOKEN_HEX = Object.fromEntries(TOKEN_COLORS.map((c) => [c.id, c.hex]));
+
+// Valeur saisie sur la carte : chiffres ou chiffres romains (raretés UR et plus). null si absente ou illisible.
+const ROMAN_V = { I: 1, V: 5, X: 10, L: 50, C: 100 };
+export function parseVal(txt) {
+  const t = String(txt ?? "").trim().toUpperCase();
+  if (!t) return null;
+  if (/^\d+$/.test(t)) return parseInt(t, 10);
+  if (!/^[IVXLC]+$/.test(t)) return null;
+  let n = 0;
+  for (let i = 0; i < t.length; i++) {
+    const a = ROMAN_V[t[i]], b = ROMAN_V[t[i + 1]] || 0;
+    n += a < b ? -a : a;
+  }
+  return n;
+}
+
+// Valeur totale des combattants visibles de chaque territoire (indicatif : les effets des cartes ne sont pas pris en compte).
+// Les magies, le commandant et les cartes face cachée ne comptent pas.
+export function territoryValues(st) {
+  const out = [0, 1, 2].map(() => ({ sum: 0, n: 0, unknown: 0 }));
+  if (!st) return out;
+  for (const b of st.board || []) {
+    const c = st.cards?.[b.iid];
+    if (!c || c.cmd || b.down) continue;
+    if (b.y < 30 || b.y > 130) continue; // rangée des combattants seulement
+    const t = b.x < 201.5 ? 0 : b.x < 398.5 ? 1 : 2;
+    out[t].n++;
+    if (typeof c.v === "number") out[t].sum += c.v;
+    else out[t].unknown++;
+  }
+  return out;
+}
