@@ -10,7 +10,8 @@ pocketbase/
   pb_migrations/1763500000_safir_init.js   schéma (cards, decks, games, seats, marks) + règles d'accès
   pb_public/                               build prêt à servir (aucun npm nécessaire pour déployer)
 web/                                       sources React/Vite
-deploy/nginx-table.conf                    extrait nginx à coller dans le vhost de resgestae.fr
+deploy/nginx-table.conf                    vhost nginx de table.resgestae.fr
+deploy/nginx-resgestae.conf                vhost de resgestae.fr avec la redirection de /table
 ```
 
 ## Fonctionnement
@@ -45,29 +46,17 @@ deploy/nginx-table.conf                    extrait nginx à coller dans le vhost
 - `seats` : l'état de jeu de chaque joueur (un enregistrement par joueur). Chacun n'écrit que le sien : deux actions simultanées des deux joueurs ne peuvent pas s'écraser ;
 - `marks` : un enregistrement par jeton, pour la même raison.
 
-## Installation sur le VPS : https://resgestae.fr/table/
+## Installation sur le VPS : https://table.resgestae.fr
 
-L'appli vit sous le chemin `/table/` de resgestae.fr : nginx retire ce préfixe et transmet à une instance PocketBase dédiée (port 8093 sur ce serveur), séparée de Guildes. Le reste de resgestae.fr n'est pas touché. Le build est déjà configuré pour ce chemin (`base: "/table/"` dans `vite.config.js`).
+La table a son propre sous-domaine et sa propre instance PocketBase (port 8093), séparée de Res Gestae et de Guildes : pas de service worker, de connexion ni de cache partagés. Les anciens liens `resgestae.fr/table` sont redirigés.
 
-Dépôt : https://github.com/luceline/table
-
-```bash
-# 1. Vérifier le serveur (lecture seule : ports, PM2, nginx, vhost resgestae.fr, /table libre)
-cd /opt && git clone https://github.com/luceline/table.git && cd table
-bash deploy/check.sh
-
-# 2. Installer (télécharge PocketBase 0.23.4, crée l'admin, lance « pb-table » dans PM2 sur 8091)
-bash deploy/install.sh            # ou PORT=8092 bash deploy/install.sh si 8091 est pris
-```
-
-Pas besoin de `--origins` : appli et API sont sur la même origine (resgestae.fr), pas de CORS.
-
-Nginx : coller le contenu de `deploy/nginx-table.conf` **dans** le bloc `server` HTTPS existant de resgestae.fr, puis `nginx -t && systemctl reload nginx`. Le certificat existant de resgestae.fr couvre déjà `/table/`, pas de certbot à relancer.
-
-**Important pour le temps réel** : `proxy_buffering off` (déjà dans l'extrait). Sans ça, nginx retient les événements temps réel (SSE) et l'adversaire ne voit les coups qu'avec du retard.
+1. DNS : enregistrement `A` `table` -> IP du serveur.
+2. Dépôt : `cd /opt && git clone https://github.com/luceline/table.git && cd table`, puis `PORT=8093 bash deploy/install.sh` (déjà fait sur le serveur actuel).
+3. Nginx : `cp deploy/nginx-table.conf /etc/nginx/sites-available/table`, lien dans `sites-enabled`, `nginx -t && systemctl reload nginx`, puis `certbot --nginx -d table.resgestae.fr`.
+4. Redirection des anciens liens : `deploy/nginx-resgestae.conf` remplace `/etc/nginx/sites-available/resgestae`.
 
 Tableau de bord PocketBase : volontairement bloqué depuis Internet. Pour y accéder :
-`ssh -L 8091:127.0.0.1:8091 root@VPS` puis ouvrir `http://localhost:8091/_/` sur ton PC.
+`ssh -L 8093:127.0.0.1:8093 root@VPS` puis ouvrir `http://localhost:8093/_/` sur ton PC.
 
 ## Mise à jour
 
@@ -84,7 +73,7 @@ cd /opt/table && bash deploy/update.sh
 ```bash
 cd pocketbase && ./pocketbase serve            # port 8090, migrations appliquées au démarrage
 cd web && npm install
-VITE_PB_URL=http://127.0.0.1:8090 npm run dev   # http://localhost:5173/table/
+VITE_PB_URL=http://127.0.0.1:8090 npm run dev   # http://localhost:5173
 ```
 
 ## Limites de la v1 (choix assumés)

@@ -1,6 +1,6 @@
 import PocketBase, { LocalAuthStore } from "pocketbase";
 
-// Même origine en production : PocketBase est derrière le même préfixe que l'appli (/table).
+// Même origine en production : PocketBase sert l appli et l API sur table.resgestae.fr.
 export const PB_URL = (import.meta.env.VITE_PB_URL || window.location.origin + import.meta.env.BASE_URL).replace(/\/$/, "");
 // Clé de session propre à la table : resgestae.fr (même domaine) utilise déjà la clé par défaut "pocketbase_auth"
 export const pb = new PocketBase(PB_URL, new LocalAuthStore("table_auth"));
