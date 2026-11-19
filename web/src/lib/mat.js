@@ -26,7 +26,8 @@ SLOTS.push({ id: "cmd", kind: "commandant", x: 6.5, y: 226, w: 88, h: 63, label:
 
 export const PILES = [
   { id: "d1", x: 111.5, y: 226, w: 88, h: 63, label: "DÉFAUSSE DU TERRITOIRE I", short: "Défausse I" },
-  { id: "d2", x: 203.5, y: 226, w: 88, h: 63, label: "DÉFAUSSE DU TERRITOIRE II", short: "Défausse II" },
+  { id: "d2", x: 256, y: 226, w: 88, h: 63, // centrée sous la magie du milieu du territoire II
+    label: "DÉFAUSSE DU TERRITOIRE II", short: "Défausse II" },
   { id: "d3", x: 400.5, y: 226, w: 88, h: 63, label: "DÉFAUSSE DU TERRITOIRE III", short: "Défausse III" },
   { id: "deck", x: 505.5, y: 226, w: 88, h: 63, label: "DECK", short: "Deck" },
 ];
