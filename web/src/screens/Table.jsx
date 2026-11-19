@@ -11,8 +11,8 @@ import {
 } from "../lib/game.js";
 
 const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
-const BAR = 48; // bandeau PI/PV en portrait (px écran)
-const RAIL = 96; // colonne PI/PV en paysage (px écran)
+export const BAR = 48; // bandeau PI/PV en portrait (px écran)
+export const RAIL = 96; // colonne PI/PV en paysage (px écran)
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
 const PHASE_H = 40; // barre des phases au-dessus de la main (portrait)
 const WIN_PV = 30;
@@ -968,6 +968,18 @@ export default function Table({ go, gameId }) {
 
   // ---------- Partage ----------
   const joinLink = meta ? `${window.location.origin}${window.location.pathname}?join=${meta.code}` : "";
+  // Lien spectateur (lecture seule, sans compte) : à partager sur Discord
+  const watchLink = meta ? `${window.location.origin}${window.location.pathname}?voir=${meta.code}` : "";
+  async function shareWatch() {
+    try {
+      if (navigator.share) await navigator.share({ title: "Regarder la partie", text: "Partie de Safir en direct", url: watchLink });
+      else {
+        await navigator.clipboard.writeText(watchLink);
+        setToast("Lien spectateur copié");
+      }
+    } catch (_) {}
+  }
+
   async function share() {
     try {
       if (navigator.share) await navigator.share({ title: "Rejoins ma partie", text: `Code : ${meta.code}`, url: joinLink });
@@ -1039,10 +1051,12 @@ export default function Table({ go, gameId }) {
                 <div className="small">Vous pouvez déjà préparer votre jeu.</div>
               </div>
             ) : null;
-            const loupe = (which, m) => (
+            // Loupe : sur mon tapis en haut à droite (titre du territoire III) ; pour l'adversaire, dans sa barre PI/PV,
+            // car son coin haut droit est sa zone Commandant
+            const loupe = (which, m, inPanel) => (
               <button
-                className="loupe-btn"
-                style={{ left: m.left + MAT_W * s - 40, top: m.top + 6 }}
+                className={`loupe-btn ${inPanel ? "in-panel" : ""}`}
+                style={inPanel ? null : { left: m.left + MAT_W * s - 40, top: m.top + 6 }}
                 onClick={() => (focus ? setFocus(null) : openFocus(which))}
                 aria-label={focus ? "Revenir aux deux tapis" : "Agrandir ce tapis"}
               >
@@ -1054,9 +1068,8 @@ export default function Table({ go, gameId }) {
               <div className="board" style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} />
+                    <ScorePanel st={opp} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
                     <Mat side="opp" st={opp} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
-                    {loupe("opp", L.opp.mat)}
                   </>
                 )}
                 {L.mine && (
@@ -1247,7 +1260,7 @@ export default function Table({ go, gameId }) {
         userId={user.id}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, hasOpp: !!opp,
+          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp,
         }}
       />
     </div>
@@ -1437,6 +1450,12 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             <button className="btn sm" onClick={A.share}>Partager</button>
           </div>
         )}
+        {meta && (
+          <div className="row" style={{ marginBottom: 12 }}>
+            <span className="muted small grow">Spectateurs : lecture seule, sans compte, mains cachées</span>
+            <button className="btn sm" onClick={A.shareWatch}>📺 Lien spectateur</button>
+          </div>
+        )}
         <div className="actions" style={{ marginBottom: 14 }}>
           <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
           <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>
@@ -1556,7 +1575,7 @@ function TalkButton({ onClip, setToast }) {
 }
 
 // Journal des deux joueurs, du plus récent au plus ancien. ⚠ = action sur le deck à surveiller (recherche, consultation)
-function Journal({ mine, opp, onlyOpp }) {
+export function Journal({ mine, opp, onlyOpp, noFilter }) {
   const [filter, setFilter] = useState(onlyOpp ? "opp" : "all");
   const logs = [
     ...(filter !== "opp" ? (mine?.log || []).map((l) => ({ ...l, who: mine.name, me: true })) : []),
@@ -1564,7 +1583,7 @@ function Journal({ mine, opp, onlyOpp }) {
   ].sort((a, b) => b.t - a.t);
   return (
     <div className="journal">
-      <div className="hand-tabs" style={{ marginBottom: 8 }}>
+      <div className="hand-tabs" style={{ marginBottom: 8, display: noFilter ? "none" : undefined }}>
         <button className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>Tout</button>
         <button className={filter === "opp" ? "on" : ""} onClick={() => setFilter("opp")}>Adversaire seulement</button>
       </div>
@@ -1730,7 +1749,7 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
 }
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
-function Arrows({ L, s, mine, opp, aim }) {
+export function Arrows({ L, s, mine, opp, aim }) {
   const pos = (owner, tgt) => {
     const m = L[owner];
     if (!m) return null;
@@ -1798,7 +1817,7 @@ function Arrows({ L, s, mine, opp, aim }) {
 }
 
 // Position des tapis et des panneaux PI/PV (px écran)
-function boardLayout(side, focus, s) {
+export function boardLayout(side, focus, s) {
   const mw = MAT_W * s;
   const mh = MAT_H * s;
   const gap = GAP * s;
@@ -1836,7 +1855,7 @@ function Stat({ label, k, v, cls, onSet }) {
 }
 
 // Compteurs PI / PV bien visibles à côté de chaque tapis (seul le propriétaire peut les modifier)
-function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif }) {
+export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra }) {
   const ph = st?.phase ? PHASE_BY_ID[st.phase] : null;
   const unif = st?.unif || 0;
   return (
@@ -1859,6 +1878,7 @@ function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif }) {
       )}
       <Stat label="PI" k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine && !onAim ? onSet : null} />
       <Stat label="PV" k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
+      {extra}
     </div>
   );
 }

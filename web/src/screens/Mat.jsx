@@ -51,7 +51,7 @@ export const MatBackground = memo(function MatBackground({ flip }) {
   );
 });
 
-export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming }) {
+export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator }) {
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
@@ -117,7 +117,7 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
           if (!c) return null;
           const dim = c.o === "l" ? CARD.l : CARD.p;
           const p = pt(b.x, b.y);
-          const showFace = !b.down || mine;
+          const showFace = !b.down || (mine && !spectator); // spectateur : cartes face cachée cachées des deux côtés
           return (
             <div
               key={b.iid}
@@ -133,7 +133,7 @@ export function Mat({ side, st, s, top, left = 0, tokens, hover, dragKey, onPres
             >
               {showFace ? <img src={cardUrl(c)} alt="" draggable={false} /> : <div className="back" />}
               {c.tok && <div className="tok-frame" />}
-              {b.down && mine && (
+              {b.down && mine && !spectator && (
                 <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,20,.55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.max(9, 4 * s), color: "#d6be8c", textAlign: "center", lineHeight: 1.1 }}>
                   face<br />cachée
                 </div>

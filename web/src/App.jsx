@@ -6,10 +6,16 @@ import Library from "./screens/Library.jsx";
 import Scanner from "./screens/Scanner.jsx";
 import DeckEditor from "./screens/DeckEditor.jsx";
 import Table from "./screens/Table.jsx";
+import Spectator from "./screens/Spectator.jsx";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
   const c = (p.get("join") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  return c.length === 6 ? c : "";
+}
+
+function readWatchParam() {
+  const c = (new URLSearchParams(window.location.search).get("voir") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
   return c.length === 6 ? c : "";
 }
 
@@ -36,6 +42,10 @@ export default function App() {
     if (name === "table" || !pendingJoin) window.history.replaceState(null, "", url);
     window.scrollTo(0, 0);
   };
+
+  // Spectateur : accessible sans compte, par le lien ?voir=CODE
+  const watch = readWatchParam();
+  if (watch) return <Spectator code={watch} />;
 
   if (!user) return <Auth />;
 

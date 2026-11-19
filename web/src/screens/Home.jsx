@@ -224,6 +224,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               style={{ textTransform: "uppercase" }}
             />
             <button className="btn" onClick={joinGame} disabled={busy}>Rejoindre</button>
+            <button
+              className="btn ghost"
+              title="Regarder la partie en spectateur"
+              disabled={code.length !== 6}
+              onClick={() => { window.location.href = `${window.location.pathname}?voir=${code}`; }}
+            >
+              👁 Regarder
+            </button>
           </div>
         </div>
         {games.length > 0 && (
