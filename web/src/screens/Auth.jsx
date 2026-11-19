@@ -60,6 +60,54 @@ export default function Auth() {
           {busy ? "…" : mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
       </form>
+      <InstallHelp />
+    </div>
+  );
+}
+
+// Rappel : installer l'appli sur l'écran d'accueil (masqué si elle est déjà installée)
+function InstallHelp() {
+  const [copied, setCopied] = useState(false);
+  const ua = navigator.userAgent || "";
+  const standalone = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone;
+  if (standalone) return null;
+  const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const iosNotSafari = ios && /CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua);
+  const url = window.location.origin;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch (_) {}
+  };
+  return (
+    <div className="install card-box">
+      <h2>Installer l'appli sur son téléphone</h2>
+      {iosNotSafari && (
+        <div className="install-warn">
+          <span>Sur iPhone, l'installation ne fonctionne qu'avec <b>Safari</b>. Copiez le lien, puis collez-le dans Safari.</span>
+          <button className="btn sm" onClick={copy}>{copied ? "Lien copié ✓" : `Copier ${url.replace(/^https?:\/\//, "")}`}</button>
+        </div>
+      )}
+      <div className={`install-os ${android ? "here" : ""}`}>
+        <b>Android</b> (Chrome)
+        <ol>
+          <li>Touchez les 3 points <b>⋮</b> en haut à droite.</li>
+          <li>Choisissez <b>Ajouter à l'écran d'accueil</b> (ou <b>Installer l'application</b>).</li>
+        </ol>
+      </div>
+      <div className={`install-os ${ios ? "here" : ""}`}>
+        <b>iPhone</b> (uniquement avec <b>Safari</b>, pas Chrome)
+        <ol>
+          <li>Ouvrez la page dans Safari.</li>
+          <li>Touchez le bouton <b>Partager</b> (carré avec une flèche vers le haut).</li>
+          <li>Choisissez <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li>
+        </ol>
+      </div>
+      <p className="muted small" style={{ margin: 0 }}>
+        L'appli s'ouvre ensuite en plein écran depuis son icône. Reconnectez-vous une fois depuis l'icône.
+      </p>
     </div>
   );
 }
