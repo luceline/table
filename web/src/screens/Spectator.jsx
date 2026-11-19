@@ -6,6 +6,7 @@ import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
 import { normalize, rid } from "../lib/game.js";
 import { playVoice, unlockAudio, onVoiceState } from "../lib/voice.js";
+import { beWatcher, watchCount, specName, setSpecName } from "../lib/tribune.js";
 
 const logLine = (who, m) => (m.startsWith("⚠ ") ? `⚠ ${who} ${m.slice(2)}` : `${who} ${m}`);
 
@@ -25,6 +26,12 @@ export default function Spectator({ code }) {
   const [sound, setSound] = useState(false);
   const [speaking, setSpeaking] = useState(null);
   const [tab, setTab] = useState("log");
+  const [tribune, setTribune] = useState([]); // tchat des spectateurs
+  const [trUnread, setTrUnread] = useState(0);
+  const [watching, setWatching] = useState(0);
+  const tabRef = useRef("log");
+  const trIds = useRef(new Set());
+  tabRef.current = tab;
   const [wide, setWide] = useState(false);
   const [vp, setVp] = useState({ w: 0, h: 0 });
   const vpRef = useRef();
@@ -69,6 +76,13 @@ export default function Spectator({ code }) {
     } else setToast(`💬 ${m.name} : ${m.text}`);
   }, []);
 
+  const applyTrib = useCallback((m, live) => {
+    if (trIds.current.has(m.id)) return;
+    trIds.current.add(m.id);
+    setTribune((l) => [...l, m].slice(-200));
+    if (live && tabRef.current !== "trib") setTrUnread((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     let unsubs = [];
     let alive = true;
@@ -86,6 +100,11 @@ export default function Spectator({ code }) {
         seats.forEach(applySeat);
         setMarks(mk);
         msgs.items.reverse().forEach((m) => applyMsg(m, false));
+        const trib = await pb.collection("tribune").getList(1, 100, { filter: `game="${g.id}"`, sort: "-created", query: q }).catch(() => ({ items: [] }));
+        trib.items.reverse().forEach((m) => applyTrib(m, false));
+        // présence : je compte parmi les spectateurs, et je vois combien nous sommes
+        unsubs.push(beWatcher(g.id, code));
+        unsubs.push(watchCount(g.id, setWatching, q));
         const opt = { filter: `game="${g.id}"`, query: q };
         unsubs.push(await pb.collection("games").subscribe(g.id, (e) => { gameRef.current = e.record; setGame(e.record); }, { query: q }));
         unsubs.push(await pb.collection("seats").subscribe("*", (e) => e.record.game === g.id && applySeat(e.record), opt));
@@ -98,6 +117,7 @@ export default function Spectator({ code }) {
           });
         }, opt));
         unsubs.push(await pb.collection("messages").subscribe("*", (e) => e.action === "create" && e.record.game === g.id && applyMsg(e.record, true), opt).catch(() => () => {}));
+        unsubs.push(await pb.collection("tribune").subscribe("*", (e) => e.action === "create" && e.record.game === g.id && applyTrib(e.record, true), opt).catch(() => () => {}));
       } catch (_) {
         if (alive) setErr("Partie introuvable. Vérifiez le lien ou le code de la partie.");
       }
@@ -179,11 +199,16 @@ export default function Spectator({ code }) {
     <>
       <div className="hand-tabs" style={{ margin: "8px 10px" }}>
         <button className={tab === "log" ? "on" : ""} onClick={() => setTab("log")}>📜 Journal</button>
-        <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Tchat ({messages.length})</button>
+        <button className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>💬 Joueurs ({messages.length})</button>
+        <button className={tab === "trib" ? "on" : ""} onClick={() => { setTab("trib"); setTrUnread(0); }}>
+          📣 Tribune{trUnread > 0 ? <span className="unread in-tab">{trUnread}</span> : ` (${tribune.length})`}
+        </button>
       </div>
       <div className="spec-panel-body">
         {tab === "log" ? (
           <Journal mine={p1} opp={p2} noFilter />
+        ) : tab === "trib" ? (
+          <TribunePanel list={tribune} gameId={game?.id} code={code} setToast={setToast} />
         ) : (
           <div className="chat-list" style={{ maxHeight: "none" }}>
             {messages.length === 0 && <span className="muted small">Aucun message.</span>}
@@ -210,6 +235,7 @@ export default function Spectator({ code }) {
       <div className="tbar">
         <a className="btn sm" href={window.location.pathname} aria-label="Accueil">←</a>
         <span className="spec-badge">👁 SPECTATEUR</span>
+        {watching > 0 && <span className="watch-chip" title="Spectateurs connectés">👁 {watching}</span>}
         <div className="ticker" style={{ flex: 1 }}>{lastLog ? logLine(lastLog.st.name, lastLog.l.m) : game ? `${game.n1 || "Joueur 1"} contre ${game.n2 || "…"}` : "Chargement…"}</div>
         {!sound && <button className="btn sm" onClick={enableSound} title="Entendre les messages vocaux">🔊 Son</button>}
       </div>
@@ -239,6 +265,70 @@ export default function Spectator({ code }) {
           </div>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// Tribune : les spectateurs discutent entre eux ; les joueurs la voient (et peuvent la couper)
+function TribunePanel({ list, gameId, code, setToast }) {
+  const [name, setName] = useState(specName());
+  const [nameDraft, setNameDraft] = useState("");
+  const [txt, setTxt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const lastSent = useRef(0);
+  const listRef = useRef();
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [list.length]);
+
+  async function send(e) {
+    e.preventDefault();
+    const t = txt.trim();
+    if (!t || !gameId || busy) return;
+    if (Date.now() - lastSent.current < 3000) return setToast("Doucement : un message toutes les 3 secondes");
+    setBusy(true);
+    try {
+      await pb.collection("tribune").create({ game: gameId, name, text: t.slice(0, 200) }, { query: { spectate: code } });
+      lastSent.current = Date.now();
+      setTxt("");
+    } catch (_) {
+      setToast("Message non envoyé, réessayez");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="trib-panel">
+      <div className="chat-list" ref={listRef} style={{ maxHeight: "none", flex: 1 }}>
+        {list.length === 0 && <span className="muted small">Aucun message. Les joueurs voient la tribune (ils peuvent la couper).</span>}
+        {list.map((m) => (
+          <div key={m.id} className={`msg trib ${m.name === name ? "me" : ""}`}>
+            <b>{m.name} </b>{m.text}
+          </div>
+        ))}
+      </div>
+      {name ? (
+        <form className="row" onSubmit={send}>
+          <input className="input" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={`${name}, votre message`} maxLength={200} />
+          <button className="btn primary" disabled={!txt.trim() || busy}>Envoyer</button>
+        </form>
+      ) : (
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = nameDraft.trim().slice(0, 24);
+            if (!n) return;
+            setSpecName(n);
+            setName(n);
+          }}
+        >
+          <input className="input" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Votre pseudo pour écrire" maxLength={24} />
+          <button className="btn primary" disabled={!nameDraft.trim()}>OK</button>
+        </form>
+      )}
     </div>
   );
 }

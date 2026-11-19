@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
+import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
-  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON,
+  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal,
 } from "../lib/game.js";
 
 const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
@@ -45,6 +46,15 @@ export default function Table({ go, gameId }) {
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
   const [bubble, setBubble] = useState(null); // dernier message adverse affiché sur son tapis
+  // Spectateurs : nombre connectés, tribune (leur tchat) que chaque joueur peut couper
+  const [watching, setWatching] = useState(0);
+  const [tribune, setTribune] = useState([]);
+  const [trUnread, setTrUnread] = useState(0);
+  const [trMute, setTrMute] = useState(tribuneMuted);
+  const [trBubble, setTrBubble] = useState(null);
+  const trMuteRef = useRef(trMute);
+  const trTabRef = useRef(false); // onglet Tribune ouvert
+  const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
   const [winner, setWinner] = useState(null);
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche
@@ -241,6 +251,48 @@ export default function Table({ go, gameId }) {
     return () => clearTimeout(t);
   }, [bubble]);
   useEffect(() => {
+    if (!trBubble) return;
+    const t = setTimeout(() => setTrBubble(null), 4500);
+    return () => clearTimeout(t);
+  }, [trBubble]);
+
+  // Spectateurs : compteur en direct et tribune
+  useEffect(() => watchCount(gameId, setWatching), [gameId]);
+  useEffect(() => {
+    let unsub = null, alive = true;
+    const add = (m, live) => {
+      if (trIds.current.has(m.id)) return;
+      trIds.current.add(m.id);
+      setTribune((l) => [...l, m].slice(-200));
+      if (!live || trTabRef.current) return;
+      setTrUnread((n) => n + 1);
+      if (!trMuteRef.current) setTrBubble({ name: m.name, text: m.text, k: m.id });
+    };
+    (async () => {
+      try {
+        const r = await pb.collection("tribune").getList(1, 100, { filter: `game="${gameId}"`, sort: "-created" });
+        if (!alive) return;
+        r.items.reverse().forEach((m) => add(m, false));
+        unsub = await pb.collection("tribune").subscribe("*", (e) => e.action === "create" && e.record.game === gameId && add(e.record, true), { filter: `game="${gameId}"` });
+        if (!alive) unsub?.();
+      } catch (_) { /* tribune indisponible */ }
+    })();
+    return () => {
+      alive = false;
+      unsub?.();
+    };
+  }, [gameId]);
+  const muteTribune = (v) => {
+    trMuteRef.current = v;
+    setTrMute(v);
+    setTribuneMuted(v);
+    if (v) setTrBubble(null);
+  };
+  const seeTribune = (open) => {
+    trTabRef.current = open;
+    if (open) setTrUnread(0);
+  };
+  useEffect(() => {
     if (!banner) return;
     const t = setTimeout(() => setBanner(""), 3500);
     return () => clearTimeout(t);
@@ -285,6 +337,30 @@ export default function Table({ go, gameId }) {
     setMine(st);
     pushMine();
   }, [pushMine]);
+
+  // Parties créées avant l'enregistrement des valeurs : on complète une fois la Valeur de mes cartes
+  // depuis ma collection (les cartes d'un deck prêté restent sans valeur si on n'y a pas accès).
+  const valsFilled = useRef(false);
+  useEffect(() => {
+    if (!mine || valsFilled.current) return;
+    const missing = [...new Set(Object.values(mine.cards).filter((c) => !("v" in c)).map((c) => c.c))];
+    valsFilled.current = true;
+    if (!missing.length) return;
+    (async () => {
+      const vals = {};
+      for (let i = 0; i < missing.length; i += 30) {
+        const part = missing.slice(i, i + 30);
+        try {
+          const recs = await pb.collection("cards").getFullList({ filter: part.map((id) => `id="${id}"`).join(" || "), fields: "id,val" });
+          recs.forEach((r) => (vals[r.id] = parseVal(r.val)));
+        } catch { /* cartes inaccessibles : valeur inconnue */ }
+      }
+      mut((st) => {
+        for (const c of Object.values(st.cards)) if (!("v" in c)) c.v = vals[c.c] ?? null;
+        return true; // sans ligne de journal
+      });
+    })();
+  }, [mine, mut]);
 
   const track = async (id, fn) => {
     pendMarks.current[id] = (pendMarks.current[id] || 0) + 1;
@@ -720,7 +796,7 @@ export default function Table({ go, gameId }) {
     const mr = myMatRef.current?.getBoundingClientRect();
     if (inR(mr)) return { area: "mine", x: (cx - mr.left) / sc, y: (cy - mr.top) / sc };
     const or = oppMatRef.current?.getBoundingClientRect();
-    if (inR(or)) return { area: "opp", x: MAT_W - (cx - or.left) / sc, y: MAT_H - (cy - or.top) / sc };
+    if (inR(or)) return { area: "opp", x: (cx - or.left) / sc, y: MAT_H - (cy - or.top) / sc };
     return null;
   }
 
@@ -1023,6 +1099,11 @@ export default function Table({ go, gameId }) {
             <button className="back" onClick={() => setFocus(null)} aria-label="Vue d'ensemble">⤡ Les 2 tapis</button>
           </div>
         )}
+        {watching > 0 && (
+          <span key={watching} className="watch-chip pop" title={`${watching} spectateur${watching > 1 ? "s" : ""} regarde${watching > 1 ? "nt" : ""} la partie`}>
+            👁 {watching}
+          </span>
+        )}
         <button
           className={`btn sm ${wide && panel === "rules" ? "on" : ""}`}
           onClick={() => (wide ? setPanel((p) => (p === "rules" ? "hand" : "rules")) : setSheet({ kind: "rules" }))}
@@ -1033,7 +1114,7 @@ export default function Table({ go, gameId }) {
         </button>
         {canRecord() && <TalkButton onClip={sendVoice} setToast={setToast} />}
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
-          💬{unread > 0 && <span className="unread">{unread}</span>}
+          💬{unread + (trMute ? 0 : trUnread) > 0 && <span className="unread">{unread + (trMute ? 0 : trUnread)}</span>}
         </button>
         <button className="btn sm" onClick={() => setSheet({ kind: "menu" })} aria-label="Menu">☰</button>
       </div>
@@ -1201,6 +1282,19 @@ export default function Table({ go, gameId }) {
           <b>{bubble.name}</b> {bubble.text}
         </div>
       )}
+      {trBubble && !trMute && (
+        <div
+          className="bubble tribune"
+          key={trBubble.k}
+          style={(() => {
+            const r = oppMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
+            return r ? { top: r.top + (bubble ? 58 : 10), left: r.left + r.width / 2 } : null;
+          })()}
+          onClick={() => { setTrBubble(null); setSheet({ kind: "chat", tab: "trib" }); }}
+        >
+          📣 <b>{trBubble.name}</b> {trBubble.text}
+        </div>
+      )}
       {speaking && (
         <div
           className="bubble voice"
@@ -1257,6 +1351,7 @@ export default function Table({ go, gameId }) {
         meta={meta}
         messages={messages}
         userId={user.id}
+        tribune={{ list: tribune, unread: trUnread, mute: trMute, setMute: muteTribune, see: seeTribune, watching }}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
           startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp,
@@ -1266,7 +1361,7 @@ export default function Table({ go, gameId }) {
   );
 }
 
-function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId }) {
+function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId, tribune }) {
   const close = () => setSheet(null);
   const A = actions;
   if (!sheet) return null;
@@ -1468,7 +1563,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
       </Sheet>
     );
   }
-  if (sheet.kind === "chat") return <ChatSheet onClose={close} messages={messages} userId={userId} onSend={A.sendMsg} />;
+  if (sheet.kind === "chat") return <ChatSheet onClose={close} messages={messages} userId={userId} onSend={A.sendMsg} tribune={tribune} startTab={sheet.tab} />;
   if (sheet.kind === "mull" && mine) return <MulliganSheet onClose={close} st={mine} onDo={A.mulligan} />;
   if (sheet.kind === "marker") {
     const t = sheet.id ? tokens.find((x) => x.id === sheet.id) : null;
@@ -1592,19 +1687,61 @@ export function Journal({ mine, opp, onlyOpp, noFilter }) {
   );
 }
 
-function ChatSheet({ onClose, messages, userId, onSend }) {
+function ChatSheet({ onClose, messages, userId, onSend, tribune, startTab }) {
   const [txt, setTxt] = useState("");
+  const [tab, setTab] = useState(startTab === "trib" ? "trib" : "game");
   const listRef = useRef();
+  const T = tribune;
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, tab, T?.list.length]);
+  useEffect(() => {
+    T?.see(tab === "trib");
+    return () => T?.see(false);
+  }, [tab]);
   const send = (t) => {
     onSend(t);
     setTxt("");
   };
+  const tabs = T && (T.list.length > 0 || T.watching > 0) && (
+    <div className="hand-tabs" style={{ marginBottom: 10 }}>
+      <button className={tab === "game" ? "on" : ""} onClick={() => setTab("game")}>💬 Joueurs</button>
+      <button className={tab === "trib" ? "on" : ""} onClick={() => setTab("trib")}>
+        📣 Tribune{T.unread > 0 && tab !== "trib" ? <span className="unread in-tab">{T.unread}</span> : ` (${T.list.length})`}
+      </button>
+    </div>
+  );
+  if (tab === "trib" && T) {
+    return (
+      <Sheet open onClose={onClose} title="Tchat">
+        {tabs}
+        <div className="row" style={{ marginBottom: 8 }}>
+          <span className="muted small grow">
+            {T.watching > 0 ? `👁 ${T.watching} spectateur${T.watching > 1 ? "s" : ""} en ligne. ` : ""}Les spectateurs écrivent ici, vous lisez seulement.
+          </span>
+          <button className={`btn sm ${T.mute ? "on" : ""}`} onClick={() => T.setMute(!T.mute)}>
+            {T.mute ? "🔇 Coupée" : "🔔 Active"}
+          </button>
+        </div>
+        <div className="chat-list" ref={listRef}>
+          {T.list.length === 0 && <span className="muted small">Aucun message des spectateurs.</span>}
+          {T.list.map((m) => (
+            <div key={m.id} className="msg trib">
+              <b>{m.name} </b>{m.text}
+              <span className="t">{new Date(m.created.replace(" ", "T")).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          ))}
+        </div>
+        <p className="muted small" style={{ marginBottom: 0 }}>
+          {T.mute ? "Tribune coupée : pas de bulles ni de compteur, les messages restent lisibles ici." : "Les messages des spectateurs s'affichent en bulle sur le plateau. Coupez la tribune pour rester concentré."}
+        </p>
+      </Sheet>
+    );
+  }
   return (
     <Sheet open onClose={onClose} title="Tchat">
+      {tabs}
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 && <span className="muted small">Aucun message. Les réponses rapides s'envoient en un geste.</span>}
         {messages.map((m) => (
@@ -1759,7 +1896,7 @@ export function Arrows({ L, s, mine, opp, aim }) {
     } else return null;
     return owner === "mine"
       ? { x: m.mat.left + x * s, y: m.mat.top + y * s }
-      : { x: m.mat.left + (MAT_W - x) * s, y: m.mat.top + (MAT_H - y) * s };
+      : { x: m.mat.left + x * s, y: m.mat.top + (MAT_H - y) * s };
   };
   const list = [];
   const seen = {};

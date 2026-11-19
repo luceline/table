@@ -92,7 +92,8 @@ export const PHASES = [
 export const PHASE_BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
 
 // Bonus rappelés sous le badge d'unification (Saison 3, Kin)
-export const UNIF_BONUS = ["", "+1 DEF", "+1 ATK, +1 pioche", "+1 Valeur, +1 PI"];
+// Bonus cumulés : le niveau 2 donne aussi celui du 1, le niveau 3 ceux du 1 et du 2
+export const UNIF_BONUS = ["", "+1 DEF", "+1 ATK, +1 DEF, +1 pioche", "+1 ATK, +1 DEF, +1 Valeur, +1 pioche, +1 PI"];
 
 // phase = null hors de son tour ; turn = numéro de son tour (début de tour à début de tour suivant)
 // arrows = flèches d'attaque / de ciblage ; mull = mulligan déjà fait

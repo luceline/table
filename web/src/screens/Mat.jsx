@@ -8,10 +8,11 @@ import { TOKEN_HEX, MARKER_ICON, territoryValues } from "../lib/game.js";
 const GOLD = "rgba(212,176,97,.5)"; // or du thème Jade et laque
 const GOLD_TXT = "rgba(222,190,118,.78)";
 
-// Fond du tapis en SVG (coordonnées mm). flip = tapis adverse vu en rotation 180°, textes gardés à l'endroit.
+// Fond du tapis en SVG (coordonnées mm). flip = tapis adverse retourné haut/bas seulement (miroir) :
+// ses territoires I, II, III restent face aux miens (I contre I, II contre II, III contre III).
 export const MatBackground = memo(function MatBackground({ flip }) {
-  const R = (x, y, w, h) => (flip ? { x: MAT_W - x - w, y: MAT_H - y - h, w, h } : { x, y, w, h });
-  const P = (x, y) => (flip ? { x: MAT_W - x, y: MAT_H - y } : { x, y });
+  const R = (x, y, w, h) => (flip ? { x, y: MAT_H - y - h, w, h } : { x, y, w, h });
+  const P = (x, y) => (flip ? { x, y: MAT_H - y } : { x, y });
   const rect = (r, key, extra = {}) => (
     <rect key={key} x={r.x} y={r.y} width={r.w} height={r.h} rx={1.5} fill="rgba(0,0,0,.2)" stroke={GOLD} strokeWidth={0.45} {...extra} />
   );
@@ -55,10 +56,10 @@ export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, on
   const mine = side === "mine";
   const flip = !mine;
   const box = (x, y, w, h) => {
-    const r = flip ? { x: MAT_W - x - w, y: MAT_H - y - h } : { x, y };
+    const r = flip ? { x, y: MAT_H - y - h } : { x, y };
     return { left: r.x * s, top: r.y * s, width: w * s, height: h * s };
   };
-  const pt = (x, y) => (flip ? { x: (MAT_W - x) * s, y: (MAT_H - y) * s } : { x: x * s, y: y * s });
+  const pt = (x, y) => (flip ? { x: x * s, y: (MAT_H - y) * s } : { x: x * s, y: y * s });
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 
@@ -73,7 +74,7 @@ export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, on
       {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}
       {st && (() => {
         const me = territoryValues(st), other = territoryValues(vs);
-        // ancré au bord gauche du territoire (bord droit pour le tapis adverse retourné), loin du titre
+        // ancré au bord gauche du territoire, loin du titre
         return [10.5, 207.5, 404.5].map((x, t) => {
           const a = me[t], o = other[t];
           if (!a.n && !o.n) return null;
@@ -83,7 +84,7 @@ export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, on
             <div
               key={t}
               className={`tval ${cls}`}
-              style={{ left: p.x, top: p.y, fontSize: s >= 1 ? Math.round(10.5 * s) : 10, transform: flip ? "translate(-100%, -50%)" : "translate(0, -50%)" }}
+              style={{ left: p.x, top: p.y, fontSize: s >= 1 ? Math.round(10.5 * s) : 10, transform: "translate(0, -50%)" }}
               title={`Valeur des combattants du territoire ${t + 1} (indicatif, hors effets des cartes)`}
             >
               {s >= 1 && <small>val</small>}{a.sum}{a.unknown ? <i>?</i> : null}
@@ -166,15 +167,16 @@ export function Mat({ side, st, vs, s, top, left = 0, tokens, hover, dragKey, on
 
       {/* Jetons */}
       {tokens.map((t) => {
-        let tx = t.x, ty = t.y;
+        let p;
         if (t.on) {
+          // Jeton posé sur une carte : les cartes adverses s'affichent à l'endroit, donc le décalage
+          // du jeton sur la carte n'est pas retourné (même disposition que chez son propriétaire)
           const b = st?.board.find((x) => x.iid === t.on);
           if (!b) return null;
           const [ox, oy] = rotPt(t.dx || 0, t.dy || 0, b.rot || 0);
-          tx = b.x + ox;
-          ty = b.y + oy;
-        }
-        const p = pt(tx, ty);
+          const c = pt(b.x, b.y);
+          p = { x: c.x + ox * s, y: c.y + oy * s };
+        } else p = pt(t.x, t.y);
         if (t.label) {
           // Marqueur de territoire : pastille avec texte et valeur
           const fs = Math.max(11, 5 * s);

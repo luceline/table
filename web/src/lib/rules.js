@@ -114,11 +114,11 @@ export const RULES = [
       {
         k: "Niveaux",
         table: {
-          head: ["Niveau", "Condition (hors Mercenaire)", "Bonus pour Tian / Yan / Lin"],
+          head: ["Niveau", "Condition (hors Mercenaire)", "Bonus cumulés pour Tian / Yan / Lin"],
           rows: [
             ["1", "1 sous-faction Kin", "+1 DEF"],
-            ["2", "2 sous-factions différentes", "+1 ATK et +1 pioche"],
-            ["3", "Tian + Yan + Lin", "+1 Valeur et +1 PI"],
+            ["2", "2 sous-factions différentes", "+1 DEF, +1 ATK et +1 pioche (niveaux 1 et 2)"],
+            ["3", "Tian + Yan + Lin", "+1 DEF, +1 ATK, +1 Valeur, +1 pioche et +1 PI (niveaux 1, 2 et 3)"],
           ],
         },
       },
