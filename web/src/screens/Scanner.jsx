@@ -3,6 +3,7 @@ import { pb, me, errMsg } from "../pb.js";
 import { nameKey } from "../lib/deckrules.js";
 import { readCard, preloadOcr } from "../lib/ocr.js";
 import FactionPicker from "../components/FactionPicker.jsx";
+import { takeFullPhoto } from "../lib/photo.js";
 
 // Taille d'enregistrement des cartes (assez grand pour lire l'effet en jeu)
 const OUT = { p: [900, 1257], l: [1257, 900] };
@@ -141,8 +142,8 @@ export default function Scanner({ go }) {
             dedans, bord à bord, puis validez. Le nom et les valeurs sont ensuite lus automatiquement, à vérifier.
           </p>
           <ul className="muted small tips">
-            <li>Carte bien à plat, téléphone tenu bien parallèle au-dessus.</li>
-            <li>Commandants et cartes en largeur : touchez « Format : paysage » pour coucher le cadre.</li>
+            <li>Téléphone tenu à 15-20 cm, bien parallèle à la carte : de plus près, il ne fait plus la mise au point.</li>
+            <li>Commandants et cartes en largeur : touchez « Carte en largeur ? » pour coucher le cadre.</li>
             <li>Lumière de côté ou indirecte : une lampe juste au-dessus fait des reflets, surtout sur les cartes holographiques.</li>
             <li>Chaque carte ne s'ajoute qu'une fois (par son nom) : le deck permet d'en mettre 2 exemplaires.</li>
           </ul>
@@ -219,10 +220,12 @@ export function StatsFields({ stats, setStats }) {
 
 // Position du cadre dans la zone de visée (px), au format carte, le plus grand possible
 function frameRect(cw, ch, orient) {
+  // Cadre volontairement moyen : le téléphone se tient à 15-20 cm, distance où la mise au point se fait bien
   const r = RATIO[orient];
-  let fw = cw * 0.88, fh = fw / r;
-  if (fh > ch * 0.88) {
-    fh = ch * 0.88;
+  const K = orient === "p" ? 0.6 : 0.7;
+  let fw = cw * K, fh = fw / r;
+  if (fh > ch * 0.62) {
+    fh = ch * 0.62;
     fw = fh * r;
   }
   return { x: (cw - fw) / 2, y: (ch - fh) / 2, w: fw, h: fh };
@@ -236,6 +239,7 @@ function Camera({ orient, setOrient, onCapture, onClose }) {
   const [ready, setReady] = useState(false);
   const [fail, setFail] = useState("");
   const [box, setBox] = useState({ w: 0, h: 0 });
+  const [shooting, setShooting] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -247,7 +251,7 @@ function Camera({ orient, setOrient, onCapture, onClose }) {
       try {
         const st = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 4096 }, height: { ideal: 3072 }, aspectRatio: { ideal: 4 / 3 } },
         });
         if (!alive) return st.getTracks().forEach((t) => t.stop());
         streamRef.current = st;
@@ -285,20 +289,26 @@ function Camera({ orient, setOrient, onCapture, onClose }) {
     return () => ro.disconnect();
   }, [fail]);
 
-  function capture() {
+  async function capture() {
     const v = videoRef.current;
-    if (!v?.videoWidth || !box.w) return;
+    if (!v?.videoWidth || !box.w || shooting) return;
     // La vidéo remplit la zone (object-fit: cover) : conversion du cadre affiché en pixels de la vidéo
     const s = Math.max(box.w / v.videoWidth, box.h / v.videoHeight);
     const ox = (box.w - v.videoWidth * s) / 2, oy = (box.h - v.videoHeight * s) / 2;
     const f = frameRect(box.w, box.h, orient);
+    const vx = (f.x - ox) / s, vy = (f.y - oy) / s, vw = f.w / s, vh = f.h / s;
+    // Image de secours tout de suite (flux vidéo), puis tentative de vraie photo pleine résolution
     const [W, H] = OUT[orient];
     const c = document.createElement("canvas");
     c.width = W;
     c.height = H;
     const ctx = c.getContext("2d");
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(v, (f.x - ox) / s, (f.y - oy) / s, f.w / s, f.h / s, 0, 0, W, H);
+    ctx.drawImage(v, vx, vy, vw, vh, 0, 0, W, H);
+    setShooting(true);
+    const ph = await takeFullPhoto(streamRef.current?.getVideoTracks()[0], v);
+    if (ph) ctx.drawImage(ph.src, ph.x + vx * ph.k, ph.y + vy * ph.k, vw * ph.k, vh * ph.k, 0, 0, W, H);
+    setShooting(false);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     onCapture(c, orient);
   }
@@ -331,15 +341,21 @@ function Camera({ orient, setOrient, onCapture, onClose }) {
             ))}
           </svg>
         )}
-        <div className="cam-hint">{ready ? "Placez la carte dans le cadre, bord à bord" : "Ouverture de l'appareil photo…"}</div>
+        <div className="cam-hint">
+          {!ready
+            ? "Ouverture de l'appareil photo…"
+            : shooting
+              ? "Photo… ne bougez plus"
+              : "Téléphone à 15-20 cm : la carte remplit le cadre, sans reflet"}
+        </div>
       </div>
       <div className="row cam-bar">
         <button className="btn ghost" onClick={onClose}>Fermer</button>
         <button className="btn" onClick={() => setOrient(orient === "p" ? "l" : "p")}>
-          {orient === "p" ? "Format : portrait" : "Format : paysage"}
+          {orient === "p" ? "Carte en largeur ?" : "Carte en hauteur ?"}
         </button>
         <span className="grow" />
-        <button className="btn primary cam-shot" onClick={capture} disabled={!ready}>Valider</button>
+        <button className="btn primary cam-shot" onClick={capture} disabled={!ready || shooting}>{shooting ? "Photo…" : "Valider"}</button>
       </div>
     </>
   );
