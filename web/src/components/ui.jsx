@@ -23,6 +23,10 @@ export function Sheet({ open, onClose, title, children }) {
   return (
     <div className="sheet-back" onPointerDown={(e) => armed && e.target === e.currentTarget && onClose?.()}>
       <div className={`sheet ${armed ? "" : "arming"}`} role="dialog">
+        {/* Bouton Fermer toujours visible : sur certains téléphones le panneau couvre tout l'écran visible */}
+        <div className="sheet-top">
+          <button className="sheet-x" onClick={() => onClose?.()} aria-label="Fermer">✕</button>
+        </div>
         <div className="grab" />
         {title && <h3>{title}</h3>}
         {children}
