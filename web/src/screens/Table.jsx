@@ -70,6 +70,11 @@ export default function Table({ go, gameId }) {
   const [winner, setWinner] = useState(null);
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche ({v: [u, v]} depuis un tapis filmé)
   const [camGeo, setCamGeo] = useState({}); // tapis filmés affichés : { mine|opp: { ar, rot } } (placement des flèches)
+  // Face à un joueur filmé (Safir) : son image est vue « assis en face » (retournée) et mes territoires sont inversés
+  // (III · II · I) pour rester face aux siens. Le joueur filmé, lui, garde l'affichage habituel.
+  const mirrorMine = TCG !== "fab" && !!opp?.filmed && !mine?.filmed;
+  const mirrorRef = useRef(false);
+  mirrorRef.current = mirrorMine;
   const [pings, setPings] = useState([]); // [{owner: "mine"|"opp", iid, k}]
   const [speaking, setSpeaking] = useState(null); // message vocal en cours de lecture
   const mainRef = useRef();
@@ -891,7 +896,10 @@ export default function Table({ go, gameId }) {
     if (!inR(vr)) return null;
     const sc = sRef.current;
     const mr = myMatRef.current?.getBoundingClientRect();
-    if (inR(mr)) return { area: "mine", x: (cx - mr.left) / sc, y: (cy - mr.top) / sc };
+    if (inR(mr)) {
+      const x = (cx - mr.left) / sc;
+      return { area: "mine", x: mirrorRef.current ? MAT_W - x : x, y: (cy - mr.top) / sc };
+    }
     const or = oppMatRef.current?.getBoundingClientRect();
     if (inR(or)) return { area: "opp", x: (cx - or.left) / sc, y: MAT_H - (cy - or.top) / sc };
     return null;
@@ -1288,7 +1296,7 @@ export default function Table({ go, gameId }) {
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
-                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rot={opp.camRot || 0} name={opp.name}
+                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rot={((opp.camRot || 0) + (mirrorMine ? 180 : 0)) % 360} name={opp.name}
                         side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))}
                         waitText={rtc.ok ? `En attente de la caméra de ${opp.name}…` : "Ce navigateur ne permet pas la vidéo en direct."}
                       />
@@ -1303,7 +1311,7 @@ export default function Table({ go, gameId }) {
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" st={mine} vs={opp} bg={matBgOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
                     {mine?.filmed && (
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1323,7 +1331,7 @@ export default function Table({ go, gameId }) {
                     {loupe("mine", L.mine.mat)}
                   </>
                 )}
-                <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} />
+                <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} flipMine={mirrorMine} />
               </div>
             );
           })()}
@@ -2137,7 +2145,7 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
 }
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
-export function Arrows({ L, s, mine, opp, aim, cams }) {
+export function Arrows({ L, s, mine, opp, aim, cams, flipMine }) {
   const pos = (owner, tgt) => {
     const m = L[owner];
     if (!m) return null;
@@ -2158,6 +2166,7 @@ export function Arrows({ L, s, mine, opp, aim, cams }) {
       x = TITLES[tgt.t].x;
       y = 125;
     } else return null;
+    if (owner === "mine" && flipMine) x = MAT_W - x;
     return owner === "mine"
       ? { x: m.mat.left + x * s, y: m.mat.top + y * s }
       : { x: m.mat.left + x * s, y: m.mat.top + (MAT_H - y) * s };
