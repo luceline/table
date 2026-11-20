@@ -661,6 +661,13 @@ export default function Table({ go, gameId }) {
       return `met ses ${kind.toUpperCase()} à ${nv}`;
     }, kind);
 
+  // Joueur filmé : sens de l'image de sa caméra, le même chez tous (si le téléphone est posé dans l'autre sens)
+  const flipCam = () =>
+    mut((st) => {
+      st.camRot = st.camRot === 180 ? 0 : 180;
+      return "retourne l'image de sa caméra";
+    });
+
   // Joueur filmé : montrer une carte de sa collection (elle n'est pas dans l'état de partie)
   const showScan = (rec) =>
     mut((st) => {
@@ -1281,7 +1288,7 @@ export default function Table({ go, gameId }) {
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
-                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rotKey="table_cam_rot_opp2" defRot={0} name={opp.name}
+                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rot={opp.camRot || 0} name={opp.name}
                         side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))}
                         waitText={rtc.ok ? `En attente de la caméra de ${opp.name}…` : "Ce navigateur ne permet pas la vidéo en direct."}
                       />
@@ -1300,7 +1307,7 @@ export default function Table({ go, gameId }) {
                     {mine?.filmed && (
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
-                        stream={rtc.myCam?.stream} state={rtc.myCam?.state} rotKey="table_cam_rot_me" defRot={0} name="votre caméra"
+                        stream={rtc.myCam?.stream} state={rtc.myCam?.state} rot={mine.camRot || 0} onRot={flipCam} name="votre caméra"
                         side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))}
                       >
                         <CamSetup link={rtc.camLink} compact={MAT_H * s < 260} />

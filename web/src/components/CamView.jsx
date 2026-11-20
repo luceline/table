@@ -60,25 +60,10 @@ export function videoPointAt(ov, clientX, clientY) {
 }
 
 // Tapis filmé : la vidéo prend la place du tapis numérique d'un joueur qui joue avec ses cartes réelles.
-// rot : 0 par défaut, y compris pour le tapis du haut : l'image reste dans le sens du joueur filmé, ses territoires
-// sont donc en face des miens (I face à I, comme le tapis numérique adverse) et ses cartes restent lisibles.
-// 180 (bouton ↻) : vue « assis en face », territoires croisés.
-export function CamOverlay({ left, top, w, h, stream, state, rotKey, defRot = 0, name, waitText, children, side, onGeom }) {
-  const [rot, setRot] = useState(() => {
-    try {
-      const v = localStorage.getItem(rotKey);
-      return v === null ? defRot : Number(v) || 0;
-    } catch (_) {
-      return defRot;
-    }
-  });
-  const flip = () => {
-    const r = rot === 180 ? 0 : 180;
-    setRot(r);
-    try {
-      localStorage.setItem(rotKey, String(r));
-    } catch (_) {}
-  };
+// rot : sens de l'image, réglé par le joueur filmé et le même pour tous (enregistré dans son état de partie).
+// Si son image est à l'endroit pour lui, elle l'est pour tous : territoires I face à I, cartes lisibles.
+// Seul le joueur filmé a le bouton ↻ (onRot) : un réglage par spectateur ou par adversaire croiserait les territoires.
+export function CamOverlay({ left, top, w, h, stream, state, rot = 0, onRot, name, waitText, children, side, onGeom }) {
   const live = hasVideo(stream) && state === "connected";
   const [ar, setAr] = useState(0);
   useEffect(() => {
@@ -103,7 +88,7 @@ export function CamOverlay({ left, top, w, h, stream, state, rotKey, defRot = 0,
       {live && (
         <>
           <span className="cam-live">● direct{name ? ` · ${name}` : ""}</span>
-          <button className="cam-rot" onClick={flip} aria-label="Retourner l'image" title="Retourner l'image">↻</button>
+          {onRot && <button className="cam-rot" onClick={onRot} aria-label="Retourner l'image pour tous" title="Retourner l'image (pour tous)">↻</button>}
         </>
       )}
     </div>
