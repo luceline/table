@@ -11,7 +11,10 @@ import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
   PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife,
 } from "../lib/game.js";
-import { activateTcg, tcgOf } from "../lib/tcg.js";
+import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
+import { useTableRtc } from "../lib/useTableRtc.js";
+import { audioOut } from "../lib/rtc.js";
+import { CamOverlay, QrImg } from "../components/CamView.jsx";
 
 const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
 export const BAR = 48; // bandeau PI/PV en portrait (px écran)
@@ -70,6 +73,13 @@ export default function Table({ go, gameId }) {
   const [speaking, setSpeaking] = useState(null); // message vocal en cours de lecture
   const mainRef = useRef();
   const sheetRef = useRef(null);
+  // Vocal en direct et caméra d'un joueur filmé (pair à pair)
+  const rtc = useTableRtc({ gameId, userId: user.id, meta, mine, opp });
+  const oppMicSeen = useRef(false);
+  useEffect(() => {
+    if (rtc.oppMic && !oppMicSeen.current && !rtc.mic && opp) setToast(`🎧 ${opp.name} a ouvert son micro : touchez 🎧 pour lui répondre`);
+    oppMicSeen.current = rtc.oppMic;
+  }, [rtc.oppMic]);
   const msgIds = useRef(new Set());
   const lastOppPhase = useRef(undefined);
   const lastPing = useRef(null);
@@ -147,8 +157,9 @@ export default function Table({ go, gameId }) {
       lastOppLog.current = last ? last.t : 0;
       // Carte montrée par l'adversaire (ignorée au premier chargement)
       const rv = o.reveal;
-      if (rv && lastReveal.current !== null && rv.t > lastReveal.current && o.cards[rv.iid]) {
-        setSheet({ kind: "view", c: o.cards[rv.iid], title: `${o.name} vous montre`, hint: o.cards[rv.iid].n });
+      const rvc = rv && (rv.card || o.cards[rv.iid]);
+      if (rv && lastReveal.current !== null && rv.t > lastReveal.current && rvc) {
+        setSheet({ kind: "view", c: rvc, title: `${o.name} vous montre`, hint: rvc.n });
       }
       lastReveal.current = rv ? rv.t : 0;
       // Fin du tour adverse : c'est à moi
@@ -648,6 +659,13 @@ export default function Table({ go, gameId }) {
       return `met ses ${kind.toUpperCase()} à ${nv}`;
     }, kind);
 
+  // Joueur filmé : montrer une carte de sa collection (elle n'est pas dans l'état de partie)
+  const showScan = (rec) =>
+    mut((st) => {
+      st.reveal = { iid: `x${rid(6)}`, t: Date.now(), card: { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p" } };
+      return `montre « ${rec.name || "une carte"} »`;
+    });
+
   const showCard = (iid) =>
     mut((st) => {
       if (!st.cards[iid]) return false;
@@ -1124,7 +1142,7 @@ export default function Table({ go, gameId }) {
     <div
       className={`table ${cardBackOf(user) ? "has-back" : ""}`}
       onContextMenu={(e) => e.preventDefault()}
-      onPointerDownCapture={unlockAudio}
+      onPointerDownCapture={() => { unlockAudio(); audioOut.resume(); }}
       style={{ WebkitTouchCallout: "none", ...(cardBackOf(user) ? { "--card-back": `url("${cardBackOf(user)}")` } : null) }}
     >
       <div className="tbar">
@@ -1133,7 +1151,7 @@ export default function Table({ go, gameId }) {
           <>
             <div className="who">
               <b>{opp.name}</b>
-              <span className="muted" style={{ fontSize: 11 }}>main {opp.hand.length} · deck {opp.deck.length}</span>
+              <span className="muted" style={{ fontSize: 11 }}>{opp.filmed ? "cartes réelles, filmées" : `main ${opp.hand.length} · deck ${opp.deck.length}`}</span>
             </div>
           </>
         ) : (
@@ -1167,6 +1185,16 @@ export default function Table({ go, gameId }) {
         >
           📖
         </button>
+        {rtc.ok && (
+          <button
+            className={`btn sm voice-btn ${rtc.mic ? "on" : ""} ${!rtc.mic && rtc.oppMic ? "ping" : ""}`}
+            onClick={() => setSheet({ kind: "voice" })}
+            aria-label="Vocal en direct"
+            title="Vocal en direct"
+          >
+            🎧
+          </button>
+        )}
         {canRecord() && <TalkButton onClip={sendVoice} setToast={setToast} />}
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
           💬{unread + (trMute ? 0 : trUnread) > 0 && <span className="unread">{unread + (trMute ? 0 : trUnread)}</span>}
@@ -1204,13 +1232,28 @@ export default function Table({ go, gameId }) {
               <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} hand={opp ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
+                    <ScorePanel st={opp} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
                     <Mat side="opp" st={opp} vs={mine} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
+                    {opp?.filmed && (
+                      <CamOverlay
+                        left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
+                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rotKey="table_cam_rot_opp" defRot={180} name={opp.name}
+                        waitText={rtc.ok ? `En attente de la caméra de ${opp.name}…` : "Ce navigateur ne permet pas la vidéo en direct."}
+                      />
+                    )}
                   </>
                 )}
                 {L.mine && (
                   <>
                     <Mat side="mine" st={mine} vs={opp} bg={matBgOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    {mine?.filmed && (
+                      <CamOverlay
+                        left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
+                        stream={rtc.myCam?.stream} state={rtc.myCam?.state} rotKey="table_cam_rot_me" defRot={0} name="votre caméra"
+                      >
+                        <CamSetup link={rtc.camLink} compact={MAT_H * s < 260} />
+                      </CamOverlay>
+                    )}
                     <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
@@ -1223,6 +1266,16 @@ export default function Table({ go, gameId }) {
 
         <div className="side">
           <PhaseBar st={mine} opp={opp} onPhase={setPhase} onEnd={endTurn} onClear={() => clearArrows()} />
+          {mine?.filmed ? (
+            <FilmedSide
+              cam={rtc.myCam}
+              onQr={() => setSheet({ kind: "camqr" })}
+              onShow={() => setSheet({ kind: "showpick" })}
+              wide={wide}
+              journal={<Journal mine={mine} opp={opp} />}
+            />
+          ) : (
+          <>
           <div className="controls">
             <button className="btn sm primary" onClick={() => draw(1)} disabled={!mine}>
               Piocher <span style={{ opacity: 0.7 }}>({mine?.deck.length ?? 0})</span>
@@ -1308,6 +1361,8 @@ export default function Table({ go, gameId }) {
               </>
             )}
           </div>
+          )}
+          </>
           )}
         </div>
       </div>
@@ -1428,19 +1483,33 @@ export default function Table({ go, gameId }) {
         messages={messages}
         userId={user.id}
         tribune={{ list: tribune, unread: trUnread, mute: trMute, setMute: muteTribune, see: seeTribune, watching }}
+        rtc={rtc}
+        gameTcg={TCG}
+        setToast={setToast}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck,
+          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
         }}
       />
     </div>
   );
 }
 
-function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId, tribune }) {
+function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId, tribune, rtc, setToast }) {
   const close = () => setSheet(null);
   const A = actions;
   if (!sheet) return null;
+
+  if (sheet.kind === "voice") return <VoiceSheet onClose={close} rtc={rtc} opp={opp} watching={tribune.watching} setToast={setToast} />;
+  if (sheet.kind === "camqr") {
+    return (
+      <Sheet open onClose={close} title="Caméra de votre table">
+        <CamSetup link={rtc.camLink} />
+        <p className="muted small">État : {camState(rtc.myCam)}</p>
+      </Sheet>
+    );
+  }
+  if (sheet.kind === "showpick") return <ShowPickSheet onClose={close} userId={userId} onPick={(rec) => { A.showScan(rec); close(); }} />;
 
   if (sheet.kind === "card" && mine) {
     const { iid, zone } = sheet;
@@ -1634,9 +1703,18 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         )}
         <div className="actions" style={{ marginBottom: 14 }}>
           <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
+          {mine?.filmed ? (
+            <>
+              <button className="btn" onClick={() => setSheet({ kind: "camqr" })}>📷 Caméra de ma table</button>
+              <button className="btn" onClick={() => setSheet({ kind: "showpick" })}>Montrer une carte</button>
+            </>
+          ) : (
+            <>
           {TCG !== "fab" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>}
           <button className="btn" onClick={() => { A.shuffleDeck(); close(); }}>Mélanger mon deck</button>
           <button className="btn" onClick={() => { close(); A.resetMine(); }}>Tout remettre dans le deck</button>
+            </>
+          )}
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
         </div>
         <h3>Journal</h3>
@@ -2110,5 +2188,133 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
       <Stat label={counterLabel("pv")} k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
       {extra}
     </div>
+  );
+}
+
+// ---------- Joueur filmé et vocal en direct ----------
+const camState = (p) =>
+  !p ? "téléphone pas encore connecté" : p.state === "connected" ? "en direct" : p.state === "failed" || p.state === "disconnected" ? "connexion perdue, nouvel essai…" : "connexion en cours…";
+
+// Lien et QR code du téléphone qui filme le tapis réel du joueur
+function CamSetup({ link, compact }) {
+  const [copied, setCopied] = useState(false);
+  if (!link) return <div className="cam-setup muted small">Préparation du lien caméra…</div>;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch (_) {}
+  };
+  return (
+    <div className={`cam-setup ${compact ? "compact" : ""}`}>
+      <QrImg text={link} size={compact ? 110 : 170} />
+      <div className="cam-steps">
+        <b>Filmez votre tapis</b>
+        <ol>
+          <li>Placez un téléphone au-dessus de votre tapis (support, perche ou pile de livres).</li>
+          <li>Scannez ce QR code avec ce téléphone, ou ouvrez-y le lien.</li>
+          <li>Cadrez le tapis en entier, téléphone à l'horizontale.</li>
+        </ol>
+        {!compact && <p className="muted small" style={{ margin: "4px 0" }}>Ce lien est secret : il permet de filmer pour vous. Ne le partagez pas.</p>}
+        <button className="btn sm" onClick={copy}>{copied ? "Lien copié ✓" : "Copier le lien"}</button>
+      </div>
+    </div>
+  );
+}
+
+// Colonne de droite (ou bas) pour un joueur filmé : pas de main ni de pioche, tout est sur sa table
+function FilmedSide({ cam, onQr, onShow, wide, journal }) {
+  return (
+    <div className="filmed-side">
+      <p className="small" style={{ marginTop: 0 }}>
+        🎥 Vous jouez avec vos cartes réelles : votre adversaire voit votre tapis filmé. Main, pioche et défausses restent sur votre table ;
+        gérez ici vos compteurs et vos phases.
+      </p>
+      <div className="row" style={{ flexWrap: "wrap" }}>
+        <button className={`btn sm ${cam?.state === "connected" ? "" : "primary"}`} onClick={onQr}>📷 Caméra : {camState(cam)}</button>
+        <button className="btn sm" onClick={onShow}>Montrer une carte</button>
+      </div>
+      {wide && <div className="side-log" style={{ marginTop: 10 }}>{journal}</div>}
+    </div>
+  );
+}
+
+// Choisir une carte scannée de sa collection pour la montrer en grand à l'adversaire
+function ShowPickSheet({ onClose, userId, onPick }) {
+  const [list, setList] = useState(null);
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    pb.collection("cards")
+      .getFullList({ filter: `owner="${userId}" && ${tcgFilter(TCG)}`, sort: "name", fields: "id,name,image,orient" })
+      .then(setList)
+      .catch(() => setList([]));
+  }, [userId]);
+  const fold = (t) => (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const shown = (list || []).filter((c) => !q.trim() || fold(c.name).includes(fold(q.trim())));
+  return (
+    <Sheet open onClose={onClose} title="Montrer une carte">
+      <p className="muted small" style={{ marginTop: 0 }}>Votre adversaire la voit en grand, comme si vous la lui tendiez. Seules vos cartes scannées sont proposées.</p>
+      <input className="input" placeholder="Rechercher par nom" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 10 }} />
+      {list === null && <p className="muted small">Chargement…</p>}
+      {list?.length === 0 && <p className="muted small">Aucune carte scannée pour ce jeu.</p>}
+      <div className="pile-grid">
+        {shown.slice(0, 120).map((c) => (
+          <div key={c.id} className="thumb" style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null} onClick={() => onPick(c)}>
+            <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
+            <div className="cap">{c.name}</div>
+          </div>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+// Vocal en direct : micro, son de l'adversaire, écoute des spectateurs
+function VoiceSheet({ onClose, rtc, opp, watching, setToast }) {
+  const [busy, setBusy] = useState(false);
+  const link = rtc.oppLink?.state;
+  const oppTxt = !opp
+    ? "pas encore d'adversaire"
+    : link === "connected"
+      ? rtc.oppMic ? "micro ouvert" : "micro fermé"
+      : link === "failed" || link === "disconnected" ? "connexion perdue, nouvel essai…" : "connexion en cours…";
+  async function on() {
+    setBusy(true);
+    try {
+      await rtc.micOn();
+      setToast("🎧 Micro ouvert : votre adversaire vous entend");
+    } catch (_) {
+      setToast("Micro inaccessible : autorisez-le pour ce site dans les réglages du navigateur.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Sheet open onClose={onClose} title="Vocal en direct">
+      <p className="muted small" style={{ marginTop: 0 }}>
+        Le son passe directement d'appareil à appareil, sans enregistrement. Avec des haut-parleurs, l'écho est filtré ; un casque reste plus confortable.
+      </p>
+      <div className="voice-row">
+        <span className="grow">Mon micro : <b>{rtc.mic ? "ouvert" : "fermé"}</b></span>
+        {rtc.mic ? (
+          <button className="btn sm" onClick={rtc.micOff}>Couper mon micro</button>
+        ) : (
+          <button className="btn sm primary" onClick={on} disabled={busy}>Ouvrir mon micro</button>
+        )}
+      </div>
+      <div className="voice-row">
+        <span className="grow">{opp?.name || "Adversaire"} : <b>{oppTxt}</b></span>
+        {opp && <button className="btn sm" onClick={() => rtc.muteOpp(!rtc.oppMuted)}>{rtc.oppMuted ? "Rétablir le son" : "Couper le son"}</button>}
+      </div>
+      <div className="voice-row">
+        <span className="grow">
+          Spectateurs : <b>{rtc.specHear ? "vous entendent" : "ne vous entendent pas"}</b>
+          {rtc.specHear && rtc.listeners > 0 ? <span className="muted small"> · {rtc.listeners} à l'écoute</span> : watching > 0 ? <span className="muted small"> · {watching} connecté{watching > 1 ? "s" : ""}</span> : null}
+        </span>
+        <button className="btn sm" onClick={() => rtc.setSpecHear(!rtc.specHear)}>{rtc.specHear ? "Ne plus m'entendre" : "M'entendre"}</button>
+      </div>
+      <p className="muted small">Les messages 🎤 du talkie-walkie restent disponibles.</p>
+    </Sheet>
   );
 }

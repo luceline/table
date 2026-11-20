@@ -9,6 +9,8 @@ import { activateTcg, tcgOf } from "../lib/tcg.js";
 import { PILE_BY_ID } from "../lib/mat.js";
 import { playVoice, unlockAudio, onVoiceState } from "../lib/voice.js";
 import { beWatcher, watchCount, specName, setSpecName } from "../lib/tribune.js";
+import { Mesh, rtcOk, audioOut, camId, specPeerId } from "../lib/rtc.js";
+import { CamOverlay } from "../components/CamView.jsx";
 
 const logLine = (who, m) => (m.startsWith("⚠ ") ? `⚠ ${who} ${m.slice(2)}` : `${who} ${m}`);
 
@@ -60,8 +62,9 @@ export default function Spectator({ code }) {
       const lg = st.log?.[st.log.length - 1];
       if (lg && lg.t > prev.log) setToast(logLine(st.name, lg.m));
       if (st.ping && st.ping.t > prev.ping) addPing(st.ping.s === "me" ? who : who === "p1" ? "p2" : "p1", st.ping.iid);
-      if (st.reveal && st.reveal.t > prev.reveal && st.cards[st.reveal.iid]) {
-        setView({ c: st.cards[st.reveal.iid], title: `${st.name} montre une carte de sa main` });
+      const rvc = st.reveal && (st.reveal.card || st.cards[st.reveal.iid]);
+      if (st.reveal && st.reveal.t > prev.reveal && rvc) {
+        setView({ c: rvc, title: st.reveal.card ? `${st.name} montre une carte` : `${st.name} montre une carte de sa main` });
       }
     }
     last.current[who] = { log: st.log?.[st.log.length - 1]?.t || 0, ping: st.ping?.t || 0, reveal: st.reveal?.t || 0 };
@@ -137,6 +140,56 @@ export default function Spectator({ code }) {
     return () => onVoiceState(null);
   }, []);
 
+  // Son en direct des joueurs et caméra d'un joueur filmé (pair à pair), reçus seulement
+  const [peers, setPeers] = useState({});
+  const meshRef = useRef(null);
+  const touched = useRef(new Set());
+  const seatFilmed = useRef({});
+  useEffect(() => {
+    if (!game?.id || !rtcOk()) return;
+    const m = new Mesh({
+      gameId: game.id,
+      self: specPeerId(),
+      query: q,
+      plan: (peer) => {
+        const g = gameRef.current;
+        if (!g) return null;
+        if (peer === g.p1 || (g.p2 && peer === g.p2)) return { offer: false, audio: "recv" };
+        if (peer.startsWith("cam-") && seatFilmed.current[peer.slice(4)]) return { offer: false, video: "recv" };
+        return null;
+      },
+      onPeer: (id, info) => {
+        setPeers((cur) => {
+          const n = { ...cur };
+          if (info) n[id] = { ...info, v: (cur[id]?.v || 0) + 1 };
+          else delete n[id];
+          return n;
+        });
+        if (!id.startsWith("cam-")) audioOut.set(id, info?.stream || null);
+      },
+    });
+    audioOut.mute(!soundRef.current);
+    meshRef.current = m;
+    m.start([]);
+    return () => {
+      m.stop();
+      audioOut.clear();
+      meshRef.current = null;
+      touched.current = new Set();
+    };
+  }, [game?.id]);
+  useEffect(() => {
+    const m = meshRef.current;
+    if (!m || !game) return;
+    seatFilmed.current = { [game.p1]: !!p1?.filmed, ...(game.p2 ? { [game.p2]: !!p2?.filmed } : null) };
+    const want = [game.p1, game.p2, p1?.filmed && camId(game.p1), p2?.filmed && game.p2 && camId(game.p2)].filter(Boolean);
+    for (const t of want) {
+      if (touched.current.has(t)) continue;
+      touched.current.add(t);
+      m.touch(t);
+    }
+  }, [game?.id, game?.p2, !!p1?.filmed, !!p2?.filmed, !!meshRef.current]);
+
   // Taille de la zone de jeu
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1000px) and (min-aspect-ratio: 5/4)");
@@ -161,7 +214,8 @@ export default function Spectator({ code }) {
     unlockAudio();
     soundRef.current = true;
     setSound(true);
-    setToast("Son activé : les messages vocaux seront lus");
+    audioOut.mute(false);
+    setToast("Son activé : vous entendez les joueurs (vocal en direct et messages vocaux)");
   }
 
   // Toucher une carte visible : agrandissement
@@ -197,7 +251,7 @@ export default function Spectator({ code }) {
   const L = boardLayout(side, null, s);
   const tokens = (who) => marks.filter((t) => t.side === who);
   // mains et decks : dans la barre de chaque joueur (sur le tapis, l'étiquette cachait commandant et défausse)
-  const count = (st) => (st ? `deck ${st.deck.length}` : "");
+  const count = (st) => (st ? (st.filmed ? "cartes réelles, filmées" : `deck ${st.deck.length}`) : "");
   const lastLog = [p1, p2]
     .filter(Boolean)
     .map((st) => ({ st, l: st.log?.[st.log.length - 1] }))
@@ -246,16 +300,22 @@ export default function Spectator({ code }) {
         <span className="spec-badge">👁 SPECTATEUR</span>
         {watching > 0 && <span className="watch-chip" title="Spectateurs connectés">👁 {watching}</span>}
         <div className="ticker" style={{ flex: 1 }}>{lastLog ? logLine(lastLog.st.name, lastLog.l.m) : game ? `${game.n1 || "Joueur 1"} contre ${game.n2 || "…"}` : "Chargement…"}</div>
-        {!sound && <button className="btn sm" onClick={enableSound} title="Entendre les messages vocaux">🔊 Son</button>}
+        {!sound && <button className="btn sm" onClick={enableSound} title="Entendre les joueurs">🔊 Son</button>}
       </div>
       <div className="spec-main">
         <div className="viewport" ref={vpRef}>
           {game && vp.w > 0 && (
             <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
-              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 ? p2.hand.length : null} />
+              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
               <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
+              {p2?.filmed && (
+                <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rotKey="table_cam_rot_spec2" defRot={180} name={p2.name} />
+              )}
               <Mat side="mine" st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
-              <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 ? p1.hand.length : null} />
+              {p1?.filmed && (
+                <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rotKey="table_cam_rot_spec1" defRot={0} name={p1.name} />
+              )}
+              <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
               <Arrows L={L} s={s} mine={p1} opp={p2} />
             </div>
           )}

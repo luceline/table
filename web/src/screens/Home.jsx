@@ -41,6 +41,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [busy, setBusy] = useState(false);
   const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
   const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
+  const [filmed, setFilmed] = useState(false); // je joue avec mes cartes réelles, filmées par un téléphone
   const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
@@ -126,6 +127,13 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const myName = user.name || user.email.split("@")[0];
 
   function myState() {
+    if (filmed) {
+      // cartes réelles : aucun deck dans l'appli, l'adversaire voit le tapis filmé
+      const st = buildState({ name: myName, deck: { id: "", name: "Cartes réelles", entries: [] }, cardsById: {} });
+      st.filmed = true;
+      st.log = [{ t: Date.now(), m: "joue avec ses cartes réelles, filmées en direct" }];
+      return st;
+    }
     const deck = decks.find((d) => d.id === deckId);
     if (!deck) throw new Error("Choisissez un deck.");
     const chk = checkDeckFor(deck, cardsById);
@@ -162,7 +170,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setBusy(true);
     try {
       const state = myState();
-      const lent = decks.find((d) => d.id === loanId);
+      const lent = filmed ? null : decks.find((d) => d.id === loanId);
       if (lent) {
         const chk = checkDeckFor(lent, cardsById);
         if (!chk.ok) throw new Error(`Deck à prêter « ${lent.name} » non conforme : ${chk.problems.join(" ")}`);
@@ -224,6 +232,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         throw new Error(`Cette partie est une partie de ${tcgName(tcgOf(g))}. Le jeu a été sélectionné : choisissez un deck puis touchez à nouveau « Rejoindre ».`);
       }
       if (g.p2) throw new Error("Cette partie a déjà deux joueurs.");
+      if (filmed) return await sit(g, false);
       if (g.loan?.cards?.length) {
         // Deck prêté disponible : direct si je n'ai pas de deck, sinon je choisis
         if (!decks.length) return await sit(g, true);
@@ -326,7 +335,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
       <div className="card-box">
         <h2>Jouer</h2>
-        {decks.length === 0 ? (
+        <label className="init-toggle filmed-toggle">
+          <input type="checkbox" checked={filmed} onChange={(e) => setFilmed(e.target.checked)} />
+          <span>
+            <b>🎥 Je joue avec mes cartes réelles</b>
+            <span className="muted small"> : un téléphone filme mon tapis et mon adversaire le voit en direct. Il me faut un deuxième écran (ordinateur, tablette) pour voir son tapis.</span>
+          </span>
+        </label>
+        {filmed ? null : decks.length === 0 ? (
           <p className="muted small">
             Pas encore de deck ? Vous pouvez rejoindre une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour créer vos propres parties, scannez vos cartes puis créez un deck.
           </p>
@@ -352,7 +368,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           </>
         )}
         <div className="row" style={{ flexWrap: "wrap" }}>
-          <button className="btn primary" onClick={createGame} disabled={busy || !decks.length}>Créer une partie</button>
+          <button className="btn primary" onClick={createGame} disabled={busy || (!decks.length && !filmed)}>Créer une partie</button>
           <div className="row grow" style={{ minWidth: 230, flexWrap: "wrap" }}>
             <input
               className="input code"
@@ -428,7 +444,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <>
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 4 }}>
           {!openForm && (
-            <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length}>
+            <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length && !filmed}>
               Ouvrir une table
             </button>
           )}
@@ -454,7 +470,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <input className="input" value={openForm.note} maxLength={80} placeholder={tcg === "fab" ? "Ex. Blitz, débutants bienvenus" : "Ex. Partie détente, débutants bienvenus"} onChange={(e) => setOpenForm({ ...openForm, note: e.target.value })} />
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Avec votre deck « {decks.find((d) => d.id === deckId)?.name || "?"} »{decks.find((d) => d.id === loanId) ? ` et le prêt « ${decks.find((d) => d.id === loanId).name} »` : ""} (choisis dans « Jouer »).
+              {filmed ? "Avec vos cartes réelles, filmées (choisi dans « Jouer »)." : <>Avec votre deck « {decks.find((d) => d.id === deckId)?.name || "?"} »{decks.find((d) => d.id === loanId) ? ` et le prêt « ${decks.find((d) => d.id === loanId).name} »` : ""} (choisis dans « Jouer »).</>}
             </p>
             <div className="row">
               <button className="btn primary" onClick={openTable} disabled={busy}>{openForm.later ? "Programmer la table" : "Ouvrir et attendre"}</button>

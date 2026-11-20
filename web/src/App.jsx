@@ -9,6 +9,7 @@ import DeckEditorFab from "./screens/DeckEditorFab.jsx";
 import { TCG } from "./lib/game.js";
 import Table from "./screens/Table.jsx";
 import Spectator from "./screens/Spectator.jsx";
+import Cam from "./screens/Cam.jsx";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -19,6 +20,15 @@ function readJoinParam() {
 function readWatchParam() {
   const c = (new URLSearchParams(window.location.search).get("voir") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
   return c.length === 6 ? c : "";
+}
+
+// Téléphone caméra d'un joueur filmé : ?cam=CODE&p=JOUEUR&k=CLÉ
+function readCamParam() {
+  const p = new URLSearchParams(window.location.search);
+  const code = (p.get("cam") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  const player = p.get("p") || "";
+  const key = (p.get("k") || "").replace(/[^a-z0-9]/g, "");
+  return code.length === 6 && /^[a-z0-9]{15}$/.test(player) && key.length >= 12 ? { code, player, key } : null;
 }
 
 function readGameParam() {
@@ -46,6 +56,8 @@ export default function App() {
   };
 
   // Spectateur : accessible sans compte, par le lien ?voir=CODE
+  const cam = readCamParam();
+  if (cam) return <Cam code={cam.code} player={cam.player} camKey={cam.key} />;
   const watch = readWatchParam();
   if (watch) return <Spectator code={watch} />;
 

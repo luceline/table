@@ -627,3 +627,37 @@ html { background: var(--bg); }
 .lobby-tabs button.on { background: var(--panel); border-color: var(--gold2, var(--accent)); color: var(--gold, var(--text)); }
 .lobby-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--text); font-size: 12px; line-height: 20px; }
 .lobby-n.live { background: var(--danger, #c0392b); color: #fff; }
+
+/* ---------- Vidéo et vocal en direct ---------- */
+.cam-overlay { position: absolute; z-index: 6; background: #07080b; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); }
+.cam-overlay .cam-video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.cam-wait { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px; text-align: center; color: var(--muted); font-size: 13px; width: 100%; height: 100%; }
+.cam-wait-ico { font-size: 28px; }
+.cam-live { position: absolute; left: 8px; top: 6px; font-size: 11px; font-weight: 700; color: #fff; background: rgba(200,30,30,.85); padding: 2px 8px; border-radius: 10px; letter-spacing: .3px; pointer-events: none; }
+.cam-rot { position: absolute; left: 8px; bottom: 8px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.55); color: #fff; font-size: 16px; cursor: pointer; }
+.cam-setup { display: flex; gap: 14px; align-items: center; justify-content: center; text-align: left; width: 100%; height: 100%; padding: 10px; color: var(--text); font-size: 13px; }
+.cam-setup.compact { gap: 8px; padding: 6px; font-size: 11px; }
+.cam-setup.compact ol { padding-left: 16px; margin: 4px 0; }
+.cam-setup ol { padding-left: 18px; margin: 6px 0; }
+.cam-setup li { margin: 2px 0; }
+.cam-steps { max-width: 360px; min-width: 0; }
+.qr-img { background: #fff; border-radius: 8px; padding: 6px; flex: none; image-rendering: pixelated; }
+.filmed-side { padding: 10px 12px; border-top: 1px solid var(--line); }
+.voice-btn.on { background: #1f7a4a; border-color: #34c27a; color: #fff; }
+.voice-btn.ping { box-shadow: 0 0 0 2px #34c27a; animation: voicePing 1.6s ease-in-out infinite; }
+@keyframes voicePing { 50% { box-shadow: 0 0 0 5px rgba(52,194,122,.25); } }
+.voice-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.filmed-toggle { margin-bottom: 12px; }
+
+/* Téléphone caméra */
+.cam-page { position: fixed; inset: 0; background: #000; color: #eee; display: flex; flex-direction: column; }
+.cam-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.cam-preview { width: 100%; height: 100%; object-fit: contain; }
+.cam-guide { position: absolute; width: min(92%, calc((100vh - 120px) * 2)); aspect-ratio: 2 / 1; max-height: 86%; border: 2px dashed rgba(255,255,255,.75); border-radius: 8px; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; }
+.cam-guide span { background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 8px; font-size: 12px; margin-top: 6px; }
+.cam-intro { margin: auto; max-width: 520px; padding: 20px; }
+.cam-intro ol { padding-left: 18px; line-height: 1.5; }
+.cam-hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0,0,0,.8) 30%); display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.cam-hud-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cam-hud .cam-live { position: static; }
+.cam-warn { background: rgba(214,169,59,.9); color: #111; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
