@@ -1,6 +1,6 @@
 import { memo } from "react";
 import {
-  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt,
+  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, mirrorX, mirrorRectX,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG } from "../lib/game.js";
@@ -12,9 +12,10 @@ const GOLD_TXT = "rgba(222,190,118,.78)";
 // ses territoires I, II, III restent face aux miens (I contre I, II contre II, III contre III).
 // flipX = mon tapis inversé gauche/droite (III · II · I), face à un joueur filmé dont l'image est vue « assis en face ».
 export const MatBackground = memo(function MatBackground({ flip, flipX }) {
-  const fx = (x, w = 0) => (flipX ? MAT_W - x - w : x);
-  const R = (x, y, w, h) => (flip ? { x: fx(x, w), y: MAT_H - y - h, w, h } : { x: fx(x, w), y, w, h });
-  const P = (x, y) => (flip ? { x: fx(x), y: MAT_H - y } : { x: fx(x), y });
+  const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
+  const fp = (x, y) => (flipX ? mirrorX(x, y) : x);
+  const R = (x, y, w, h) => (flip ? { x: fr(x, y, w, h), y: MAT_H - y - h, w, h } : { x: fr(x, y, w, h), y, w, h });
+  const P = (x, y) => (flip ? { x: fp(x, y), y: MAT_H - y } : { x: fp(x, y), y });
   const rect = (r, key, extra = {}) => (
     <rect key={key} x={r.x} y={r.y} width={r.w} height={r.h} rx={1.5} fill="rgba(0,0,0,.2)" stroke={GOLD} strokeWidth={0.45} {...extra} />
   );
@@ -68,12 +69,13 @@ export const MatBackground = memo(function MatBackground({ flip, flipX }) {
 export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX }) {
   const mine = side === "mine";
   const flip = !mine;
-  const fx = (x, w = 0) => (flipX ? MAT_W - x - w : x);
+  const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
+  const fp = (x, y) => (flipX ? mirrorX(x, y) : x);
   const box = (x, y, w, h) => {
-    const r = flip ? { x: fx(x, w), y: MAT_H - y - h } : { x: fx(x, w), y };
+    const r = flip ? { x: fr(x, y, w, h), y: MAT_H - y - h } : { x: fr(x, y, w, h), y };
     return { left: r.x * s, top: r.y * s, width: w * s, height: h * s };
   };
-  const pt = (x, y) => (flip ? { x: fx(x) * s, y: (MAT_H - y) * s } : { x: fx(x) * s, y: y * s });
+  const pt = (x, y) => (flip ? { x: fp(x, y) * s, y: (MAT_H - y) * s } : { x: fp(x, y) * s, y: y * s });
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 

@@ -6,7 +6,7 @@ import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
-import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt } from "../lib/mat.js";
+import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
   PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife,
@@ -897,8 +897,8 @@ export default function Table({ go, gameId }) {
     const sc = sRef.current;
     const mr = myMatRef.current?.getBoundingClientRect();
     if (inR(mr)) {
-      const x = (cx - mr.left) / sc;
-      return { area: "mine", x: mirrorRef.current ? MAT_W - x : x, y: (cy - mr.top) / sc };
+      const x = (cx - mr.left) / sc, y = (cy - mr.top) / sc;
+      return { area: "mine", x: mirrorRef.current ? mirrorX(x, y) : x, y };
     }
     const or = oppMatRef.current?.getBoundingClientRect();
     if (inR(or)) return { area: "opp", x: (cx - or.left) / sc, y: MAT_H - (cy - or.top) / sc };
@@ -2166,7 +2166,7 @@ export function Arrows({ L, s, mine, opp, aim, cams, flipMine }) {
       x = TITLES[tgt.t].x;
       y = 125;
     } else return null;
-    if (owner === "mine" && flipMine) x = MAT_W - x;
+    if (owner === "mine" && flipMine) x = mirrorX(x, y);
     return owner === "mine"
       ? { x: m.mat.left + x * s, y: m.mat.top + y * s }
       : { x: m.mat.left + x * s, y: m.mat.top + (MAT_H - y) * s };

@@ -150,3 +150,10 @@ export function rotPt(x, y, deg) {
   const s = Math.round(Math.sin(a) * 1e6) / 1e6;
   return [x * c - y * s, x * s + y * c];
 }
+
+// Tapis Safir inversé gauche/droite face à un joueur filmé (III · II · I) : les territoires et leurs défausses
+// s'inversent, mais le commandant reste à gauche et le deck à droite, comme d'habitude.
+// Même règle dans les deux sens (affichage et toucher) : x reste x dans ces deux coins, devient MAT_W - x ailleurs.
+const keepCorner = (x, y) => y >= 222 && (x <= 100 || x >= 500);
+export const mirrorX = (x, y) => (keepCorner(x, y) ? x : MAT_W - x);
+export const mirrorRectX = (x, y, w, h) => (keepCorner(x + w / 2, y + h / 2) ? x : MAT_W - x - w);
