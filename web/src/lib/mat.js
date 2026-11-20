@@ -2,9 +2,9 @@
 // Toutes les coordonnées sont en mm, origine en haut à gauche du tapis du joueur.
 
 export const MAT_W = 600;
-export const MAT_H = 300;
+export let MAT_H = 300; // Safir 300 ; Flesh and Blood 386 (une rangée de plus pour la chaîne de combat)
 export const GAP = 10; // espace entre les deux tapis à l'écran
-export const BOARD_H = MAT_H * 2 + GAP;
+export let BOARD_H = MAT_H * 2 + GAP;
 
 export const CARD = { p: { w: 63, h: 88 }, l: { w: 88, h: 63 } };
 
@@ -41,30 +41,32 @@ const SAFIR_TITLES = [
 const SAFIR_DIVIDERS = [201.5, 398.5];
 
 // ---------- Flesh and Blood : schéma maison des zones (pas le visuel officiel) ----------
-// 9 colonnes de 63 mm, 3 rangées de 88 mm. La rangée du haut (chaîne de combat) est au centre de la table.
-// Coin haut droit laissé libre : la loupe du tapis s'y affiche.
+// Disposition du tapis officiel (traduite) : chaîne de combat en haut, au centre de la table ;
+// à gauche tête, torse, bras, jambes ; au centre arme, héros, arme et l'arsenal dessous ;
+// à droite cimetière, pitch, deck, bannis. Zone libre au-dessus des armes : l'arène (auras, objets, alliés).
+// 9 colonnes de 63 mm ; coin haut droit laissé libre pour la loupe du tapis.
 const FX = [6, 72, 138, 204, 270, 336, 402, 468, 534];
-const FY = [6, 104, 202];
+const FY = [6, 104, 198, 292];
+const FAB_H = 386;
 const fs = (id, kind, c, r, label, name) => ({ id, kind, x: FX[c], y: FY[r], w: 63, h: 88, label, name });
 const FAB_SLOTS = [
-  fs("head", "head", 0, 0, "TÊTE", "Tête"),
-  ...[1, 2, 3, 4, 5, 6, 7].map((c, i) => fs(`ch${i}`, "chain", c, 0, "CHAÎNE", "la chaîne de combat")),
-  fs("chest", "chest", 0, 1, "TORSE", "Torse"),
-  fs("w1", "weapon", 1, 1, "ARME", "Arme"),
-  fs("hero", "hero", 2, 1, "HÉROS", "Héros"),
-  fs("w2", "weapon", 3, 1, "ARME", "Arme"),
-  ...[4, 5, 6].map((c, i) => fs(`ar${i}`, "arena", c, 1, "ARÈNE", "l'arène")),
-  fs("arms", "arms", 0, 2, "BRAS", "Bras"),
-  fs("legs", "legs", 1, 2, "JAMBES", "Jambes"),
-  fs("arsenal", "arsenal", 2, 2, "ARSENAL", "l'arsenal"),
-  ...[3, 4, 5, 6].map((c, i) => fs(`ar${i + 3}`, "arena", c, 2, "ARÈNE", "l'arène")),
+  ...[0, 1, 2, 3, 4, 5, 6, 7].map((c, i) => fs(`ch${i}`, "chain", c, 0, "CHAÎNE", "la chaîne de combat")),
+  fs("head", "head", 0, 1, "TÊTE", "Tête"),
+  ...[2, 3, 4, 5, 6].map((c, i) => fs(`ar${i}`, "arena", c, 1, "ARÈNE", "l'arène")),
+  fs("chest", "chest", 0, 2, "TORSE", "Torse"),
+  fs("arms", "arms", 1, 2, "BRAS", "Bras"),
+  fs("w1", "weapon", 3, 2, "ARME", "Arme"),
+  fs("hero", "hero", 4, 2, "HÉROS", "Héros"),
+  fs("w2", "weapon", 5, 2, "ARME", "Arme"),
+  fs("legs", "legs", 0, 3, "JAMBES", "Jambes"),
+  fs("arsenal", "arsenal", 4, 3, "ARSENAL", "l'arsenal"),
 ];
 const fp = (id, c, r, lines, short, de, dans) => ({ id, x: FX[c], y: FY[r], w: 63, h: 88, lines, label: lines.join(" "), short, de, dans });
 const FAB_PILES = [
-  fp("pitch", 7, 1, ["PITCH"], "Pitch", "de sa zone de pitch", "dans sa zone de pitch"),
-  fp("deck", 8, 1, ["DECK"], "Deck", "de son deck", "dans son deck"),
-  fp("banish", 7, 2, ["BANNIS"], "Bannis", "de ses cartes bannies", "en bannissement"),
-  fp("grave", 8, 2, ["CIMETIÈRE"], "Cimetière", "de son cimetière", "dans son cimetière"),
+  fp("pitch", 7, 2, ["PITCH"], "Pitch", "de sa zone de pitch", "dans sa zone de pitch"),
+  fp("deck", 8, 2, ["DECK"], "Deck", "de son deck", "dans son deck"),
+  fp("grave", 8, 1, ["CIMETIÈRE"], "Cimetière", "de son cimetière", "dans son cimetière"),
+  fp("banish", 8, 3, ["BANNIS"], "Bannis", "de ses cartes bannies", "en bannissement"),
 ];
 
 // ---------- Géométrie du jeu actif (liaisons vivantes : les écrans lisent toujours la valeur courante) ----------
@@ -79,6 +81,8 @@ export let MAT_KIND = "safir";
 export function setGeometry(id) {
   const fab = id === "fab";
   MAT_KIND = fab ? "fab" : "safir";
+  MAT_H = fab ? FAB_H : 300;
+  BOARD_H = MAT_H * 2 + GAP;
   SLOTS = fab ? FAB_SLOTS : SAFIR_SLOTS;
   PILES = fab ? FAB_PILES : SAFIR_PILES;
   PILE_BY_ID = Object.fromEntries(PILES.map((p) => [p.id, p]));

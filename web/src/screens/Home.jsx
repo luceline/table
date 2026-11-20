@@ -1,11 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
 import { checkDeck, checkDeckFor } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
 import TutoVideo from "../components/TutoVideo.jsx";
-import MatBgSettings, { CardBackSettings } from "../components/MatBgSettings.jsx";
+import MatBgSettings, { CardBackSettings, ThemeSettings } from "../components/MatBgSettings.jsx";
+import { applyTheme, storedTheme } from "../lib/theme.js";
+import { useStats, plural } from "../lib/stats.js";
 import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, activateTcg } from "../lib/tcg.js";
+
+// Dates PocketBase (« AAAA-MM-JJ HH:MM:SS.sssZ ») et affichage en heure locale
+const pbDate = (v) => String(v || "").replace(" ", "T");
+function fmtWhen(v) {
+  const d = new Date(pbDate(v));
+  if (isNaN(d)) return "";
+  const today = new Date();
+  const tom = new Date(today.getTime() + 86400000);
+  const hm = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return `aujourd'hui à ${hm}`;
+  if (d.toDateString() === tom.toDateString()) return `demain à ${hm}`;
+  return `${d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à ${hm}`;
+}
+const localInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
 export default function Home({ go, pendingJoin, clearJoin }) {
   const user = me();
@@ -17,8 +33,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [joinChoice, setJoinChoice] = useState(null); // partie avec deck prêté : choisir lequel jouer
   const [code, setCode] = useState(pendingJoin || "");
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState("");
+  // Tables ouvertes : parties en attente visibles de tous les joueurs du jeu choisi
+  const [openTables, setOpenTables] = useState([]);
+  const [openForm, setOpenForm] = useState(null); // { later: bool, when: "AAAA-MM-JJTHH:MM", note }
   const [busy, setBusy] = useState(false);
-  const [tcg, setTcg] = useState(() => activateTcg(currentTcg())); // jeu sélectionné : collection, decks et parties de ce jeu seulement
+  const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
+  const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
+  // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
+  const [themeKey, setThemeKey] = useState(0);
+  useEffect(() => {
+    if (user?.theme && user.theme !== storedTheme()) {
+      applyTheme(user.theme);
+      setThemeKey((k) => k + 1);
+    }
+  }, []); // jeu sélectionné : collection, decks et parties de ce jeu seulement
 
   async function load(id = tcg) {
     try {
@@ -43,6 +72,41 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   }
   useEffect(() => { load(); }, []);
 
+  async function loadOpen(id = tcg) {
+    try {
+      const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString().replace("T", " ");
+      const list = await pb.collection("games").getFullList({
+        filter: `open = true && p2 = "" && status = "waiting" && ${tcgFilter(id)} && (created >= "${since}" || opens_at >= "${since}")`,
+        sort: "opens_at,created",
+        fields: "id,code,p1,n1,opens_at,note,created,loan",
+      });
+      setOpenTables(list);
+    } catch (_) { /* champ absent avant mise à jour du serveur */ }
+  }
+  const tcgRef = useRef(tcg);
+  tcgRef.current = tcg;
+  useEffect(() => {
+    loadOpen();
+    let unsub = null, alive = true;
+    pb.collection("games").subscribe("*", (e) => { if (e.record.open || e.action === "delete") loadOpen(tcgRef.current); })
+      .then((u) => (alive ? (unsub = u) : u()))
+      .catch(() => {});
+    const t = setInterval(() => loadOpen(tcgRef.current), 60000); // les tables qui ouvrent passent en « ouverte »
+    return () => { alive = false; unsub?.(); clearInterval(t); };
+  }, []);
+
+  function openTable() {
+    const f = openForm || {};
+    let opensAt = "";
+    if (f.later) {
+      const d = new Date(f.when || "");
+      if (!f.when || isNaN(d)) return setErr("Choisissez la date et l'heure d'ouverture.");
+      if (d < new Date(Date.now() - 60000)) return setErr("Cette heure est déjà passée.");
+      opensAt = d.toISOString().replace("T", " ");
+    }
+    createGame({ open: true, opensAt, note: (f.note || "").trim().slice(0, 80), stay: !!opensAt });
+  }
+
   function pickTcg(id) {
     if (id === tcg) return;
     setCurrentTcg(id);
@@ -50,6 +114,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setTcg(id);
     setErr("");
     load(id);
+    loadOpen(id);
   }
 
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
@@ -88,7 +153,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     });
   }
 
-  async function createGame() {
+  async function createGame(opts = {}) {
     setErr("");
     setBusy(true);
     try {
@@ -102,12 +167,22 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       let rec = null;
       for (let i = 0; i < 4 && !rec; i++) {
         try {
-          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: state.name, status: "waiting", loan, tcg });
+          rec = await pb.collection("games").create({
+            code: genCode(), p1: user.id, n1: state.name, status: "waiting", loan, tcg,
+            ...(opts.open ? { open: true, opens_at: opts.opensAt || "", note: opts.note || "" } : null),
+          });
         } catch (e) {
           if (i === 3) throw e;
         }
       }
       await pb.collection("seats").create({ game: rec.id, player: user.id, state });
+      if (opts.stay) {
+        // table ouverte plus tard : on reste sur l'accueil
+        setOpenForm(null);
+        setInfo(`Votre table ouvrira ${fmtWhen(opts.opensAt)}. Si quelqu'un s'assoit, la partie apparaîtra dans « Parties en cours ».`);
+        load();
+        return;
+      }
       go("table", { gameId: rec.id });
     } catch (e) {
       setErr(errMsg(e));
@@ -129,6 +204,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         throw new Error("Aucune partie ouverte avec ce code.");
       }
       clearJoin();
+      await joinRecord(g);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function joinRecord(g) {
       if (g.p1 === user.id || g.p2 === user.id) return go("table", { gameId: g.id });
       if (tcgOf(g) !== tcg) {
         // partie d'un autre jeu : on bascule sur ce jeu pour choisir un de ses decks
@@ -143,8 +227,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       }
       if (!decks.length) throw new Error("Vous n'avez pas encore de deck, et cette partie n'en prête pas.");
       await sit(g, false);
+  }
+
+  // S'asseoir à une table ouverte
+  async function sitOpen(g) {
+    setErr("");
+    setInfo("");
+    if (g.opens_at && new Date(pbDate(g.opens_at)) > new Date()) return setErr(`Cette table ouvre ${fmtWhen(g.opens_at)}.`);
+    setBusy(true);
+    try {
+      const fresh = await pb.collection("games").getOne(g.id).catch(() => null);
+      if (!fresh || fresh.p2) throw new Error("Trop tard : quelqu'un s'est déjà assis à cette table.");
+      await joinRecord(fresh);
     } catch (e) {
       setErr(errMsg(e));
+      loadOpen();
     } finally {
       setBusy(false);
     }
@@ -210,8 +307,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           ))}
         </div>
       )}
+      {stats && (
+        <p className="players-count">
+          👥 {plural(stats.users, "joueur inscrit", "joueurs inscrits")}
+          {stats.tcg?.[tcg] != null && <>, dont {stats.tcg[tcg]} avec des cartes {tcgName(tcg)}</>}
+        </p>
+      )}
 
       {err && <div className="err">{err}</div>}
+      {info && <div className="info-msg">{info}</div>}
 
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
@@ -286,6 +390,70 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
+      <div className="card-box open-tables">
+        <div className="row">
+          <h2 className="grow" style={{ margin: 0 }}>Tables ouvertes</h2>
+          {!openForm && (
+            <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length}>
+              Ouvrir une table
+            </button>
+          )}
+        </div>
+        <p className="muted small">
+          Une table visible par tous les joueurs de {tcgName(tcg)} : le premier disponible s'assoit, sans échanger de code.
+          Vous pouvez aussi annoncer une heure : « je joue ce soir à 21 h ».
+        </p>
+        {openForm && (
+          <div className="open-form">
+            <div className="hand-tabs" style={{ marginBottom: 8 }}>
+              <button className={!openForm.later ? "on" : ""} onClick={() => setOpenForm({ ...openForm, later: false })}>Maintenant</button>
+              <button className={openForm.later ? "on" : ""} onClick={() => setOpenForm({ ...openForm, later: true })}>À une heure précise</button>
+            </div>
+            {openForm.later && (
+              <div className="field">
+                <label>Ouverture de la table</label>
+                <input className="input" type="datetime-local" value={openForm.when} min={localInput(new Date())} onChange={(e) => setOpenForm({ ...openForm, when: e.target.value })} />
+              </div>
+            )}
+            <div className="field">
+              <label>Message <span className="muted">(facultatif)</span></label>
+              <input className="input" value={openForm.note} maxLength={80} placeholder={tcg === "fab" ? "Ex. Blitz, débutants bienvenus" : "Ex. Partie détente, débutants bienvenus"} onChange={(e) => setOpenForm({ ...openForm, note: e.target.value })} />
+            </div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Avec votre deck « {decks.find((d) => d.id === deckId)?.name || "?"} »{decks.find((d) => d.id === loanId) ? ` et le prêt « ${decks.find((d) => d.id === loanId).name} »` : ""} (choisis dans « Jouer »).
+            </p>
+            <div className="row">
+              <button className="btn primary" onClick={openTable} disabled={busy}>{openForm.later ? "Programmer la table" : "Ouvrir et attendre"}</button>
+              <button className="btn ghost" onClick={() => setOpenForm(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
+        {openTables.length === 0 && !openForm && <p className="muted small" style={{ marginBottom: 0 }}>Aucune table ouverte pour le moment.</p>}
+        <div className="list">
+          {openTables.map((g) => {
+            const later = g.opens_at && new Date(pbDate(g.opens_at)) > new Date();
+            const minePlace = g.p1 === user.id;
+            return (
+              <div className="list-item open-item" key={g.id}>
+                <div className="grow">
+                  <div><b>{g.n1 || "Joueur"}</b>{g.loan?.cards?.length ? <span className="muted small"> · prête un deck</span> : null}</div>
+                  {g.note && <div className="small">« {g.note} »</div>}
+                  <div className={`small ${later ? "muted" : "open-now"}`}>{later ? `🕘 Ouvre ${fmtWhen(g.opens_at)}` : "● Ouverte, en attente d'un adversaire"}</div>
+                </div>
+                {minePlace ? (
+                  <>
+                    <span className="muted small">Votre table</span>
+                    <button className="btn sm ghost danger" onClick={() => removeGame(g)} aria-label="Fermer ma table">✕</button>
+                  </>
+                ) : (
+                  <button className="btn sm primary" onClick={() => sitOpen(g)} disabled={busy || later}>S'asseoir</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quel deck jouer ?">
         {joinChoice && (
           <div className="actions">
@@ -330,6 +498,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </div>
       </div>
 
+      <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
     </div>

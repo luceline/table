@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
+import { THEMES, applyTheme, storedTheme } from "../lib/theme.js";
 
 // Image idéale : 2400 x 1200 px, au format 2:1 du tapis (60 x 30 cm). Toute image est recadrée au centre
 // à ce format puis réduite à 2400 px de large au plus (JPEG), pour rester légère à charger.
@@ -193,6 +194,30 @@ export function CardBackSettings() {
           </div>
           {msg && <p className="small muted" style={{ marginBottom: 0 }}>{msg}</p>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Thème de l'appli ----------
+export function ThemeSettings() {
+  const [cur, setCur] = useState(storedTheme());
+  async function pick(id) {
+    setCur(applyTheme(id));
+    const u = me();
+    if (u) pb.collection("users").update(u.id, { theme: id }).catch(() => {});
+  }
+  return (
+    <div className="card-box">
+      <h2>Thème de l'appli</h2>
+      <p className="muted small" style={{ marginTop: 0 }}>L'apparence de l'appli et des tapis, pour vous seul. Vos adversaires gardent le leur.</p>
+      <div className="theme-pick">
+        {THEMES.map((t) => (
+          <button key={t.id} className={cur === t.id ? "on" : ""} onClick={() => pick(t.id)} aria-pressed={cur === t.id}>
+            <span className={`sw ${t.id}`}><i /><i /></span>
+            <span className="nm">{t.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

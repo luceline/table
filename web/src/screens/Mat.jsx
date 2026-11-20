@@ -27,7 +27,15 @@ export const MatBackground = memo(function MatBackground({ flip }) {
     );
   };
   const els = [];
-  els.push(<rect key="frame" x={3} y={3} width={594} height={294} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
+  els.push(<rect key="frame" x={3} y={3} width={594} height={MAT_KIND === "fab" ? MAT_H - 6 : 294} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
+  if (MAT_KIND === "fab") {
+    // Flesh and Blood : filet sous la chaîne de combat, avec son titre
+    const a = P(6, 99), b = P(597, 99);
+    els.push(<line key="chainl" x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={GOLD} strokeWidth={0.5} />);
+    const c = P(300, 99);
+    els.push(<rect key="chainbg" x={c.x - 46} y={c.y - 4} width={92} height={8} fill="#0f0c0b" />);
+    els.push(text(300, 99, "CHAÎNE DE COMBAT", 6.4, "chaint", { fontWeight: 600 }));
+  }
   for (const x of DIVIDERS) {
     const a = P(x, 12), b = P(x, 289);
     els.push(<line key={`dv${x}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={GOLD} strokeWidth={0.4} strokeDasharray="2 2" />);

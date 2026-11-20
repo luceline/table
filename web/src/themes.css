@@ -1,0 +1,179 @@
+/* ======================================================================
+   Thèmes au choix du joueur (Accueil > Thème de l'appli). Jade et laque = styles.css (défaut).
+   Chaque bloc s'active par <html data-theme="...">.
+   ====================================================================== */
+
+/* ---------------- Grimoire : cuir, parchemin, sceaux de cire, or ---------------- */
+html[data-theme="grimoire"] {
+  --bg: #1d110a;
+  --bg2: #140b06;
+  --panel: #2a180e;
+  --line: #6a4a22;
+  --text: #f1e3c2;
+  --muted: #c9b28a;
+  --gold: #c79a45;
+  --gold2: #9a7432;
+  --lacquer: #8e1f16;
+  --lacquer-dark: #5a120c;
+  --jade: #4a7a3a;
+  --jade-light: #a8d69a;
+  --danger: #e0614f;
+  --ok: #9fd29a;
+  --serif: "Cinzel", Georgia, serif;
+  --sans: "Alegreya", Georgia, serif;
+  --rule: inset 0 0 0 3px var(--panel), inset 0 0 0 4px rgba(199,154,69,.45);
+}
+html[data-theme="grimoire"] body { background: radial-gradient(ellipse at 50% 30%, #3b2416 0%, #1d110a 70%, #120a06 100%) fixed; font-family: var(--sans); }
+html[data-theme="grimoire"] h1, html[data-theme="grimoire"] h2, html[data-theme="grimoire"] h3 { font-family: var(--serif); font-weight: 700; color: #f3d9a0; }
+html[data-theme="grimoire"] .brand { font-family: var(--serif); font-weight: 700; color: #f3c873; text-shadow: 0 2px 0 #5a3a14, 0 0 18px rgba(243,200,115,.3); }
+html[data-theme="grimoire"] .btn { border-radius: 8px; border-color: #7a5a2a; background: linear-gradient(#3a2414, #2a180e); color: #f0d9a8; }
+html[data-theme="grimoire"] .btn.primary { border-radius: 10px; border: 2px solid #6a160f; background: radial-gradient(circle at 50% 30%, #c0392b, #7a1a12); color: #fbe9c8; font-family: var(--serif); font-weight: 700; letter-spacing: .06em; box-shadow: 0 4px 10px rgba(70,10,5,.5); }
+html[data-theme="grimoire"] .btn.ghost { border-color: #8a6a32; color: #e7c27a; background: transparent; }
+html[data-theme="grimoire"] .input { border-radius: 6px; border-color: #8a6a32; background: #140b06; }
+html[data-theme="grimoire"] .card-box { border-radius: 10px; background: linear-gradient(#2c1a0f, #20130b); border: 3px double var(--gold); box-shadow: 0 8px 22px rgba(0,0,0,.55), inset 0 0 24px rgba(199,154,69,.08); }
+html[data-theme="grimoire"] .list-item { border-radius: 8px; background: #22150c; }
+html[data-theme="grimoire"] .tabs button.on, html[data-theme="grimoire"] .hand-tabs button.on { background: rgba(199,154,69,.18); border-color: var(--gold); color: #f3d9a0; }
+html[data-theme="grimoire"] .tabs button, html[data-theme="grimoire"] .hand-tabs button { border-radius: 8px; }
+html[data-theme="grimoire"] .tcg-pick button { border-radius: 8px; font-family: var(--serif); }
+html[data-theme="grimoire"] .tcg-pick button.on { background: radial-gradient(circle at 50% 30%, #c0392b, #7a1a12); border-color: #6a160f; box-shadow: 0 4px 10px rgba(70,10,5,.5); }
+html[data-theme="grimoire"] .fac.on { background: var(--gold); border-color: var(--gold); color: #2b1b0e; }
+html[data-theme="grimoire"] .sheet { border-radius: 14px 14px 0 0; background: linear-gradient(#2c1a0f, #1d110a); border-top: 3px double var(--gold); }
+html[data-theme="grimoire"] .sheet-x { border-radius: 50%; }
+html[data-theme="grimoire"] .table { background: radial-gradient(ellipse at 50% 35%, #3b2416 0%, #1d110a 70%, #120a06 100%); }
+html[data-theme="grimoire"] .tbar { background: linear-gradient(#2a180e, #1f120a); border-bottom: 2px solid var(--gold); }
+html[data-theme="grimoire"] .tbar .who b, html[data-theme="grimoire"] .score .sname { font-family: var(--serif); font-weight: 700; color: #f3d9a0; }
+html[data-theme="grimoire"] .side { background: #1f120a; border-color: var(--gold2); }
+/* tapis en parchemin */
+html[data-theme="grimoire"] .mat { border-radius: 6px; box-shadow: 0 0 0 3px #1d110a, 0 0 0 6px var(--gold), 0 8px 20px rgba(0,0,0,.6); }
+html[data-theme="grimoire"] .mat.mine { background: radial-gradient(ellipse at 50% 40%, #e6d3a8 0%, #cfb37c 75%, #b8955a 100%); }
+html[data-theme="grimoire"] .mat.opp { background: radial-gradient(ellipse at 50% 60%, #d9c39a 0%, #bfa070 75%, #a07d48 100%); box-shadow: 0 0 0 3px #1d110a, 0 0 0 6px #9c5a3a, 0 8px 20px rgba(0,0,0,.6); }
+html[data-theme="grimoire"] .mat svg.bg rect { stroke: rgba(92,58,22,.6); fill: rgba(255,248,230,.16); stroke-dasharray: 1.6 1.2; }
+html[data-theme="grimoire"] .mat svg.bg line { stroke: rgba(92,58,22,.45); }
+html[data-theme="grimoire"] .mat svg.bg text { fill: #5a3a14; font-family: "Cinzel", Georgia, serif; }
+html[data-theme="grimoire"] .mat.has-bg svg.bg text { fill: #f3d9a0; }
+html[data-theme="grimoire"] .bcard { border-radius: 3px; box-shadow: 0 2px 5px rgba(60,30,10,.6); }
+html[data-theme="grimoire"] .back { background: repeating-linear-gradient(45deg, #5a1e18 0 6px, #6e2a20 6px 12px); border: 1.5px solid var(--gold); }
+html[data-theme="grimoire"] .hcard { border-radius: 6px; outline: 2px solid var(--gold); outline-offset: 1px; }
+html[data-theme="grimoire"] .score.opp { background: linear-gradient(90deg, rgba(110,30,20,.45), rgba(110,30,20,.05)); border-left-color: #9c3a2a; }
+html[data-theme="grimoire"] .score.mine { background: linear-gradient(90deg, rgba(120,90,30,.4), rgba(120,90,30,.05)); border-left-color: var(--gold); }
+html[data-theme="grimoire"] .score.side.opp { background: linear-gradient(180deg, rgba(110,30,20,.45), rgba(110,30,20,.06)); border-top-color: #9c3a2a; }
+html[data-theme="grimoire"] .score.side.mine { background: linear-gradient(0deg, rgba(120,90,30,.4), rgba(120,90,30,.06)); border-bottom-color: var(--gold); }
+/* PI / PV : médaillons de cire */
+html[data-theme="grimoire"] .stat.pi .val { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #6e9be8, #1d3470); border: 3px solid var(--gold); }
+html[data-theme="grimoire"] .stat.pi .val::before { display: none; }
+html[data-theme="grimoire"] .stat.pv .val { height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #e86a5a, #6e1410); border: 3px solid var(--gold); box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+html[data-theme="grimoire"] .score.side .stat.pv .val { height: 40px; }
+html[data-theme="grimoire"] .stat .val b { font-family: var(--serif); font-weight: 700; }
+html[data-theme="grimoire"] .unif { border-radius: 2px; transform: rotate(45deg); }
+html[data-theme="grimoire"] .unif > * { transform: rotate(-45deg); }
+html[data-theme="grimoire"] .unif.u1 { background: linear-gradient(135deg, #4a7a3a, #1e3a18); }
+html[data-theme="grimoire"] .unif.u2 { background: linear-gradient(135deg, #c79a45, #7a5a2a); }
+html[data-theme="grimoire"] .unif.u3 { background: linear-gradient(135deg, #b3261e, #6e140e); }
+/* phases : rubans */
+html[data-theme="grimoire"] .phases .ph { border: 0; clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%); background: linear-gradient(#e8d6ae, #c9ab72); color: #4a2e12; font-family: var(--serif); font-weight: 700; }
+html[data-theme="grimoire"] .phases .ph.on { background: linear-gradient(#b3261e, #6e140e); color: #fbe9c8; }
+html[data-theme="grimoire"] .phases .ph.end { clip-path: none; border-radius: 50%; border: 2px solid #4a0e09; background: radial-gradient(circle at 40% 35%, #d0453a, #7a1a12); color: #fbe9c8; transform: none; }
+html[data-theme="grimoire"] .phase-chip { border-radius: 3px; }
+html[data-theme="grimoire"] .phase-chip.lan, html[data-theme="grimoire"] .phase-chip.inv, html[data-theme="grimoire"] .phase-chip.com, html[data-theme="grimoire"] .phase-chip.cal { background: #8e1f16; color: #fbe9c8; border: 1px solid var(--gold); }
+html[data-theme="grimoire"] .watch-chip, html[data-theme="grimoire"] .badge, html[data-theme="grimoire"] .spec-badge { border-radius: 999px; }
+html[data-theme="grimoire"] .tval.dom { background: linear-gradient(#e0c072, #a8873e); }
+
+/* ---------------- Arène arcane : nuit, runes lumineuses, néons ---------------- */
+html[data-theme="arene"] {
+  --bg: #0b0c22;
+  --bg2: #07071a;
+  --panel: #12142e;
+  --line: rgba(140,170,255,.28);
+  --text: #e6ecff;
+  --muted: #98a3cc;
+  --gold: #5ee7ff;
+  --gold2: #3a8fb0;
+  --lacquer: #6a4bff;
+  --lacquer-dark: #3a2aa0;
+  --jade: #2fc7ff;
+  --jade-light: #b8f5ff;
+  --danger: #ff6a7a;
+  --ok: #6dffb3;
+  --serif: "Exo 2", "Segoe UI", sans-serif;
+  --sans: "Inter", system-ui, sans-serif;
+  --rule: 0 0 0 1px rgba(140,170,255,.22);
+}
+html[data-theme="arene"] body { background: radial-gradient(circle at 20% 15%, rgba(120,70,255,.35), transparent 45%), radial-gradient(circle at 85% 80%, rgba(0,200,255,.22), transparent 50%), linear-gradient(#0b0c22, #07071a) fixed; font-family: var(--sans); }
+html[data-theme="arene"] h1, html[data-theme="arene"] h2, html[data-theme="arene"] h3 { font-family: var(--serif); font-weight: 800; font-style: italic; color: #fff; letter-spacing: .02em; }
+html[data-theme="arene"] .brand { font-family: var(--serif); font-weight: 800; font-style: italic; color: #fff; text-shadow: 0 0 16px rgba(94,231,255,.8), 0 0 40px rgba(106,75,255,.6); }
+html[data-theme="arene"] .btn { border-radius: 10px; border-color: rgba(94,231,255,.4); background: rgba(94,231,255,.08); color: #d8f8ff; }
+html[data-theme="arene"] .btn.primary { border-radius: 12px; border: 0; background: linear-gradient(90deg, #6a4bff, #2fc7ff); color: #fff; font-family: var(--serif); font-weight: 800; font-style: italic; letter-spacing: .04em; box-shadow: 0 0 22px rgba(80,140,255,.55); }
+html[data-theme="arene"] .btn.ghost { background: transparent; color: #bff6ff; }
+html[data-theme="arene"] .input { border-radius: 10px; border-color: rgba(140,170,255,.3); background: rgba(5,8,25,.6); }
+html[data-theme="arene"] .card-box { border-radius: 16px; background: rgba(255,255,255,.055); border: 1px solid rgba(140,170,255,.22); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+html[data-theme="arene"] .list-item { border-radius: 12px; background: rgba(255,255,255,.04); }
+html[data-theme="arene"] .tabs button, html[data-theme="arene"] .hand-tabs button { border-radius: 10px; }
+html[data-theme="arene"] .tabs button.on, html[data-theme="arene"] .hand-tabs button.on { background: rgba(94,231,255,.14); border-color: #5ee7ff; color: #bff6ff; box-shadow: 0 0 10px rgba(94,231,255,.3); }
+html[data-theme="arene"] .tcg-pick button { border-radius: 12px; font-family: var(--serif); font-style: italic; font-weight: 800; }
+html[data-theme="arene"] .tcg-pick button.on { background: linear-gradient(90deg, #6a4bff, #2fc7ff); border-color: transparent; box-shadow: 0 0 22px rgba(80,140,255,.55); }
+html[data-theme="arene"] .fac { border-radius: 8px; }
+html[data-theme="arene"] .fac.on { background: linear-gradient(90deg, #6a4bff, #2fc7ff); border-color: transparent; color: #fff; }
+html[data-theme="arene"] .sheet { border-radius: 18px 18px 0 0; background: linear-gradient(#141738, #0b0c22); border-top: 1px solid #5ee7ff; box-shadow: 0 -6px 30px rgba(94,231,255,.15); }
+html[data-theme="arene"] .sheet-x { border-radius: 10px; border-color: rgba(94,231,255,.5); color: #bff6ff; }
+html[data-theme="arene"] .table { background: radial-gradient(circle at 20% 15%, rgba(120,70,255,.3), transparent 45%), radial-gradient(circle at 85% 80%, rgba(0,200,255,.18), transparent 50%), #08091d; }
+html[data-theme="arene"] .tbar { background: rgba(12,14,40,.92); border-bottom: 1px solid rgba(120,150,255,.25); box-shadow: none; }
+html[data-theme="arene"] .tbar .who b, html[data-theme="arene"] .score .sname { font-family: var(--serif); font-weight: 800; font-style: italic; }
+html[data-theme="arene"] .side { background: #0b0c22; border-color: rgba(120,150,255,.25); }
+html[data-theme="arene"] .mat { border-radius: 12px; }
+html[data-theme="arene"] .mat.mine { background: radial-gradient(ellipse at 50% 30%, #1b2a55 0%, #0e1430 80%); box-shadow: 0 0 0 1px rgba(94,231,255,.55), 0 0 18px rgba(94,231,255,.25), inset 0 0 30px rgba(94,231,255,.08); }
+html[data-theme="arene"] .mat.opp { background: radial-gradient(ellipse at 50% 70%, #3a1a4a 0%, #1a0e2a 80%); box-shadow: 0 0 0 1px rgba(255,79,216,.5), 0 0 18px rgba(255,79,216,.22), inset 0 0 30px rgba(255,79,216,.08); }
+html[data-theme="arene"] .mat svg.bg rect { stroke: rgba(160,190,255,.3); fill: rgba(255,255,255,.035); }
+html[data-theme="arene"] .mat svg.bg line { stroke: rgba(160,190,255,.25); }
+html[data-theme="arene"] .mat svg.bg text { fill: rgba(200,215,255,.62); font-family: "Exo 2", sans-serif; font-style: italic; }
+html[data-theme="arene"] .bcard { border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.7); }
+html[data-theme="arene"] .back { background: radial-gradient(circle at 50% 50%, #5a3cc8 0 18%, transparent 19%), repeating-conic-gradient(from 0deg, #241a5a 0 15deg, #1a1244 15deg 30deg); border: 1px solid rgba(160,140,255,.7); }
+html[data-theme="arene"] .hcard { border-radius: 8px; outline: 0; box-shadow: 0 0 0 1.5px rgba(110,255,180,.9), 0 0 14px rgba(110,255,180,.45), 0 8px 18px rgba(0,0,0,.7); }
+html[data-theme="arene"] .slot-hi { border-color: #6dffb3; background: rgba(110,255,180,.15); }
+html[data-theme="arene"] .score.opp { background: linear-gradient(90deg, rgba(255,79,216,.18), transparent 70%); border-left-color: #ff4fd8; }
+html[data-theme="arene"] .score.mine { background: linear-gradient(90deg, rgba(94,231,255,.18), transparent 70%); border-left-color: #5ee7ff; }
+html[data-theme="arene"] .score.side.opp { background: linear-gradient(180deg, rgba(255,79,216,.18), transparent 80%); border-top-color: #ff4fd8; }
+html[data-theme="arene"] .score.side.mine { background: linear-gradient(0deg, rgba(94,231,255,.18), transparent 80%); border-bottom-color: #5ee7ff; }
+/* PI : cristal ; PV : bouclier doré */
+html[data-theme="arene"] .stat.pi .val { border-radius: 6px; transform: rotate(45deg) scale(.86); background: linear-gradient(135deg, #3fb8ff, #10183a); border: 1px solid rgba(255,255,255,.5); box-shadow: 0 0 14px rgba(63,184,255,.7); }
+html[data-theme="arene"] .stat.pi .val::before { display: none; }
+html[data-theme="arene"] .stat.pi .val b, html[data-theme="arene"] .stat.pi .val small { transform: rotate(-45deg); }
+html[data-theme="arene"] .stat.pi .val small { top: -2px; left: -6px; }
+html[data-theme="arene"] .stat.pv .val { border: 0; border-radius: 0; clip-path: polygon(50% 0, 100% 14%, 92% 70%, 50% 100%, 8% 70%, 0 14%); background: linear-gradient(#ffd26e, #b07a12); box-shadow: none; }
+html[data-theme="arene"] .stat.pv .val b { color: #2a1800; text-shadow: none; }
+html[data-theme="arene"] .stat.pv .val small { top: 4px; background: transparent; color: #4a2e00; }
+html[data-theme="arene"] .stat .val b { font-family: var(--serif); font-weight: 800; }
+html[data-theme="arene"] .stat button { color: #5ee7ff; }
+html[data-theme="arene"] .unif { border-radius: 50%; transform: none; border: 2px solid rgba(138,255,198,.5); }
+html[data-theme="arene"] .unif.u1, html[data-theme="arene"] .unif.u2, html[data-theme="arene"] .unif.u3 { border: 2px solid #8affc6; box-shadow: 0 0 12px rgba(138,255,198,.6), inset 0 0 10px rgba(138,255,198,.4); background: radial-gradient(circle, rgba(138,255,198,.3), rgba(10,30,30,.6) 70%); }
+html[data-theme="arene"] .unif.u1 b, html[data-theme="arene"] .unif.u2 b, html[data-theme="arene"] .unif.u3 b, html[data-theme="arene"] .unif small { color: #d8ffee; }
+/* phases : barre segmentée lumineuse */
+html[data-theme="arene"] .phases { gap: 0; border-radius: 12px; }
+html[data-theme="arene"] .phases .ph { border: 0; border-radius: 0; background: rgba(255,255,255,.04); color: #a9b4dc; font-family: var(--sans); font-weight: 700; border-top: 1px solid rgba(140,170,255,.3); border-bottom: 1px solid rgba(140,170,255,.3); }
+html[data-theme="arene"] .phases .ph:first-child { border-radius: 12px 0 0 12px; border-left: 1px solid rgba(140,170,255,.3); }
+html[data-theme="arene"] .phases .ph.on { background: linear-gradient(#ff5b6a, #c8203a); color: #fff; box-shadow: 0 0 14px rgba(255,75,92,.7); }
+html[data-theme="arene"] .phases .ph.end { margin-left: 8px; border: 0; border-radius: 0; transform: none; clip-path: polygon(14% 0, 86% 0, 100% 50%, 86% 100%, 14% 100%, 0 50%); background: linear-gradient(#ffe08a, #e0a020); color: #3a2400; font-family: var(--serif); font-weight: 800; font-style: italic; box-shadow: none; }
+html[data-theme="arene"] .phase-chip { border-radius: 6px; }
+html[data-theme="arene"] .phase-chip.lan, html[data-theme="arene"] .phase-chip.inv, html[data-theme="arene"] .phase-chip.com, html[data-theme="arene"] .phase-chip.cal { background: linear-gradient(90deg, #ff4b5c, #ff7a3c); color: #fff; box-shadow: 0 0 10px rgba(255,75,92,.5); }
+html[data-theme="arene"] .watch-chip, html[data-theme="arene"] .badge, html[data-theme="arene"] .spec-badge { background: linear-gradient(90deg, #ff4fd8, #6a4bff); border-radius: 8px; }
+html[data-theme="arene"] .tval.dom { background: linear-gradient(#ffe08a, #e0a020); color: #2a1800; }
+html[data-theme="arene"] .hand-fan .fan i { background: radial-gradient(circle at 50% 50%, #5a3cc8 0 18%, transparent 19%), repeating-conic-gradient(from 0deg, #241a5a 0 15deg, #1a1244 15deg 30deg); border-color: rgba(160,140,255,.8); }
+html[data-theme="grimoire"] .hand-fan .fan i { background: repeating-linear-gradient(45deg, #5a1e18 0 3px, #6e2a20 3px 6px); }
+html[data-theme="arene"] .table.has-back div.back, html[data-theme="grimoire"] .table.has-back div.back { background: var(--card-back) center / cover; }
+html[data-theme="arene"] .table.has-back .hand-fan .fan i, html[data-theme="grimoire"] .table.has-back .hand-fan .fan i { background: var(--card-back) center / cover; }
+
+/* ---------------- Choix du thème (accueil) ---------------- */
+.theme-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.theme-pick button { padding: 0; border: 2px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; text-align: left; overflow: hidden; }
+.theme-pick button.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 0 12px rgba(255,220,140,.25); }
+.theme-pick .sw { position: relative; height: 70px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px; }
+.theme-pick .sw i { display: block; height: 22px; border-radius: 3px; }
+.theme-pick .nm { display: block; padding: 6px 8px; font-size: 13px; font-weight: 600; background: rgba(0,0,0,.35); }
+.theme-pick .sw.jade { background: #141110; }
+.theme-pick .sw.jade i:nth-child(1) { background: radial-gradient(ellipse at 70% 80%, #4a1a16, #261010); outline: 1px solid #d4b061; }
+.theme-pick .sw.jade i:nth-child(2) { background: radial-gradient(ellipse at 30% 20%, #1f4a3b, #12271f); outline: 1px solid #d4b061; }
+.theme-pick .sw.grimoire { background: #1d110a; }
+.theme-pick .sw.grimoire i:nth-child(1) { background: linear-gradient(#d9c39a, #a07d48); outline: 2px solid #9c5a3a; }
+.theme-pick .sw.grimoire i:nth-child(2) { background: linear-gradient(#e6d3a8, #b8955a); outline: 2px solid #c79a45; }
+.theme-pick .sw.arene { background: #0b0c22; }
+.theme-pick .sw.arene i:nth-child(1) { background: linear-gradient(#3a1a4a, #1a0e2a); box-shadow: 0 0 0 1px #ff4fd8, 0 0 8px rgba(255,79,216,.5); }
+.theme-pick .sw.arene i:nth-child(2) { background: linear-gradient(#1b2a55, #0e1430); box-shadow: 0 0 0 1px #5ee7ff, 0 0 8px rgba(94,231,255,.5); }

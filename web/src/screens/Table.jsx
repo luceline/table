@@ -106,7 +106,7 @@ export default function Table({ go, gameId }) {
   // (deux enregistrements distincts : les écritures des deux joueurs ne s'écrasent jamais)
   const applyGame = useCallback((r) => {
     sideRef.current = r.p1 === user.id ? "p1" : "p2";
-    setMeta({ code: r.code, p1: r.p1, p2: r.p2, status: r.status });
+    setMeta({ code: r.code, p1: r.p1, p2: r.p2, status: r.status, ...(r.open ? { open: true } : null) });
   }, [user.id]);
 
   // Jetons : un enregistrement "marks" par jeton, modifié indépendamment
@@ -1183,6 +1183,7 @@ export default function Table({ go, gameId }) {
                 <div>Partagez ce code avec votre adversaire</div>
                 <div className="code">{meta.code}</div>
                 <button className="btn sm" style={{ pointerEvents: "auto" }} onClick={share}>Partager le lien</button>
+                {meta.open && <div className="small">Table ouverte : les autres joueurs la voient dans « Tables ouvertes » et peuvent s'asseoir.</div>}
                 <div className="small">Vous pouvez déjà préparer votre jeu.</div>
               </div>
             ) : null;
@@ -1336,7 +1337,7 @@ export default function Table({ go, gameId }) {
 
       {aim && (
         <div className="aim-bar">
-          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} avec « {mine?.cards[aim.iid]?.n} » : touchez la cible (carte, territoire ou compteur adverse)</span>
+          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} avec « {mine?.cards[aim.iid]?.n} » : touchez la cible ({TCG === "fab" ? "carte ou compteur adverse" : "carte, territoire ou compteur adverse"})</span>
           <button className="btn sm" onClick={() => setAim(null)}>Annuler</button>
         </div>
       )}

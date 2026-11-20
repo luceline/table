@@ -1,9 +1,11 @@
+import { useStats, plural } from "../lib/stats.js";
 import { useState } from "react";
 import { pb, errMsg } from "../pb.js";
 import TutoVideo from "../components/TutoVideo.jsx";
 
 export default function Auth() {
   const [mode, setMode] = useState("login");
+  const stats = useStats();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -37,6 +39,7 @@ export default function Auth() {
       <p className="muted" style={{ textAlign: "center", marginTop: 0 }}>
         Scannez vos cartes, construisez votre deck, jouez à deux.
       </p>
+      {stats && <p className="players-count" style={{ textAlign: "center" }}>👥 {plural(stats.users, "joueur inscrit", "joueurs inscrits")}</p>}
       <div className="tabs">
         <button className={mode === "login" ? "on" : ""} onClick={() => setMode("login")}>Connexion</button>
         <button className={mode === "register" ? "on" : ""} onClick={() => setMode("register")}>Créer un compte</button>
