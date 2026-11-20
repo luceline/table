@@ -17,6 +17,7 @@ export default function DeckEditorFab({ go, deckId }) {
   const [qty, setQty] = useState({});
   const [name, setName] = useState("");
   const [format, setFormat] = useState("cc");
+  const [init, setInit] = useState(false); // deck initiation : règles de construction ignorées
   const [hero, setHero] = useState("");
   const [pickHero, setPickHero] = useState(false);
   const [err, setErr] = useState("");
@@ -35,6 +36,7 @@ export default function DeckEditorFab({ go, deckId }) {
         setDeck(d);
         setName(d.name);
         setFormat(d.format === "blitz" ? "blitz" : "cc");
+        setInit(!!d.initiation);
         setHero(d.commander && c.some((x) => x.id === d.commander) ? d.commander : "");
         setCards(c);
         const qq = {};
@@ -53,12 +55,13 @@ export default function DeckEditorFab({ go, deckId }) {
   const heroes = cards.filter((c) => c.kind === "heros");
   const tokens = cards.filter((c) => c.kind === "jeton");
   const entries = Object.entries(qty).map(([card, n]) => ({ card, qty: n }));
-  const chk = checkFab({ format, entries, commander: hero }, byId);
+  const chk = checkFab({ format, entries, commander: hero, initiation: init }, byId);
   const nTok = tokens.filter((c) => qty[c.id]).length;
   // exemplaires déjà pris pour cette carte unique (même nom et même couleur, scans différents)
   const same = (c) => cards.filter((x) => x.id !== c.id && x.kind !== "jeton" && fabKey(x) === fabKey(c)).reduce((n, x) => n + (qty[x.id] || 0), 0);
   const pool = chk.total + chk.arena;
   const maxFor = (c) => {
+    if (init) return 99;
     const left = R.copies - same(c);
     const roomPool = (qty[c.id] || 0) + R.pool - pool;
     const roomDeck = R.deckMax && c.kind !== "arene" ? (qty[c.id] || 0) + R.deckMax - chk.total : 99;
@@ -89,7 +92,7 @@ export default function DeckEditorFab({ go, deckId }) {
 
   async function save(leave) {
     try {
-      await pb.collection("decks").update(deckId, { name: name.trim() || deck.name, entries, commander: hero, format });
+      await pb.collection("decks").update(deckId, { name: name.trim() || deck.name, entries, commander: hero, format, initiation: init });
       setDirty(false);
       if (leave) go("home");
     } catch (e) {
@@ -174,8 +177,16 @@ export default function DeckEditorFab({ go, deckId }) {
             </p>
           </div>
 
+          <label className="init-toggle">
+            <input type="checkbox" checked={init} onChange={(e) => { setInit(e.target.checked); setDirty(true); setErr(""); }} />
+            <span>
+              <b>Deck initiation</b>
+              <span className="muted small"> : deck de démarrage officiel, jouable même s'il ne suit pas les règles du format (nombre de cartes, exemplaires). Seul le héros reste obligatoire.</span>
+            </span>
+          </label>
+
           <p className={`small ${chk.ok ? "muted" : "warn"}`}>
-            {chk.ok ? `Deck conforme (${R.name}) : ${chk.total} cartes, ${chk.arena} arme(s) et équipement(s).` : `Deck non conforme, il ne pourra pas être joué : ${chk.problems.join(" ")}`}
+            {chk.ok && init ? `Deck initiation (${R.name}) : ${chk.total} cartes, ${chk.arena} arme(s) et équipement(s). Règles de construction ignorées.` : chk.ok ? `Deck conforme (${R.name}) : ${chk.total} cartes, ${chk.arena} arme(s) et équipement(s).` : `Deck non conforme, il ne pourra pas être joué : ${chk.problems.join(" ")}`}
           </p>
 
           <div className="cmd-box">

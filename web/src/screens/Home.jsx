@@ -142,13 +142,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       commander: cmd ? cmd.id : "",
       cards: [...ents.map((e) => snap(cardsById[e.card])), ...(cmd ? [snap(cmd)] : [])],
       ...(deck.format ? { format: deck.format } : null),
+      ...(deck.initiation ? { initiation: true } : null),
     };
   }
 
   function loanState(loan) {
     return buildState({
       name: myName,
-      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries, commander: loan.commander || "", ...(loan.format ? { format: loan.format } : null) },
+      deck: { id: "pret", name: `${loan.name} (prêté par ${loan.by})`, entries: loan.entries, commander: loan.commander || "", ...(loan.format ? { format: loan.format } : null), ...(loan.initiation ? { initiation: true } : null) },
       cardsById: Object.fromEntries(loan.cards.map((c) => [c.id, c])),
     });
   }
@@ -349,7 +350,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
         <div className="row" style={{ flexWrap: "wrap" }}>
           <button className="btn primary" onClick={createGame} disabled={busy || !decks.length}>Créer une partie</button>
-          <div className="row grow" style={{ minWidth: 230 }}>
+          <div className="row grow" style={{ minWidth: 230, flexWrap: "wrap" }}>
             <input
               className="input code"
               placeholder="CODE"
@@ -472,7 +473,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <p className="muted small" style={{ marginTop: 0 }}>
           {cards.length} carte{cards.length > 1 ? "s" : ""} scannée{cards.length > 1 ? "s" : ""}. Vos scans restent privés et ne servent qu'à vos decks.
         </p>
-        <div className="row">
+        <div className="row" style={{ flexWrap: "wrap" }}>
           <button className="btn primary" onClick={() => go("scan")}>Scanner des cartes</button>
           <button className="btn" onClick={() => go("library")}>Voir mes cartes</button>
         </div>
@@ -490,7 +491,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <span className="grow">{d.name}</span>
               <span className={`small ${checkDeckFor(d, cardsById).ok ? "muted" : "warn"}`}>
                 {deckSize(d)} cartes{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
-                {checkDeckFor(d, cardsById).ok ? "" : " · non conforme"}
+                {checkDeckFor(d, cardsById).ok ? (d.initiation && tcg === "fab" ? " · initiation" : "") : " · non conforme"}
               </span>
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>

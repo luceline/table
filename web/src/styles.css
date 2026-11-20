@@ -605,3 +605,15 @@ html { background: var(--bg); }
 .open-form { padding: 10px 0 4px; border-top: 1px solid var(--line); margin-bottom: 10px; }
 .open-item { align-items: flex-start; gap: 10px; }
 .open-item .open-now { color: var(--ok); }
+/* Écrans étroits : boutons du scanner sur deux lignes (Valider pleine largeur), champ code jamais écrasé */
+.cam-bar { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .cam-bar .grow { display: none; }
+  .cam-bar .cam-shot { flex: 1 0 100%; min-width: 0; }
+  .cam-bar .btn:not(.cam-shot) { flex: 1; }
+}
+.input.code { min-width: 96px; flex: 1; }
+
+/* Case « Deck initiation » (éditeur de deck Flesh and Blood) */
+.init-toggle { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--line, rgba(255,255,255,.15)); border-radius: 10px; cursor: pointer; line-height: 1.35; }
+.init-toggle input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--accent, #c9a14a); }

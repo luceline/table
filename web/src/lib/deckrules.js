@@ -57,6 +57,8 @@ export function checkFab(deck, cardsById) {
   const problems = [];
   const hero = deck?.commander && cardsById[deck.commander];
   if (!hero) problems.push("Choisissez un héros.");
+  // Deck initiation : règles de construction ignorées, seul le héros est demandé
+  if (deck?.initiation) return { total, arena, problems, ok: problems.length === 0, initiation: true };
   if (R.deckMax === R.deckMin && total !== R.deckMin) problems.push(`${total} carte${total > 1 ? "s" : ""} dans le deck : il en faut exactement ${R.deckMin} en ${R.name}.`);
   else if (total < R.deckMin) problems.push(`${total} carte${total > 1 ? "s" : ""} dans le deck : il en faut au moins ${R.deckMin} en ${R.name}.`);
   if (total + arena > R.pool) problems.push(`${total + arena} cartes avec les armes et équipements : ${R.pool} au maximum en ${R.name}.`);

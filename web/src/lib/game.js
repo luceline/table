@@ -83,7 +83,7 @@ export function buildState({ name, deck, cardsById }) {
     ...TURN_RESET,
     ...(TCG === "fab" ? { format: deck.format === "blitz" ? "blitz" : "cc" } : null),
     log: [{ t: Date.now(), m: TCG === "fab"
-      ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format === "blitz" ? "blitz" : "cc"]}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
+      ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format === "blitz" ? "blitz" : "cc"]}${deck.initiation ? " initiation" : ""}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
       : `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""}${cmd ? `, commandant « ${cmd.name} »` : ""})` }],
   };
 }
