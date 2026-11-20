@@ -620,3 +620,10 @@ html { background: var(--bg); }
 
 /* Type d'une carte (Mes cartes) : normale, jeton, ou les deux */
 .type-tabs button { height: 36px; font-size: 13px; }
+
+/* Onglets de l'accueil : Tables ouvertes / En direct */
+.lobby-tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.lobby-tabs button { flex: 1; min-width: 0; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--muted, inherit); font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.lobby-tabs button.on { background: var(--panel); border-color: var(--gold2, var(--accent)); color: var(--gold, var(--text)); }
+.lobby-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--text); font-size: 12px; line-height: 20px; }
+.lobby-n.live { background: var(--danger, #c0392b); color: #fff; }

@@ -6,6 +6,7 @@ import { Sheet } from "../components/ui.jsx";
 import TutoVideo from "../components/TutoVideo.jsx";
 import MatBgSettings, { CardBackSettings, ThemeSettings } from "../components/MatBgSettings.jsx";
 import { applyTheme, storedTheme } from "../lib/theme.js";
+import { useLive, ago } from "../lib/live.js";
 import { useStats, plural } from "../lib/stats.js";
 import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, activateTcg } from "../lib/tcg.js";
 
@@ -40,6 +41,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [busy, setBusy] = useState(false);
   const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
   const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
+  const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
+  const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
   const [themeKey, setThemeKey] = useState(0);
   useEffect(() => {
@@ -392,8 +395,38 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       </div>
 
       <div className="card-box open-tables">
-        <div className="row">
-          <h2 className="grow" style={{ margin: 0 }}>Tables ouvertes</h2>
+        <div className="lobby-tabs">
+          <button className={lobby === "open" ? "on" : ""} onClick={() => setLobby("open")}>
+            Tables ouvertes{openTables.length ? <span className="lobby-n">{openTables.length}</span> : null}
+          </button>
+          <button className={lobby === "live" ? "on" : ""} onClick={() => setLobby("live")}>
+            En direct{live?.length ? <span className="lobby-n live">{live.length}</span> : null}
+          </button>
+        </div>
+        {lobby === "live" && (
+          <>
+            <p className="muted small">Les parties de {tcgName(tcg)} en cours chez les autres joueurs. Regardez-les en spectateur et commentez dans la tribune.</p>
+            {live === null && <p className="muted small" style={{ marginBottom: 0 }}>Chargement…</p>}
+            {live?.length === 0 && <p className="muted small" style={{ marginBottom: 0 }}>Aucune partie en cours pour le moment.</p>}
+            <div className="list">
+              {(live || []).map((g) => (
+                <div className="list-item open-item" key={g.code}>
+                  <div className="grow">
+                    <div><b>{g.n1 || "Joueur"}</b> <span className="muted small">contre</span> <b>{g.n2 || "Joueur"}</b></div>
+                    <div className="small">
+                      <span className="open-now">● En jeu</span>
+                      <span className="muted"> · dernière action {ago(g.last)}{g.watching ? ` · 👁 ${g.watching}` : ""}</span>
+                    </div>
+                  </div>
+                  <button className="btn sm primary" onClick={() => { window.location.href = `${window.location.pathname}?voir=${g.code}`; }}>👁 Regarder</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {lobby === "open" && (
+        <>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 4 }}>
           {!openForm && (
             <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length}>
               Ouvrir une table
@@ -453,6 +486,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
       <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quel deck jouer ?">
