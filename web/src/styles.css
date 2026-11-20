@@ -661,3 +661,5 @@ html { background: var(--bg); }
 .cam-hud-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .cam-hud .cam-live { position: static; }
 .cam-warn { background: rgba(214,169,59,.9); color: #111; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+/* Jetons et marqueurs posés sur un tapis filmé : au-dessus de la vidéo */
+.token.vtok, .tmarker.vtok { z-index: 7; }

@@ -10,7 +10,7 @@ import { PILE_BY_ID } from "../lib/mat.js";
 import { playVoice, unlockAudio, onVoiceState } from "../lib/voice.js";
 import { beWatcher, watchCount, specName, setSpecName } from "../lib/tribune.js";
 import { Mesh, rtcOk, audioOut, camId, specPeerId } from "../lib/rtc.js";
-import { CamOverlay } from "../components/CamView.jsx";
+import { CamOverlay, VideoTokens } from "../components/CamView.jsx";
 
 const logLine = (who, m) => (m.startsWith("⚠ ") ? `⚠ ${who} ${m.slice(2)}` : `${who} ${m}`);
 
@@ -142,6 +142,7 @@ export default function Spectator({ code }) {
 
   // Son en direct des joueurs et caméra d'un joueur filmé (pair à pair), reçus seulement
   const [peers, setPeers] = useState({});
+  const [camGeo, setCamGeo] = useState({}); // tapis filmés affichés (placement des flèches)
   const meshRef = useRef(null);
   const touched = useRef(new Set());
   const seatFilmed = useRef({});
@@ -309,14 +310,16 @@ export default function Spectator({ code }) {
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
               <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               {p2?.filmed && (
-                <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rotKey="table_cam_rot_spec2" defRot={180} name={p2.name} />
+                <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rotKey="table_cam_rot_spec2b" defRot={0} name={p2.name} side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
+              {p2?.filmed && <VideoTokens tokens={tokens("p2").filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.opp} s={s} />}
               <Mat side="mine" st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
               {p1?.filmed && (
-                <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rotKey="table_cam_rot_spec1" defRot={0} name={p1.name} />
+                <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rotKey="table_cam_rot_spec1" defRot={0} name={p1.name} side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
               )}
+              {p1?.filmed && <VideoTokens tokens={tokens("p1").filter((t) => t.on === "v")} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.mine} s={s} />}
               <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
-              <Arrows L={L} s={s} mine={p1} opp={p2} />
+              <Arrows L={L} s={s} mine={p1} opp={p2} cams={camGeo} />
             </div>
           )}
         </div>

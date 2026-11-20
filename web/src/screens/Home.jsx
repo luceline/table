@@ -126,8 +126,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
   const myName = user.name || user.email.split("@")[0];
 
-  function myState() {
-    if (filmed) {
+  function myState(asFilmed) {
+    if (filmed || asFilmed) {
       // cartes réelles : aucun deck dans l'appli, l'adversaire voit le tapis filmé
       const st = buildState({ name: myName, deck: { id: "", name: "Cartes réelles", entries: [] }, cardsById: {} });
       st.filmed = true;
@@ -238,7 +238,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         if (!decks.length) return await sit(g, true);
         return setJoinChoice(g);
       }
-      if (!decks.length) throw new Error("Vous n'avez pas encore de deck, et cette partie n'en prête pas.");
+      // Ni deck ni prêt : proposer de jouer avec mes cartes réelles, filmées
+      if (!decks.length) return setJoinChoice(g);
       await sit(g, false);
   }
 
@@ -260,20 +261,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     }
   }
 
-  async function sit(g, useLoan) {
-    const state = useLoan ? loanState(g.loan) : myState();
+  async function sit(g, useLoan, asFilmed) {
+    const state = useLoan ? loanState(g.loan) : myState(asFilmed);
     await pb.collection("games").update(g.id, { p2: user.id, n2: state.name, status: "playing" });
     await pb.collection("seats").create({ game: g.id, player: user.id, state });
     go("table", { gameId: g.id });
   }
 
-  async function chooseJoin(useLoan) {
+  async function chooseJoin(how) {
     const g = joinChoice;
     setJoinChoice(null);
     setErr("");
     setBusy(true);
     try {
-      await sit(g, useLoan);
+      if (how === "filmed") setFilmed(true);
+      await sit(g, how === "loan", how === "filmed");
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -344,7 +346,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </label>
         {filmed ? null : decks.length === 0 ? (
           <p className="muted small">
-            Pas encore de deck ? Vous pouvez rejoindre une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour créer vos propres parties, scannez vos cartes puis créez un deck.
+            Pas encore de deck ? Cochez « Je joue avec mes cartes réelles » pour jouer avec vos cartes filmées, ou rejoignez une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour jouer avec des cartes numériques, scannez vos cartes puis créez un deck.
           </p>
         ) : (
           <>
@@ -506,16 +508,29 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
-      <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quel deck jouer ?">
+      <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quoi jouer ?">
         {joinChoice && (
           <div className="actions">
-            <button className="btn primary" onClick={() => chooseJoin(true)}>
-              Deck prêté par {joinChoice.loan.by} : « {joinChoice.loan.name} »
-            </button>
-            <button className="btn" onClick={() => chooseJoin(false)}>
-              Mon deck : « {decks.find((d) => d.id === deckId)?.name} »
+            {joinChoice.loan?.cards?.length > 0 && (
+              <button className="btn primary" onClick={() => chooseJoin("loan")}>
+                Deck prêté par {joinChoice.loan.by} : « {joinChoice.loan.name} »
+              </button>
+            )}
+            {decks.length > 0 && (
+              <button className="btn" onClick={() => chooseJoin("deck")}>
+                Mon deck : « {decks.find((d) => d.id === deckId)?.name} »
+              </button>
+            )}
+            <button className={`btn ${!joinChoice.loan?.cards?.length && !decks.length ? "primary" : ""}`} onClick={() => chooseJoin("filmed")}>
+              🎥 Mes cartes réelles, filmées par mon téléphone
             </button>
           </div>
+        )}
+        {joinChoice && !decks.length && (
+          <p className="muted small">
+            Vous n'avez pas encore de deck dans l'appli. Avec vos cartes réelles, un téléphone filme votre tapis et votre adversaire le voit en direct ;
+            il vous faut un deuxième écran pour voir son tapis.
+          </p>
         )}
       </Sheet>
 

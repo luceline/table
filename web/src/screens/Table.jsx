@@ -14,7 +14,7 @@ import {
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { useTableRtc } from "../lib/useTableRtc.js";
 import { audioOut } from "../lib/rtc.js";
-import { CamOverlay, QrImg } from "../components/CamView.jsx";
+import { CamOverlay, QrImg, VideoTokens, videoToBoard, videoPointAt } from "../components/CamView.jsx";
 
 const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
 export const BAR = 48; // bandeau PI/PV en portrait (px écran)
@@ -68,7 +68,8 @@ export default function Table({ go, gameId }) {
   const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
   const [winner, setWinner] = useState(null);
-  const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche
+  const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche ({v: [u, v]} depuis un tapis filmé)
+  const [camGeo, setCamGeo] = useState({}); // tapis filmés affichés : { mine|opp: { ar, rot } } (placement des flèches)
   const [pings, setPings] = useState([]); // [{owner: "mine"|"opp", iid, k}]
   const [speaking, setSpeaking] = useState(null); // message vocal en cours de lecture
   const mainRef = useRef();
@@ -419,6 +420,7 @@ export default function Table({ go, gameId }) {
     const what = t.label ? `le marqueur « ${t.label} »` : `un jeton ${(TOKEN_COLORS.find((c) => c.id === t.color)?.label || "").toLowerCase()}`;
     if (!where) return what;
     const st = mineRef.current;
+    if (t.on === "v") return `${what} sur son tapis filmé`;
     const on = t.on && st?.cards[t.on] ? ` sur « ${st.board.find((b) => b.iid === t.on)?.down ? "une carte face cachée" : st.cards[t.on].n} »` : ` sur ${placeName(t.x, t.y)}`;
     return what + on;
   };
@@ -652,7 +654,7 @@ export default function Table({ go, gameId }) {
         st[kind] = nv;
         return kind === "pv" ? `met sa vie à ${nv}` : `met ses ressources à ${nv}`;
       }
-      const max = kind === "pi" ? 15 : 30;
+      const max = kind === "pi" ? 15 : 99; // PV : la victoire se déclare à 30, mais le compteur peut continuer à monter
       const nv = clamp(v, 0, max);
       if (st[kind] === nv) return false;
       st[kind] = nv;
@@ -753,6 +755,7 @@ export default function Table({ go, gameId }) {
     const o = oppRef.current;
     const m = mineRef.current;
     if (to.p) return to.s === "opp" ? "l'adversaire" : "lui-même";
+    if (to.v) return to.s === "opp" ? "un point du tapis filmé adverse" : "un point de son tapis filmé";
     if (to.t != null) return `${to.s === "opp" ? "le Territoire adverse" : "son Territoire"} ${ROMAN[to.t]}`;
     const st = to.s === "opp" ? o : m;
     const b = st?.board.find((x) => x.iid === to.iid);
@@ -763,8 +766,13 @@ export default function Table({ go, gameId }) {
 
   const addArrow = (a, to) =>
     mut((st) => {
+      // flèche partant d'un point du tapis filmé (joueur qui joue avec ses cartes réelles)
+      if (a.v) {
+        st.arrows = [...(st.arrows || []), { id: rid(6), from: "", fv: a.v, to, k: a.k }];
+        return a.k === "atk" ? `attaque ${descTarget(to)} depuis son tapis filmé` : `cible ${descTarget(to)} depuis son tapis filmé`;
+      }
       if (!st.board.some((b) => b.iid === a.iid)) return false;
-      if (!to.p && to.t == null && to.s === "me" && to.iid === a.iid) return false;
+      if (!to.p && to.t == null && !to.v && to.s === "me" && to.iid === a.iid) return false;
       st.arrows = [...(st.arrows || []), { id: rid(6), from: a.iid, to, k: a.k }];
       const src = `« ${nameOf(st, a.iid)} »`;
       return a.k === "atk" ? `attaque ${descTarget(to)} avec ${src}` : `cible ${descTarget(to)} avec ${src}`;
@@ -788,7 +796,7 @@ export default function Table({ go, gameId }) {
 
   const startAim = (iid, k) => {
     setSheet(null);
-    setAim({ iid, k });
+    setAim(iid && typeof iid === "object" ? { v: iid.v, k } : { iid, k });
   };
 
   function aimAt(to) {
@@ -799,6 +807,17 @@ export default function Table({ go, gameId }) {
 
   // Tap sur une zone vide du plateau pendant le choix d'une cible : vise le territoire
   function boardDown(e) {
+    // Tapis filmé : la cible (ou l'origine) est un point de l'image, retrouvé au même endroit chez chacun
+    const ov = e.target.closest?.(".cam-overlay");
+    if (ov && !e.target.closest(".cam-rot, button, a")) {
+      const v = videoPointAt(ov, e.clientX, e.clientY);
+      if (aim) {
+        if (!v) return setToast("La caméra n'est pas encore connectée : touchez le compteur du joueur.");
+        return aimAt({ s: ov.dataset.side === "mine" ? "me" : "opp", v });
+      }
+      if (v && ov.dataset.side === "mine" && mineRef.current?.filmed) return setSheet({ kind: "vaim", v });
+      return;
+    }
     if (!aim || e.target.closest?.(".loupe-btn, .score")) return;
     const loc = locate(e.clientX, e.clientY);
     if (!loc || (loc.area !== "mine" && loc.area !== "opp")) return;
@@ -843,6 +862,12 @@ export default function Table({ go, gameId }) {
 
   // ---------- Marqueurs de territoire ----------
   const addMarker = ({ label, v, t, color }) => {
+    // Joueur filmé : marqueur posé sur l'image, vers le haut du territoire choisi (tiers de l'image), à ajuster en le faisant glisser
+    if (mineRef.current?.filmed) {
+      const n = tokRef.current.filter((m) => m.side === mySide && m.label && m.on === "v").length;
+      addMark({ side: mySide, color: color || "white", v: v || 0, label: label.slice(0, 40), on: "v", x: [167, 500, 833][t] + [0, -60, 60][n % 3], y: 90 + (Math.floor(n / 3) % 8) * 60 });
+      return mut(() => `pose le marqueur « ${label}${v ? ` ${v}` : ""} » sur son Territoire ${ROMAN[t]} (tapis filmé)`);
+    }
     const n = tokRef.current.filter((m) => m.side === mySide && m.label && terrOf(m.x) === t && !m.on).length;
     const dx = [0, -62, 62, -31, 31][n % 5];
     const dy = Math.floor(n / 5) * 14;
@@ -975,7 +1000,7 @@ export default function Table({ go, gameId }) {
     if (d.started) {
       const loc = locate(e.clientX, e.clientY);
       endDrag();
-      drop(d.src, loc);
+      drop(d.src, loc, e);
     } else tap(d.src);
   };
   handlers.current.cancel = () => {
@@ -1023,7 +1048,26 @@ export default function Table({ go, gameId }) {
 
   useEffect(() => () => detachListeners(), []);
 
-  function drop(src, loc) {
+  function drop(src, loc, e) {
+    // Joueur filmé : jetons et marqueurs posés sur l'image de son tapis (point de l'image, retrouvé chez chacun)
+    if (mineRef.current?.filmed && (src.type === "palette" || src.type === "token")) {
+      const ov = document.querySelector('.cam-overlay[data-side="mine"]');
+      const r = ov?.getBoundingClientRect();
+      const inside = r && e && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!inside) {
+        if (src.type !== "token") return;
+        if (loc?.area === "opp") return setToast("Chacun ne joue que sur son côté du plateau.");
+        return editMark(src.id, "delete");
+      }
+      const v = videoPointAt(ov, e.clientX, e.clientY);
+      if (!v) return setToast("La caméra n'est pas encore connectée : les jetons se posent sur l'image de votre tapis.");
+      const pos = { on: "v", dx: 0, dy: 0, x: Math.round(v[0] * 1000), y: Math.round(v[1] * 1000) };
+      if (src.type === "palette") {
+        addMark({ side: mySide, color: src.color, v: 1, ...pos });
+        return mut(() => `pose ${tokDesc({ color: src.color, ...pos })} (valeur 1)`);
+      }
+      return editMark(src.id, { side: mySide, ...pos });
+    }
     if (src.type === "palette") {
       if (!loc || loc.area === "hand") return;
       if (loc.area === "opp") return setToast("Chacun ne joue que sur son côté du plateau.");
@@ -1067,7 +1111,7 @@ export default function Table({ go, gameId }) {
     const o = oppRef.current;
     if (aim) {
       if (src.type === "board") {
-        if (src.iid === aim.iid) return setAim(null);
+        if (!aim.v && src.iid === aim.iid) return setAim(null);
         return aimAt({ s: "me", iid: src.iid });
       }
       if (src.type === "oppboard") return aimAt({ s: "opp", iid: src.iid });
@@ -1237,8 +1281,15 @@ export default function Table({ go, gameId }) {
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
-                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rotKey="table_cam_rot_opp" defRot={180} name={opp.name}
+                        stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rotKey="table_cam_rot_opp2" defRot={0} name={opp.name}
+                        side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))}
                         waitText={rtc.ok ? `En attente de la caméra de ${opp.name}…` : "Ce navigateur ne permet pas la vidéo en direct."}
+                      />
+                    )}
+                    {opp?.filmed && (
+                      <VideoTokens
+                        tokens={oppTokens.filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }}
+                        geo={camGeo.opp} s={s} dragKey={dragKey} onPress={press} type="opptoken"
                       />
                     )}
                   </>
@@ -1250,15 +1301,22 @@ export default function Table({ go, gameId }) {
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
                         stream={rtc.myCam?.stream} state={rtc.myCam?.state} rotKey="table_cam_rot_me" defRot={0} name="votre caméra"
+                        side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))}
                       >
                         <CamSetup link={rtc.camLink} compact={MAT_H * s < 260} />
                       </CamOverlay>
+                    )}
+                    {mine?.filmed && (
+                      <VideoTokens
+                        tokens={myTokens.filter((t) => t.on === "v")} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }}
+                        geo={camGeo.mine} s={s} dragKey={dragKey} onPress={press} type="token"
+                      />
                     )}
                     <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
                 )}
-                <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} />
+                <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} />
               </div>
             );
           })()}
@@ -1267,6 +1325,21 @@ export default function Table({ go, gameId }) {
         <div className="side">
           <PhaseBar st={mine} opp={opp} onPhase={setPhase} onEnd={endTurn} onClear={() => clearArrows()} />
           {mine?.filmed ? (
+            <>
+            <div className="controls">
+              {TCG !== "fab" && <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>}
+              <div className="palette" title="Jetons : faites glisser sur l'image de votre tapis">
+                {TOKEN_COLORS.map((c) => (
+                  <div
+                    key={c.id}
+                    className="tok"
+                    style={{ background: `radial-gradient(circle at 35% 30%, #fff8, ${c.hex} 55%)` }}
+                    onPointerDown={(e) => press(e, { type: "palette", color: c.id })}
+                    aria-label={`Jeton ${c.label}`}
+                  />
+                ))}
+              </div>
+            </div>
             <FilmedSide
               cam={rtc.myCam}
               onQr={() => setSheet({ kind: "camqr" })}
@@ -1274,6 +1347,7 @@ export default function Table({ go, gameId }) {
               wide={wide}
               journal={<Journal mine={mine} opp={opp} />}
             />
+            </>
           ) : (
           <>
           <div className="controls">
@@ -1392,7 +1466,7 @@ export default function Table({ go, gameId }) {
 
       {aim && (
         <div className="aim-bar">
-          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} avec « {mine?.cards[aim.iid]?.n} » : touchez la cible ({TCG === "fab" ? "carte ou compteur adverse" : "carte, territoire ou compteur adverse"})</span>
+          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} {aim.v ? "depuis votre tapis filmé" : <>avec « {mine?.cards[aim.iid]?.n} »</>} : touchez la cible ({TCG === "fab" ? "carte ou compteur adverse" : "carte, territoire ou compteur adverse"})</span>
           <button className="btn sm" onClick={() => setAim(null)}>Annuler</button>
         </div>
       )}
@@ -1500,6 +1574,17 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   const A = actions;
   if (!sheet) return null;
 
+  if (sheet.kind === "vaim") {
+    return (
+      <Sheet open onClose={close} title="Depuis ce point de votre tapis">
+        <p className="muted small" style={{ marginTop: 0 }}>Une flèche part de l'endroit touché sur votre image : votre adversaire la voit au même endroit.</p>
+        <div className="row">
+          <button className="btn atk grow" onClick={() => A.startAim({ v: sheet.v }, "atk")}>⚔ Attaquer</button>
+          <button className="btn cib grow" onClick={() => A.startAim({ v: sheet.v }, "cib")}>🎯 Cibler</button>
+        </div>
+      </Sheet>
+    );
+  }
   if (sheet.kind === "voice") return <VoiceSheet onClose={close} rtc={rtc} opp={opp} watching={tribune.watching} setToast={setToast} />;
   if (sheet.kind === "camqr") {
     return (
@@ -2045,12 +2130,17 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
 }
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
-export function Arrows({ L, s, mine, opp, aim }) {
+export function Arrows({ L, s, mine, opp, aim, cams }) {
   const pos = (owner, tgt) => {
     const m = L[owner];
     if (!m) return null;
     if (tgt.p) return { x: m.panel.left + m.panel.width / 2, y: m.panel.top + m.panel.height / 2 };
     const st = owner === "mine" ? mine : opp;
+    if (tgt.v) {
+      // point d'un tapis filmé : placé sur l'image telle qu'elle est affichée ici
+      const box = { left: m.mat.left, top: m.mat.top, w: MAT_W * s, h: MAT_H * s };
+      return videoToBoard(box, cams?.[owner] || { rot: 0 }, tgt.v);
+    }
     let x, y;
     if (tgt.iid) {
       const b = st?.board.find((q) => q.iid === tgt.iid);
@@ -2069,19 +2159,19 @@ export function Arrows({ L, s, mine, opp, aim }) {
   const seen = {};
   for (const [owner, st] of [["mine", mine], ["opp", opp]]) {
     for (const a of st?.arrows || []) {
-      const p0 = pos(owner, { iid: a.from });
+      const p0 = pos(owner, a.fv ? { v: a.fv } : { iid: a.from });
       const tOwner = a.to.s === "me" ? owner : owner === "mine" ? "opp" : "mine";
       const p1 = pos(tOwner, a.to);
       if (!p0 || !p1) continue;
       // Attaque combinée : les flèches vers une même cible s'écartent les unes des autres
-      const key = `${tOwner}:${a.to.iid || a.to.t || (a.to.p ? "p" : "")}`;
+      const key = `${tOwner}:${a.to.iid || a.to.t || (a.to.p ? "p" : "") || (a.to.v ? a.to.v.join(",") : "")}`;
       seen[key] = (seen[key] || 0) + 1;
       const i = seen[key] - 1;
       const bend = (i % 2 ? -1 : 1) * (0.15 + 0.12 * Math.floor((i + 1) / 2));
       list.push({ id: `${owner}${a.id}`, p0, p1, bend, k: a.k === "atk" ? "atk" : "cib" });
     }
   }
-  const src = aim ? pos("mine", { iid: aim.iid }) : null;
+  const src = aim ? pos("mine", aim.v ? { v: aim.v } : { iid: aim.iid }) : null;
   if (!list.length && !src) return null;
   const sw = Math.max(3, 1.3 * s * 3);
   return (
