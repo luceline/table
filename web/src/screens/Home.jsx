@@ -118,7 +118,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   }
 
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
-  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0);
+  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0);
 
   const myName = user.name || user.email.split("@")[0];
 
@@ -138,7 +138,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     return {
       name: deck.name,
       by: myName,
-      entries: ents.map((e) => ({ card: e.card, qty: e.qty })),
+      entries: ents.map((e) => ({ card: e.card, qty: e.qty, ...(e.tok ? { tok: true } : null) })),
       commander: cmd ? cmd.id : "",
       cards: [...ents.map((e) => snap(cardsById[e.card])), ...(cmd ? [snap(cmd)] : [])],
       ...(deck.format ? { format: deck.format } : null),

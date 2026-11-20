@@ -165,6 +165,7 @@ export default function Library({ go }) {
               <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
               <div className="cap">{c.name || "Sans nom"}</div>
               {c.kind === "jeton" && <span className="badge">JETON</span>}
+              {!fab && c.kind !== "jeton" && c.token_too && <span className="badge">+ JETON</span>}
               {fab && c.kind === "heros" && <span className="badge">HÉROS</span>}
               {fab && c.kind === "arene" && <span className="badge">ÉQUIP.</span>}
               {fab && c.pitch && <span className="pitch-tag" style={{ background: { r: "#c83a32", y: "#d6b13b", b: "#3b78c8" }[c.pitch] }} />}
@@ -233,12 +234,25 @@ export default function Library({ go }) {
               }}
             />
             )}
+            {!fab && (
+              <div className="field">
+                <label>Type</label>
+                <div className="hand-tabs type-tabs">
+                  {[
+                    ["carte", "Carte normale", { kind: "carte", token_too: false }],
+                    ["jeton", "Carte jeton", { kind: "jeton", token_too: false }],
+                    ["les2", "Les deux", { kind: "carte", token_too: true }],
+                  ].map(([k, label, patch]) => {
+                    const cur = sel.kind === "jeton" ? "jeton" : sel.token_too ? "les2" : "carte";
+                    return <button key={k} className={cur === k ? "on" : ""} onClick={() => cur !== k && save(patch)}>{label}</button>;
+                  })}
+                </div>
+                {sel.kind !== "jeton" && sel.token_too && (
+                  <p className="muted small" style={{ margin: "6px 0 0" }}>Se met dans le deck comme une carte normale, et peut aussi être ajoutée à la réserve de jetons du deck.</p>
+                )}
+              </div>
+            )}
             <div className="row" style={{ flexWrap: "wrap" }}>
-              {!fab && (
-              <button className={`btn ${sel.kind === "jeton" ? "primary" : ""}`} onClick={() => save({ kind: sel.kind === "jeton" ? "carte" : "jeton" })}>
-                Type : {sel.kind === "jeton" ? "carte jeton" : "carte normale"}
-              </button>
-              )}
               <button className="btn" onClick={() => save({ orient: sel.orient === "l" ? "p" : "l" })}>
                 Format : {sel.orient === "l" ? "paysage" : "portrait"}
               </button>

@@ -8,14 +8,14 @@ export const COPY_MAX = 2;
 export const nameKey = (t) =>
   (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
-// entries : [{card, qty}] ; cardsById : {id: {name, kind}}
+// entries : [{card, qty, tok?}] ; cardsById : {id: {name, kind}} ; tok = copie jeton d'une carte normale (réserve)
 // Les cartes jetons (réserve) ne comptent pas. Deux scans du même nom comptent comme la même carte.
 export function checkDeck(entries, cardsById) {
   let total = 0;
   const byName = {};
   for (const e of entries || []) {
     const c = cardsById[e.card];
-    if (!c || c.kind === "jeton" || !(e.qty > 0)) continue;
+    if (!c || c.kind === "jeton" || e.tok || !(e.qty > 0)) continue;
     total += e.qty;
     const k = nameKey(c.name) || c.id;
     byName[k] = { name: c.name || "Sans nom", n: (byName[k]?.n || 0) + e.qty };
@@ -48,7 +48,7 @@ export function checkFab(deck, cardsById) {
   const byKey = {};
   for (const e of deck?.entries || []) {
     const c = cardsById[e.card];
-    if (!c || c.kind === "jeton" || c.kind === "heros" || !(e.qty > 0)) continue;
+    if (!c || c.kind === "jeton" || e.tok || c.kind === "heros" || !(e.qty > 0)) continue;
     if (c.kind === "arene") arena += e.qty;
     else total += e.qty;
     const k = fabKey(c);

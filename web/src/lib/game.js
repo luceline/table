@@ -42,7 +42,8 @@ export function buildState({ name, deck, cardsById }) {
     if (!rec || !(e.qty > 0)) continue;
     const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p", v: parseVal(rec.val) };
     // Cartes jetons : modèles en réserve, copies illimitées, jamais dans le deck
-    if (rec.kind === "jeton") {
+    // (tok : carte normale choisie aussi comme jeton, son entrée de réserve est distincte de celle du deck)
+    if (rec.kind === "jeton" || e.tok) {
       reserve.push({ tid: rec.id, ...base });
       continue;
     }

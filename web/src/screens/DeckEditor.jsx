@@ -14,6 +14,7 @@ export default function DeckEditor({ go, deckId }) {
   const [deck, setDeck] = useState(null);
   const [cards, setCards] = useState([]);
   const [qty, setQty] = useState({});
+  const [tq, setTq] = useState({}); // cartes normales choisies aussi comme jeton
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -35,9 +36,10 @@ export default function DeckEditor({ go, deckId }) {
         setName(d.name);
         setCommander(d.commander && c.some((x) => x.id === d.commander) ? d.commander : "");
         setCards(c);
-        const q = {};
-        for (const e of d.entries || []) if (c.some((x) => x.id === e.card)) q[e.card] = e.qty;
+        const q = {}, t = {};
+        for (const e of d.entries || []) if (c.some((x) => x.id === e.card)) (e.tok ? t : q)[e.card] = e.tok ? 1 : e.qty;
         setQty(q);
+        setTq(t);
       } catch (e) {
         setErr(errMsg(e));
       }
@@ -45,9 +47,21 @@ export default function DeckEditor({ go, deckId }) {
   }, [deckId]);
 
   const normal = cards.filter((c) => c.kind !== "jeton");
-  const tokens = cards.filter((c) => c.kind === "jeton");
+  // Jetons : cartes jetons, et cartes normales qui existent aussi en jeton (choix séparé de leurs exemplaires du deck)
+  const tokens = cards.filter((c) => c.kind === "jeton" || c.token_too);
+  const tokOn = (c) => !!(c.kind === "jeton" ? qty[c.id] : tq[c.id]);
   const total = normal.reduce((n, c) => n + (qty[c.id] || 0), 0);
-  const nTok = tokens.filter((c) => qty[c.id]).length;
+  const nTok = tokens.filter(tokOn).length;
+  function toggleTok(c) {
+    if (c.kind === "jeton") return setN(c.id, qty[c.id] ? 0 : 1);
+    setTq((t) => {
+      const r = { ...t };
+      if (r[c.id]) delete r[c.id];
+      else r[c.id] = 1;
+      return r;
+    });
+    setDirty(true);
+  }
 
   const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
   const chk = checkDeck(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId);
@@ -73,7 +87,10 @@ export default function DeckEditor({ go, deckId }) {
 
   async function save(leave) {
     try {
-      const entries = Object.entries(qty).map(([card, n]) => ({ card, qty: n }));
+      const entries = [
+        ...Object.entries(qty).map(([card, n]) => ({ card, qty: n })),
+        ...Object.keys(tq).map((card) => ({ card, qty: 1, tok: true })),
+      ];
       await pb.collection("decks").update(deckId, { name: name.trim() || deck.name, entries, commander });
       setDirty(false);
       if (leave) go("home");
@@ -116,7 +133,7 @@ export default function DeckEditor({ go, deckId }) {
   const cmdCount = normal
     .filter((c) => qty[c.id] && !isMagic(c) && factionsOf(c).some((f) => cmdF.includes(f)))
     .reduce((n, c) => n + qty[c.id], 0);
-  const shownTok = tokens.filter((c) => (!onlyIn || qty[c.id]) && match(c));
+  const shownTok = tokens.filter((c) => (!onlyIn || tokOn(c)) && match(c));
   const thumb = (c) => (
     <>
       <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
@@ -233,15 +250,15 @@ export default function DeckEditor({ go, deckId }) {
               <div key={c.id}>
                 <div
                   className="thumb"
-                  onClick={() => setN(c.id, qty[c.id] ? 0 : 1)}
-                  style={{ ...(c.orient === "l" ? { aspectRatio: "88 / 63" } : null), opacity: qty[c.id] ? 1 : 0.45 }}
+                  onClick={() => toggleTok(c)}
+                  style={{ ...(c.orient === "l" ? { aspectRatio: "88 / 63" } : null), opacity: tokOn(c) ? 1 : 0.45 }}
                 >
                   {thumb(c)}
-                  {qty[c.id] > 0 && <span className="badge">✓</span>}
+                  {tokOn(c) && <span className="badge">✓</span>}
                 </div>
                 <div className="qty" style={{ justifyContent: "center" }}>
-                  <button className={`btn sm ${qty[c.id] ? "primary" : ""}`} onClick={() => setN(c.id, qty[c.id] ? 0 : 1)}>
-                    {qty[c.id] ? "Dans la réserve" : "Ajouter"}
+                  <button className={`btn sm ${tokOn(c) ? "primary" : ""}`} onClick={() => toggleTok(c)}>
+                    {tokOn(c) ? "Dans la réserve" : "Ajouter"}
                   </button>
                 </div>
               </div>
