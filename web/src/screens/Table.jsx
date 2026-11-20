@@ -1768,6 +1768,12 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           </div>
           <button className="btn icon" onClick={() => upd({ v: Math.min(99, t.v + 1) })}>+</button>
         </div>
+        {/* valeur directe de 1 à 12 ; − et + permettent ensuite d'aller plus loin */}
+        <div className="val-chips">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+            <button key={n} className={`btn sm ${t.v === n ? "on" : ""}`} onClick={() => t.v !== n && upd({ v: n })}>{n}</button>
+          ))}
+        </div>
         <div className="row" style={{ justifyContent: "center", marginBottom: 16 }}>
           {TOKEN_COLORS.map((c) => (
             <button
@@ -2122,11 +2128,6 @@ function MarkerSheet({ onClose, t, onCreate, onUpd, onDel }) {
               style={{ width: 28, height: 28, borderRadius: "50%", border: color === c.id ? "3px solid #fff" : "2px solid #0008", background: c.hex, cursor: "pointer" }} />
           ))}
         </div>
-      </div>
-      <div className="val-chips">
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-          <button key={n} className={`btn sm ${v === n ? "on" : ""}`} onClick={() => set({ v: n })}>{n}</button>
-        ))}
       </div>
       {!editing && (
         <div className="row" style={{ marginBottom: 12 }}>
