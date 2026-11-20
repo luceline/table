@@ -419,6 +419,14 @@ export default function Table({ go, gameId }) {
     track(id, () => pb.collection("marks").delete(id));
   };
 
+  // Retirer d'un coup tous mes jetons de couleur (les marqueurs de territoire restent)
+  const clearMyTokens = () => {
+    const mineT = tokRef.current.filter((t) => t.side === mySide && !t.label);
+    if (!mineT.length) return;
+    mineT.forEach((t) => delMark(t.id));
+    mut(() => `retire tous ses jetons (${mineT.length})`);
+  };
+
   // Description d'un jeton / marqueur pour le journal
   const tokDesc = (t, where = true) => {
     if (!t) return "un jeton";
@@ -1194,6 +1202,7 @@ export default function Table({ go, gameId }) {
 
   // ---------- Rendu ----------
   const myTokens = tokens.filter((t) => t.side === mySide);
+  const nMyTok = myTokens.filter((t) => !t.label).length;
   const oppTokens = tokens.filter((t) => t.side !== mySide);
   const ticker = opp?.log?.length ? logLine(opp.name, opp.log[opp.log.length - 1].m) : "";
 
@@ -1354,11 +1363,16 @@ export default function Table({ go, gameId }) {
                   />
                 ))}
               </div>
+              {TCG !== "fab" && nMyTok > 0 && (
+                <button className="btn sm ghost clr-tok" onClick={clearMyTokens} title="Retirer tous mes jetons de couleur (les marqueurs restent)">✕ Jetons ({nMyTok})</button>
+              )}
             </div>
             <FilmedSide
               cam={rtc.myCam}
               onQr={() => setSheet({ kind: "camqr" })}
               onShow={() => setSheet({ kind: "showpick" })}
+              onPv0={mine.pv ? () => setTrack("pv", 0) : null}
+              pvLabel={counterLabel("pv")}
               wide={wide}
               journal={<Journal mine={mine} opp={opp} />}
             />
@@ -1381,6 +1395,9 @@ export default function Table({ go, gameId }) {
                 />
               ))}
             </div>
+            {TCG !== "fab" && nMyTok > 0 && (
+              <button className="btn sm ghost clr-tok" onClick={clearMyTokens} title="Retirer tous mes jetons de couleur (les marqueurs restent)">✕ Jetons ({nMyTok})</button>
+            )}
           </div>
           {(mine?.reserve?.length > 0 || wide || mine?.piles?.inv?.length > 0) && (
             <div className="controls2">
@@ -2106,6 +2123,11 @@ function MarkerSheet({ onClose, t, onCreate, onUpd, onDel }) {
           ))}
         </div>
       </div>
+      <div className="val-chips">
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+          <button key={n} className={`btn sm ${v === n ? "on" : ""}`} onClick={() => set({ v: n })}>{n}</button>
+        ))}
+      </div>
       {!editing && (
         <div className="row" style={{ marginBottom: 12 }}>
           <span className="muted small">Territoire</span>
@@ -2330,7 +2352,7 @@ function CamSetup({ link, compact }) {
 }
 
 // Colonne de droite (ou bas) pour un joueur filmé : pas de main ni de pioche, tout est sur sa table
-function FilmedSide({ cam, onQr, onShow, wide, journal }) {
+function FilmedSide({ cam, onQr, onShow, onPv0, pvLabel, wide, journal }) {
   return (
     <div className="filmed-side">
       <p className="small" style={{ marginTop: 0 }}>
@@ -2340,6 +2362,7 @@ function FilmedSide({ cam, onQr, onShow, wide, journal }) {
       <div className="row" style={{ flexWrap: "wrap" }}>
         <button className={`btn sm ${cam?.state === "connected" ? "" : "primary"}`} onClick={onQr}>📷 Caméra : {camState(cam)}</button>
         <button className="btn sm" onClick={onShow}>Montrer une carte</button>
+        <button className="btn sm" onClick={onPv0} disabled={!onPv0} title={`Remettre mes ${pvLabel} à 0`}>{pvLabel} à 0</button>
       </div>
       {wide && <div className="side-log" style={{ marginTop: 10 }}>{journal}</div>}
     </div>

@@ -665,3 +665,7 @@ html { background: var(--bg); }
 .cam-warn { background: rgba(214,169,59,.9); color: #111; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
 /* Jetons et marqueurs posés sur un tapis filmé : au-dessus de la vidéo */
 .token.vtok, .tmarker.vtok { z-index: 7; }
+/* Marqueurs : valeur directe de 1 à 12 */
+.val-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 0 0 12px; }
+.val-chips .btn { justify-content: center; min-width: 0; padding-left: 0; padding-right: 0; }
+.clr-tok { white-space: nowrap; }
