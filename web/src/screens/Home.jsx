@@ -150,7 +150,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   }
 
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
-  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0);
+  // Safir : le commandant compte dans les cartes du deck (le héros de Flesh and Blood, non)
+  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0) + (tcg !== "fab" && d.commander && cardsById[d.commander] ? 1 : 0);
 
   const myName = user.name || user.email.split("@")[0];
 

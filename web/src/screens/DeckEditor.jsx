@@ -50,7 +50,8 @@ export default function DeckEditor({ go, deckId }) {
   // Jetons : cartes jetons, et cartes normales qui existent aussi en jeton (choix séparé de leurs exemplaires du deck)
   const tokens = cards.filter((c) => c.kind === "jeton" || c.token_too);
   const tokOn = (c) => !!(c.kind === "jeton" ? qty[c.id] : tq[c.id]);
-  const total = normal.reduce((n, c) => n + (qty[c.id] || 0), 0);
+  // le commandant compte dans les 30 à 40 cartes du deck
+  const total = normal.reduce((n, c) => n + (qty[c.id] || 0), 0) + (commander ? 1 : 0);
   const nTok = tokens.filter(tokOn).length;
   function toggleTok(c) {
     if (c.kind === "jeton") return setN(c.id, qty[c.id] ? 0 : 1);
@@ -64,7 +65,7 @@ export default function DeckEditor({ go, deckId }) {
   }
 
   const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
-  const chk = checkDeck(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId);
+  const chk = checkDeck(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId, commander);
   // Exemplaires déjà pris pour ce nom (deux scans du même nom comptent ensemble)
   const sameName = (c) => normal.filter((x) => x.id !== c.id && nameKey(x.name) === nameKey(c.name)).reduce((n, x) => n + (qty[x.id] || 0), 0);
   const maxFor = (c) => Math.max(0, Math.min(COPY_MAX - sameName(c), (qty[c.id] || 0) + DECK_MAX - total));
@@ -277,7 +278,7 @@ function CommanderBox({ card, factions, count, onPick, onClear }) {
       <div className="grow">
         <h2 style={{ fontSize: 17, margin: "0 0 4px" }}>Commandant <span className="muted small">(facultatif)</span></h2>
         <p className="muted small" style={{ margin: 0 }}>
-          Hors deck, posé automatiquement dans la zone Commandant au début de la partie. Il exige 15 combattants de sa faction dans le deck.
+          Compte dans les 30 à 40 cartes du deck. Posé automatiquement dans la zone Commandant au début de la partie. Il exige 15 combattants de sa faction dans le deck.
         </p>
       </div>
       {card ? (

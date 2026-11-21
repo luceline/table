@@ -8,7 +8,7 @@ export const RULES = [
     title: "Bases",
     items: [
       { k: "But", t: "Premier joueur à 30 points de victoire (PV)." },
-      { k: "Deck", t: "Entre 30 et 40 cartes. Au plus 2 exemplaires d'une même carte (strictement identique). Deux versions différentes d'un même personnage sont des cartes différentes." },
+      { k: "Deck", t: "Entre 30 et 40 cartes, commandant compris. Au plus 2 exemplaires d'une même carte (strictement identique). Deux versions différentes d'un même personnage sont des cartes différentes." },
       { k: "Tapis", t: "3 territoires. Chaque territoire : 3 emplacements Combattant, 3 emplacements Magie et 1 défausse. Plus les zones PI, PV, Commandant et Deck." },
       { k: "Si une carte contredit la règle", t: "Le texte de la carte l'emporte." },
     ],
@@ -20,7 +20,7 @@ export const RULES = [
       { k: "Combattant", t: "ATK, Valeur et DEF en haut. Se joue dans un emplacement Combattant." },
       { k: "Magie", t: "Seulement une Valeur. Se joue dans un emplacement Magie." },
       { k: "Jeton", t: "Le mot « jeton » figure dans l'effet. Compte comme un combattant. Rangé dans une pile à part. Joué par l'effet d'une autre carte, il n'active pas son propre effet. Peut aussi être mis dans le deck (il compte alors dans la limite). Détruit, il va dans la défausse du territoire." },
-      { k: "Commandant", t: "Seulement un effet. Optionnel, choisi avant la partie, posé dans la zone Commandant. Exige 15 combattants de sa faction dans le deck. Son effet s'utilise une fois par tour, pendant votre tour, sauf mention contraire. Ne peut être ni ciblé ni détruit, mais ses effets peuvent être annulés si une carte le prévoit." },
+      { k: "Commandant", t: "Seulement un effet. Optionnel, choisi avant la partie, posé dans la zone Commandant ; il compte dans les 30 à 40 cartes du deck. Exige 15 combattants de sa faction dans le deck. Son effet s'utilise une fois par tour, pendant votre tour, sauf mention contraire. Ne peut être ni ciblé ni détruit, mais ses effets peuvent être annulés si une carte le prévoit." },
       { k: "Rareté UR et plus", t: "Valeur en chiffres romains en haut, ATK et DEF au-dessus de la faction." },
     ],
   },

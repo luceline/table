@@ -10,8 +10,9 @@ export const nameKey = (t) =>
 
 // entries : [{card, qty, tok?}] ; cardsById : {id: {name, kind}} ; tok = copie jeton d'une carte normale (réserve)
 // Les cartes jetons (réserve) ne comptent pas. Deux scans du même nom comptent comme la même carte.
-export function checkDeck(entries, cardsById) {
-  let total = 0;
+// Le commandant (facultatif) compte dans les 30 à 40 cartes.
+export function checkDeck(entries, cardsById, commander) {
+  let total = commander && cardsById[commander] ? 1 : 0;
   const byName = {};
   for (const e of entries || []) {
     const c = cardsById[e.card];
@@ -76,5 +77,5 @@ export function checkFab(deck, cardsById) {
 
 // Contrôle du deck selon le jeu actif (Safir : règles d'origine, inchangées)
 export function checkDeckFor(deck, cardsById) {
-  return TCG === "fab" ? checkFab(deck, cardsById) : checkDeck(deck?.entries, cardsById);
+  return TCG === "fab" ? checkFab(deck, cardsById) : checkDeck(deck?.entries, cardsById, deck?.commander);
 }

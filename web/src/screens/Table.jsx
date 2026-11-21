@@ -398,12 +398,18 @@ export default function Table({ go, gameId, side = "" }) {
     if (!mineRef.current) return;
     const st = structuredClone(mineRef.current);
     const msg = fn(st);
+    // valeur de départ d'une suite de changements (« de 12 à 18 »), gardée tant que la ligne du journal est fusionnée
+    const from = st.__from;
+    delete st.__from;
     if (msg === false) return;
     if (typeof msg === "string") {
       const last = st.log?.[st.log.length - 1];
       if (last && key && last.k === key && Date.now() - last.t < 8000) {
-        st.log = [...st.log.slice(0, -1), { t: Date.now(), m: msg, k: key }];
-      } else addLog(st, msg, key);
+        st.log = [...st.log.slice(0, -1), { t: Date.now(), m: msg, k: key, ...(last.from !== undefined ? { from: last.from } : null) }];
+      } else {
+        addLog(st, msg, key);
+        if (from !== undefined) st.log[st.log.length - 1].from = from;
+      }
     }
     st.rev = (st.rev || 0) + 1;
     mineRef.current = st;
@@ -524,7 +530,12 @@ export default function Table({ go, gameId, side = "" }) {
     }
     updMark(id, patch);
     const nt = { ...t, ...patch };
-    if ("v" in patch && patch.v !== t.v) mut(() => `met ${tokDesc(nt)} à ${patch.v}`, `tok:${id}`);
+    if ("v" in patch && patch.v !== t.v) {
+      mut((st) => {
+        const from = fromOf(st, `tok:${id}`, t.v || 0);
+        return from === patch.v ? `remet ${tokDesc(nt)} à ${patch.v}` : `passe ${tokDesc(nt)} de ${from} à ${patch.v}`;
+      }, `tok:${id}`);
+    }
     else if ("label" in patch && patch.label !== t.label) mut(() => `renomme le marqueur « ${t.label} » en « ${patch.label} »`);
     else if ("x" in patch || "on" in patch) mut(() => `déplace ${tokDesc(t, false)}${tokDesc(nt).slice(tokDesc(nt, false).length)}`);
     else if ("color" in patch && patch.color !== t.color) mut(() => `change la couleur de ${tokDesc(t)}`, `tokc:${id}`);
@@ -736,19 +747,22 @@ export default function Table({ go, gameId, side = "" }) {
       return "mélange son deck";
     });
 
+  // Valeur de départ d'une suite de changements rapprochés (même ligne de journal) : « de 12 à 18 »
+  const fromOf = (st, key, cur) => {
+    const last = st.log?.[st.log.length - 1];
+    const v = last && last.k === key && Date.now() - last.t < 8000 && last.from !== undefined ? last.from : cur;
+    st.__from = v;
+    return v;
+  };
   const setTrack = (kind, v) =>
     mut((st) => {
-      if (TCG === "fab") {
-        const nv = clamp(v, 0, 99);
-        if (st[kind] === nv) return false;
-        st[kind] = nv;
-        return kind === "pv" ? `met sa vie à ${nv}` : `met ses ressources à ${nv}`;
-      }
-      const max = kind === "pi" ? 15 : 99; // PV : la victoire se déclare à 30, mais le compteur peut continuer à monter
+      const max = TCG === "fab" ? 99 : kind === "pi" ? 15 : 99; // PV Safir : la victoire se déclare à 30, mais le compteur peut continuer à monter
       const nv = clamp(v, 0, max);
       if (st[kind] === nv) return false;
+      const from = fromOf(st, kind, st[kind] ?? 0);
       st[kind] = nv;
-      return `met ses ${kind.toUpperCase()} à ${nv}`;
+      const what = TCG === "fab" ? (kind === "pv" ? "sa vie" : "ses ressources") : `ses ${kind.toUpperCase()}`;
+      return from === nv ? `remet ${what} à ${nv}` : `passe ${what} de ${from} à ${nv}`;
     }, kind);
 
   // Joueur filmé : sens de l'image de sa caméra, le même chez tous (si le téléphone est posé dans l'autre sens)
