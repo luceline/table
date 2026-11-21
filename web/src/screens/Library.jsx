@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ZoomPreview } from "../components/ZoomView.jsx";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { Sheet } from "../components/ui.jsx";
 import { nameKey } from "../lib/deckrules.js";
@@ -188,9 +189,7 @@ export default function Library({ go }) {
       <Sheet open={!!sel} onClose={() => { setSel(null); setErr(""); }} title="Carte">
         {sel && (
           <>
-            <div className="preview">
-              <img src={fileUrl("cards", sel.id, sel.image)} alt={sel.name} />
-            </div>
+            <ZoomPreview src={fileUrl("cards", sel.id, sel.image)} alt={sel.name} />
             <div className="field">
               <label>Nom</label>
               <div className="row">

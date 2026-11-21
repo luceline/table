@@ -3,7 +3,7 @@ import { pushState, enablePush, disablePush } from "../lib/push.js";
 import { me, errMsg } from "../pb.js";
 
 // « Me prévenir quand quelqu'un rejoint ma table » : notification sur cet appareil, même appli fermée
-export default function PushToggle({ compact }) {
+export default function PushToggle({ compact, onText, offText }) {
   const [st, setSt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -42,13 +42,13 @@ export default function PushToggle({ compact }) {
       {compact && st === "off" && <button className="btn sm" onClick={on} disabled={busy}>🔔 Me prévenir quand quelqu'un arrive</button>}
       {!compact && st === "on" && (
         <>
-          <span className="grow small">🔔 Vous serez prévenu sur cet appareil quand quelqu'un rejoint votre table.</span>
+          <span className="grow small">🔔 {onText || "Vous serez prévenu sur cet appareil quand quelqu'un rejoint votre table."}</span>
           <button className="btn sm ghost" onClick={off} disabled={busy}>Désactiver</button>
         </>
       )}
       {!compact && st === "off" && (
         <>
-          <span className="grow small muted">Faites autre chose en attendant : une notification vous prévient quand quelqu'un s'assoit.</span>
+          <span className="grow small muted">{offText || "Faites autre chose en attendant : une notification vous prévient quand quelqu'un s'assoit."}</span>
           <button className="btn sm" onClick={on} disabled={busy}>🔔 Me prévenir</button>
         </>
       )}

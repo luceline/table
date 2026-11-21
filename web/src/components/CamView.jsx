@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ZoomView from "./ZoomView.jsx";
 import QRCode from "qrcode";
 import { TOKEN_HEX, MARKER_ICON } from "../lib/game.js";
 import { CARD } from "../lib/mat.js";
@@ -63,14 +64,20 @@ export function videoPointAt(ov, clientX, clientY) {
 // rot : sens de l'image, réglé par le joueur filmé et le même pour tous (enregistré dans son état de partie).
 // Si son image est à l'endroit pour lui, elle l'est pour tous : territoires I face à I, cartes lisibles.
 // Seul le joueur filmé a le bouton ↻ (onRot) : un réglage par spectateur ou par adversaire croiserait les territoires.
-export function CamOverlay({ left, top, w, h, stream, state, rot = 0, onRot, name, waitText, children, side, onGeom }) {
+export function CamOverlay({ left, top, w, h, stream, state, rot = 0, onRot, name, waitText, children, side, onGeom, onZoom, tapZoom }) {
   const live = hasVideo(stream) && state === "connected";
+  // spectateur (tapZoom) : la vue agrandie est gérée ici ; à la table, par le plateau (onZoom)
+  const [big, setBig] = useState(false);
+  const openBig = onZoom || (() => setBig(true));
   const [ar, setAr] = useState(0);
   useEffect(() => {
     onGeom?.(live && ar ? { ar, rot } : null);
   }, [live, ar, rot]);
   return (
-    <div className={`cam-overlay ${live ? "live" : ""}`} style={{ left, top, width: w, height: h }} data-side={side} data-rot={rot}>
+    <div
+      className={`cam-overlay ${live ? "live" : ""}`} style={{ left, top, width: w, height: h }} data-side={side} data-rot={rot}
+      onClick={tapZoom && live ? (e) => !e.target.closest("button") && openBig() : undefined}
+    >
       {live ? (
         <CamVideo stream={stream} rot={rot} className="cam-video" onSize={setAr} />
       ) : (
@@ -89,8 +96,10 @@ export function CamOverlay({ left, top, w, h, stream, state, rot = 0, onRot, nam
         <>
           <span className="cam-live">● direct{name ? ` · ${name}` : ""}</span>
           {onRot && <button className="cam-rot" onClick={onRot} aria-label="Retourner l'image pour tous" title="Retourner l'image (pour tous)">↻</button>}
+          <button className="cam-zoom" onClick={openBig} aria-label="Voir ce tapis en grand" title="Voir en grand (zoom)">🔍</button>
         </>
       )}
+      {big && live && <ZoomView stream={stream} rot={rot} title={name ? `Tapis de ${name}` : "Tapis filmé"} onClose={() => setBig(false)} />}
     </div>
   );
 }

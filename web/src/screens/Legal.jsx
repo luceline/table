@@ -97,6 +97,11 @@ export default function Legal() {
             Les messages des salons de discussion, visibles par tous les joueurs connectés avec votre pseudo, et conservés jusqu'à leur
             suppression (par vous, ou par un administrateur s'ils ne respectent pas les règles : propos injurieux, haineux, publicité, spam).
           </li>
+          <li>
+            Vos disponibilités (jours et heures de jeu de votre semaine type) : personne ne voit votre agenda ; les autres joueurs voient
+            seulement votre pseudo et les créneaux que vous avez en commun avec eux. Les propositions de partie (jour, heure, petit mot)
+            sont visibles par les deux joueurs concernés.
+          </li>
         </ul>
         <h3>Ce qui n'est pas enregistré</h3>
         <ul>

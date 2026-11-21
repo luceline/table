@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ZoomPreview } from "../components/ZoomView.jsx";
 import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
@@ -312,12 +313,12 @@ export default function Spectator({ code }) {
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
               <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               {p2?.filmed && (
-                <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
+                <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
               {p2?.filmed && <VideoTokens tokens={tokens("p2").filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.opp} s={s} />}
               <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
               {p1?.filmed && (
-                <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rot={p1.camRot || 0} name={p1.name} side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
+                <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rot={p1.camRot || 0} name={p1.name} side="mine" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
               )}
               {p1?.filmed && <VideoTokens tokens={tokens("p1").filter((t) => t.on === "v")} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.mine} s={s} />}
               <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
@@ -352,9 +353,7 @@ export default function Spectator({ code }) {
       })()}
       <Sheet open={!!view} onClose={() => { if (view?.back) setPileView(view.back); setView(null); }} title={view?.title || view?.c?.n || "Carte"}>
         {view && (
-          <div className="preview">
-            <img src={cardUrl(view.c, true)} alt={view.c.n} />
-          </div>
+          <ZoomPreview src={cardUrl(view.c, true)} alt={view.c.n} />
         )}
       </Sheet>
     </div>

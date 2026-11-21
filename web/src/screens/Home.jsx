@@ -1,4 +1,5 @@
 import { useSalonsSummary } from "../lib/salons.js";
+import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
 import { LegalFooter } from "./Legal.jsx";
@@ -59,6 +60,16 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setLobby("open");
     setTimeout(() => document.querySelector(".open-tables")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
   }, []);
+  // Arrivée depuis une notification de proposition de partie (?agenda=jeu)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (!q.has("agenda")) return;
+    const t = q.get("agenda") === "fab" ? "fab" : "safir";
+    window.history.replaceState(null, "", window.location.pathname);
+    if (t !== tcg) pickTcg(t);
+    go("agenda");
+  }, []);
+  const agenda = useAgenda(user?.id, tcg); // propositions de partie et parties prévues
   const wl = useResults(user?.id, tcg, decks.map((d) => d.id)); // victoires / défaites par deck (privé)
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
@@ -233,6 +244,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         }
       }
       await pb.collection("seats").create({ game: rec.id, player: user.id, state });
+      if (opts.invite) await pb.collection("invites").update(opts.invite.id, { code: rec.code, game: rec.id }).catch(() => {});
       if (opts.stay) {
         // table ouverte plus tard : on reste sur l'accueil
         setOpenForm(null);
@@ -286,6 +298,31 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       // Ni deck ni prêt : proposer de jouer avec mes cartes réelles, filmées
       if (!decks.length) return setJoinChoice(g);
       await sit(g, false);
+  }
+
+  // Partie prévue (agenda) : le premier arrivé ouvre la table, l'autre la rejoint
+  async function startPlanned(inv) {
+    setErr("");
+    setInfo("");
+    try {
+      const fresh = await pb.collection("invites").getOne(inv.id, { requestKey: null });
+      if (fresh.status !== "accepted") throw new Error("Cette partie a été annulée.");
+      if (!fresh.code) return await createGame({ invite: fresh });
+      setBusy(true);
+      let g;
+      try {
+        g = await pb.collection("games").getFirstListItem(`code="${fresh.code}"`);
+      } catch {
+        // table supprimée entre-temps : on en ouvre une nouvelle
+        setBusy(false);
+        return await createGame({ invite: fresh });
+      }
+      await joinRecord(g);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   // S'asseoir à une table ouverte
@@ -381,6 +418,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
 
       <SalonsCard tcg={tcg} userId={user.id} go={go} />
+      <AgendaCard agenda={agenda} go={go} />
 
       <div className="card-box">
         <h2>Jouer</h2>
@@ -442,6 +480,30 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           <button className="btn sm ghost solo-btn" onClick={() => setSoloForm({ a: decks[0].id, b: (decks[1] || decks[0]).id })} disabled={busy}>
             🧪 Partie solo : tester deux de mes decks
           </button>
+        )}
+        {agenda.planned.length > 0 && (
+          <>
+            <div className="spacer" />
+            <div className="muted small" style={{ marginBottom: 6 }}>📅 Parties prévues</div>
+            <div className="list">
+              {agenda.planned.map((i) => {
+                const other = i.from === user.id ? i.to_name : i.from_name;
+                const ready = canStart(i);
+                return (
+                  <div className="list-item" key={i.id}>
+                    <span className="grow small">Avec <b>{other}</b>, {whenText(i.at, i.end)}</span>
+                    {ready ? (
+                      <button className="btn sm primary" disabled={busy || (!decks.length && !filmed && !i.code)} onClick={() => startPlanned(i)}>
+                        {i.code ? "Rejoindre" : "Ouvrir la table"}
+                      </button>
+                    ) : (
+                      <span className="muted small" title="La table se lance 30 minutes avant l'heure prévue">dès {startFrom(i)}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
         {games.length > 0 && (
           <>
@@ -681,6 +743,29 @@ function SalonsCard({ tcg, userId, go }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Accueil : agenda des disponibilités (propositions reçues, joueurs disponibles en même temps)
+function AgendaCard({ agenda, go }) {
+  const n = agenda.received.length;
+  const p = agenda.players?.length || 0;
+  return (
+    <div className="card-box agenda-card">
+      <div className="row" style={{ alignItems: "center" }}>
+        <h2 className="grow" style={{ margin: 0 }}>
+          📅 Disponibilités{n > 0 && <span className="lobby-n live" style={{ marginLeft: 8, verticalAlign: "middle" }}>{n}</span>}
+        </h2>
+        <button className="btn sm primary" onClick={() => go("agenda")}>Ouvrir</button>
+      </div>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>
+        {n > 0
+          ? `${n} proposition${n > 1 ? "s" : ""} de partie à voir.`
+          : p > 0
+            ? `${p} joueur${p > 1 ? "s" : ""} disponible${p > 1 ? "s" : ""} en même temps que vous : proposez-leur une partie.`
+            : "Indiquez vos jours et heures de jeu : l'appli vous montre les joueurs disponibles en même temps."}
+      </p>
     </div>
   );
 }

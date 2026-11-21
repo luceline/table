@@ -1,4 +1,5 @@
 import PushToggle from "../components/PushToggle.jsx";
+import ZoomView, { ZoomPreview } from "../components/ZoomView.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -18,7 +19,7 @@ import { useTableRtc } from "../lib/useTableRtc.js";
 import { audioOut } from "../lib/rtc.js";
 import { CamOverlay, QrImg, VideoTokens, videoToBoard, videoPointAt } from "../components/CamView.jsx";
 
-const ZOOMS = [1, 1.6, 2.4]; // niveaux de zoom de la loupe (vue d'un seul tapis)
+const ZOOMS = [1, 1.6, 2.4, 3.2]; // niveaux de zoom de la loupe (vue d'un seul tapis)
 export const BAR = 48; // bandeau PI/PV en portrait (px écran)
 export const RAIL = 96; // colonne PI/PV en paysage (px écran)
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
@@ -48,6 +49,7 @@ export default function Table({ go, gameId, side = "" }) {
   const [toast, setToast] = useState("");
   const [sheet, setSheet] = useState(null);
   const [zoom, setZoom] = useState(0);
+  const [camZoom, setCamZoom] = useState(null); // tapis filmé en grand : "opp" ou "mine"
   const [hover, setHover] = useState(null);
   const [dragKey, setDragKey] = useState(null);
   const [ghost, setGhost] = useState(null);
@@ -872,6 +874,8 @@ export default function Table({ go, gameId, side = "" }) {
         return aimAt({ s: ov.dataset.side === "mine" ? "me" : "opp", v });
       }
       if (v && ov.dataset.side === "mine" && mineRef.current?.filmed) return setSheet({ kind: "vaim", v });
+      // tapis filmé de l'adversaire : le toucher l'ouvre en grand
+      if (v && ov.dataset.side === "opp") return setCamZoom("opp");
       return;
     }
     if (!aim || e.target.closest?.(".loupe-btn, .score")) return;
@@ -1352,7 +1356,7 @@ export default function Table({ go, gameId, side = "" }) {
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
                         stream={rtc.oppCam?.stream} state={rtc.oppCam?.state} rot={((opp.camRot || 0) + (mirrorMine ? 180 : 0)) % 360} name={opp.name}
-                        side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))}
+                        side="opp" onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} onZoom={() => setCamZoom("opp")}
                         waitText={rtc.ok ? `En attente de la caméra de ${opp.name}…` : "Ce navigateur ne permet pas la vidéo en direct."}
                       />
                     )}
@@ -1371,7 +1375,7 @@ export default function Table({ go, gameId, side = "" }) {
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
                         stream={rtc.myCam?.stream} state={rtc.myCam?.state} rot={mine.camRot || 0} onRot={flipCam} name="votre caméra"
-                        side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))}
+                        side="mine" onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} onZoom={() => setCamZoom("mine")}
                       >
                         <CamSetup link={rtc.camLink} compact={MAT_H * s < 260} />
                       </CamOverlay>
@@ -1387,6 +1391,12 @@ export default function Table({ go, gameId, side = "" }) {
                   </>
                 )}
                 <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} flipMine={mirrorMine} />
+                {camZoom === "opp" && opp?.filmed && rtc.oppCam?.stream && (
+                  <ZoomView stream={rtc.oppCam.stream} rot={((opp.camRot || 0) + (mirrorMine ? 180 : 0)) % 360} title={`Tapis de ${opp.name}`} onClose={() => setCamZoom(null)} />
+                )}
+                {camZoom === "mine" && mine?.filmed && rtc.myCam?.stream && (
+                  <ZoomView stream={rtc.myCam.stream} rot={mine.camRot || 0} title="Mon tapis filmé" onClose={() => setCamZoom(null)} />
+                )}
               </div>
             );
           })()}
@@ -1710,7 +1720,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     if (c?.tok) btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
     return (
       <Sheet open onClose={close} title={c?.n}>
-        <div className="preview"><img src={cardUrl(c, true)} alt={c?.n} /></div>
+        <ZoomPreview src={cardUrl(c, true)} alt={c?.n} />
         {aimBtns}
         <div className="actions">
           {btns.map(([label, f]) => (
@@ -1724,7 +1734,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   if (sheet.kind === "view") {
     return (
       <Sheet open onClose={close} title={sheet.title || sheet.c?.n}>
-        <div className="preview"><img src={cardUrl(sheet.c, true)} alt={sheet.c?.n} /></div>
+        <ZoomPreview src={cardUrl(sheet.c, true)} alt={sheet.c?.n} />
         {sheet.hint && <p className="muted small" style={{ textAlign: "center" }}>{sheet.hint}</p>}
         {sheet.ping && (
           <button className="btn" style={{ width: "100%" }} onClick={() => { A.pingCard(sheet.ping.owner, sheet.ping.iid); close(); }}>

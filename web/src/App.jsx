@@ -12,6 +12,7 @@ import Spectator from "./screens/Spectator.jsx";
 import Cam from "./screens/Cam.jsx";
 import Legal from "./screens/Legal.jsx";
 import Salons from "./screens/Salons.jsx";
+import Agenda from "./screens/Agenda.jsx";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -72,6 +73,8 @@ export default function App() {
   switch (screen.name) {
     case "library":
       return <Library go={go} />;
+    case "agenda":
+      return <Agenda go={go} />;
     case "salons":
       return <Salons go={go} channelId={screen.channelId} />;
     case "scan":
