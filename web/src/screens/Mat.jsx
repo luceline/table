@@ -164,6 +164,8 @@ export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey
             <div
               key={b.iid}
               className={`bcard ${dragKey === `board:${b.iid}` ? "dragging" : ""}`}
+              data-iid={b.iid}
+              data-side={side}
               style={{
                 left: p.x - (dim.w * s) / 2,
                 top: p.y - (dim.h * s) / 2,

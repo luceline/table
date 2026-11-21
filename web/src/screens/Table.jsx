@@ -930,6 +930,42 @@ export default function Table({ go, gameId, side = "" }) {
     if (a) addArrow(a, to);
   }
 
+  // Cible sous un point de l'écran (raccourcis souris) : carte, compteur, image d'un tapis filmé ou territoire
+  function targetAt(x, y) {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const ov = el.closest?.(".cam-overlay");
+      if (ov) {
+        const v = videoPointAt(ov, x, y);
+        return v ? { s: ov.dataset.side === "mine" ? "me" : "opp", v } : null;
+      }
+      const sc = el.closest?.(".score");
+      if (sc) return { s: sc.classList.contains("mine") ? "me" : "opp", p: true };
+      const bc = el.closest?.(".bcard[data-iid]");
+      if (bc) {
+        const s = bc.dataset.side === "mine" ? "me" : "opp";
+        const st = s === "me" ? mineRef.current : oppRef.current;
+        if (st?.board.some((b) => b.iid === bc.dataset.iid)) return { s, iid: bc.dataset.iid };
+      }
+    }
+    const loc = locate(x, y);
+    if (!loc || (loc.area !== "mine" && loc.area !== "opp") || TCG === "fab" || loc.y > 222) return null;
+    return { s: loc.area === "mine" ? "me" : "opp", t: terrOf(loc.x) };
+  }
+  // Le pointeur est-il au-dessus du côté adverse (son tapis, son image filmée ou son compteur) ?
+  const overOpp = (x, y) => locate(x, y)?.area === "opp" || document.elementsFromPoint(x, y).some((el) => el.closest?.(".score.opp"));
+  // Trait de visée pendant un glissé (mis à jour sans rendu React)
+  const lineRef = useRef();
+  const showLine = (d, x, y, k) => {
+    const l = lineRef.current;
+    if (!l) return;
+    if (!k) return void (l.style.display = "none");
+    l.style.display = "block";
+    l.setAttribute("class", `drag-line ${k}`);
+    const ln = l.querySelector("line");
+    ln.setAttribute("x1", d.c0.x); ln.setAttribute("y1", d.c0.y); ln.setAttribute("x2", x); ln.setAttribute("y2", y);
+    l.querySelector("circle").setAttribute("cx", x); l.querySelector("circle").setAttribute("cy", y);
+  };
+
   // Tap sur une zone vide du plateau pendant le choix d'une cible : vise le territoire
   function boardDown(e) {
     // Tapis filmé : la cible (ou l'origine) est un point de l'image, retrouvé au même endroit chez chacun
@@ -1117,6 +1153,13 @@ export default function Table({ go, gameId, side = "" }) {
   handlers.current.move = (e) => {
     const d = dragRef.current;
     if (!d) return;
+    // clic droit glissé depuis une de mes cartes : trait de ciblage
+    if (d.right) {
+      if (!d.started && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
+      d.started = true;
+      if (e.cancelable) e.preventDefault();
+      return showLine(d, e.clientX, e.clientY, "cib");
+    }
     if (!d.started) {
       if (d.long) return;
       if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
@@ -1130,6 +1173,12 @@ export default function Table({ go, gameId, side = "" }) {
       ghostRef.current.style.left = `${e.clientX}px`;
       ghostRef.current.style.top = `${e.clientY}px`;
     }
+    // une de mes cartes en jeu glissée sur le côté adverse : trait d'attaque à la place de la carte
+    if (d.src.type === "board" && d.c0) {
+      const atk = overOpp(e.clientX, e.clientY);
+      if (ghostRef.current) ghostRef.current.style.visibility = atk ? "hidden" : "";
+      showLine(d, e.clientX, e.clientY, atk ? "atk" : null);
+    }
     const h = hoverFor(d.src, locate(e.clientX, e.clientY));
     if ((h?.key || null) !== (d.hk || null)) {
       d.hk = h?.key || null;
@@ -1141,6 +1190,13 @@ export default function Table({ go, gameId, side = "" }) {
     detachListeners();
     dragRef.current = null;
     if (!d) return;
+    showLine(d, 0, 0, null);
+    if (d.right) {
+      if (!d.started) return;
+      const to = targetAt(e.clientX, e.clientY);
+      if (!to || (to.s === "me" && to.iid === d.src.iid)) return setToast("Relâchez sur une carte, un territoire ou un compteur pour cibler.");
+      return addArrow({ iid: d.src.iid, k: "cib" }, to);
+    }
     clearTimeout(d.timer);
     if (d.long) return;
     if (d.started) {
@@ -1150,6 +1206,7 @@ export default function Table({ go, gameId, side = "" }) {
     } else tap(d.src);
   };
   handlers.current.cancel = () => {
+    if (dragRef.current) showLine(dragRef.current, 0, 0, null);
     clearTimeout(dragRef.current?.timer);
     detachListeners();
     dragRef.current = null;
@@ -1174,10 +1231,21 @@ export default function Table({ go, gameId, side = "" }) {
   }
 
   const press = useCallback((e, src) => {
-    if (e.button > 0) return;
+    // clic droit maintenu sur une de mes cartes en jeu, puis glisser : ciblage
+    const right = e.button === 2 && src.type === "board";
+    if (e.button > 0 && !right) return;
     e.stopPropagation();
     detachListeners();
-    const d = { src, x0: e.clientX, y0: e.clientY, started: false };
+    const d = { src, x0: e.clientX, y0: e.clientY, started: false, right };
+    const card = src.type === "board" ? e.target.closest?.(".bcard")?.getBoundingClientRect() : null;
+    if (card) d.c0 = { x: card.left + card.width / 2, y: card.top + card.height / 2 };
+    if (right) {
+      dragRef.current = d;
+      window.addEventListener("pointermove", L.move, { passive: false });
+      window.addEventListener("pointerup", L.up);
+      window.addEventListener("pointercancel", L.cancel);
+      return;
+    }
     // Appui long sur une carte en jeu : la signaler à l'adversaire
     if (src.type === "board" || src.type === "oppboard") {
       d.timer = setTimeout(() => {
@@ -1232,6 +1300,12 @@ export default function Table({ go, gameId, side = "" }) {
       if (!loc || loc.area !== "mine") return;
       if (pileAt(loc.x, loc.y)) return setToast("Les cartes jetons se posent sur le tapis.");
       return createFromReserve(src.tid, loc.x, loc.y);
+    }
+    // une de mes cartes en jeu lâchée sur le côté adverse : attaque (raccourci du bouton « ⚔ Attaquer »)
+    if (src.type === "board" && e && overOpp(e.clientX, e.clientY)) {
+      const to = targetAt(e.clientX, e.clientY);
+      if (to && to.s === "opp") return addArrow({ iid: src.iid, k: "atk" }, to);
+      return setToast("Relâchez sur une carte, un territoire ou le compteur adverse pour attaquer.");
     }
     const st = mineRef.current;
     let iid, from;
@@ -1427,7 +1501,7 @@ export default function Table({ go, gameId, side = "" }) {
             );
             const aimPanel = (side) => (aim ? () => aimAt({ s: side === "mine" ? "me" : "opp", p: true }) : null);
             return (
-              <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown}>
+              <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown} onContextMenu={(e) => e.preventDefault()}>
                 {L.opp && (
                   <>
                     <ScorePanel st={opp} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
@@ -1609,6 +1683,10 @@ export default function Table({ go, gameId, side = "" }) {
         </div>
       </div>
 
+      <svg ref={lineRef} className="drag-line" style={{ display: "none" }} aria-hidden="true">
+        <line x1="0" y1="0" x2="0" y2="0" />
+        <circle cx="0" cy="0" r="9" />
+      </svg>
       {ghost?.pill && (
         <div ref={ghostRef} className="drag-ghost pill tmarker" style={{ left: ghost.x, top: ghost.y, borderColor: TOKEN_HEX[ghost.color] || "#ccc", fontSize: 13 }}>
           {MARKER_ICON[ghost.label] ? `${MARKER_ICON[ghost.label]} ` : ""}{ghost.label}{ghost.v ? <b>{ghost.v}</b> : null}
@@ -1784,6 +1862,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         <button className="btn cib" onClick={() => A.startAim(iid, "cib")}>🎯 Cibler</button>
         <button className="btn" onClick={run(() => A.pingCard("mine", iid))}>📍 Signaler</button>
         {nArrows > 0 && <button className="btn" onClick={run(() => A.clearArrows(iid))}>Retirer ses flèches ({nArrows})</button>}
+        <span className="muted small aim-tip">Raccourci : glissez la carte sur l'adversaire pour attaquer ; à la souris, clic droit maintenu et glissé pour cibler.</span>
       </div>
     ) : null;
     if (zone === "hand") {

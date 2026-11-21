@@ -816,3 +816,11 @@ html { background: var(--bg); }
 /* barre du haut : la ligne « main · deck » reste sur une seule ligne (la barre garde sa hauteur avec le bouton réactions) */
 .tbar .who > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 @media (max-width: 420px) { .tbar .react-btn { padding-left: 6px; padding-right: 6px; } }
+
+/* Trait de visée pendant un glissé (attaque : rouge ; ciblage, clic droit : bleu) */
+.drag-line { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 101; pointer-events: none; overflow: visible; }
+.drag-line line { stroke-width: 4; stroke-linecap: round; stroke-dasharray: 10 7; animation: march .6s linear infinite; filter: drop-shadow(0 0 4px rgba(0,0,0,.8)); }
+.drag-line circle { fill: none; stroke-width: 3; }
+.drag-line.atk line, .drag-line.atk circle { stroke: #ff5b5b; }
+.drag-line.cib line, .drag-line.cib circle { stroke: #5ba8ff; }
+.aim-tip { grid-column: 1 / -1; }
