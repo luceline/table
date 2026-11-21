@@ -937,11 +937,15 @@ export default function Table({ go, gameId, side = "" }) {
       if (!c) continue;
       const dim = CARD[c.o === "l" ? "l" : "p"];
       if (!inRect(x, y, boxAt(b.x, b.y, dim.w, dim.h, b.rot || 0))) continue;
-      let [dx, dy] = rotPt(x - b.x, y - b.y, -(b.rot || 0));
+      // Écart mesuré tel qu'on le voit sur l'image de la carte : sur un tapis inversé gauche/droite (face à un
+      // joueur filmé), la carte reste à l'endroit, donc l'écart horizontal se lit dans le sens de l'écran.
+      const mx = side === mySide && mirrorRef.current ? mirrorX(x, y) - mirrorX(b.x, b.y) : x - b.x;
+      let [dx, dy] = rotPt(mx, y - b.y, -(b.rot || 0));
       const others = tokRef.current.filter((t) => t.on === b.iid && t.id !== excludeId);
-      // Écart entre jetons d'une même carte, calé sur leur taille à l'écran
+      // Écart entre jetons d'une même carte, calé sur leur taille à l'écran. Le jeton reste là où on le lâche ;
+      // il ne se décale que s'il tomberait presque exactement sur un autre (sinon il serait caché dessous).
       const step = Math.max(9, (Math.max(20, 8 * sRef.current) / sRef.current) * 0.75);
-      for (let g = 0; g < 12 && others.some((t) => Math.hypot(t.dx - dx, t.dy - dy) < step * 0.8); g++) {
+      for (let g = 0; g < 12 && others.some((t) => Math.hypot(t.dx - dx, t.dy - dy) < step * 0.35); g++) {
         dy += step;
         if (dy > dim.h / 2) { dy = -dim.h / 2 + step / 2; dx += step; if (dx > dim.w / 2) dx = -dim.w / 2 + step / 2; }
       }
