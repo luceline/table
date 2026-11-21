@@ -4,6 +4,8 @@ import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
+import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
+import { reactionOf } from "../lib/reactions.js";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
 import { normalize, rid, TCG, PHASE_BY_ID } from "../lib/game.js";
 import { activateTcg, tcgOf } from "../lib/tcg.js";
@@ -27,6 +29,7 @@ export default function Spectator({ code }) {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState("");
   const [phaseFlash, setPhaseFlash] = useState(null); // nouvelle phase d'un joueur, annoncée en grand
+  const [reacts, pushReact] = useReactionQueue(); // réactions des joueurs
   const [view, setView] = useState(null); // carte agrandie
   const [pileView, setPileView] = useState(null); // défausse ouverte : { who, pile }
   const [pings, setPings] = useState([]);
@@ -79,6 +82,8 @@ export default function Spectator({ code }) {
   const applyMsg = useCallback((m, live) => {
     if (msgIds.current.has(m.id)) return;
     msgIds.current.add(m.id);
+    const r = reactionOf(m);
+    if (r) return live && pushReact({ r, name: m.name });
     setMessages((l) => [...l, m].slice(-200));
     if (!live) return;
     if (m.audio) {
@@ -336,6 +341,7 @@ export default function Spectator({ code }) {
       {speaking && <div className="bubble voice spec-bubble">🔊 <b>{speaking.name}</b> parle…</div>}
       <Toast text={toast} onDone={() => setToast("")} ms={3500} className="act" />
       <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
+      <ReactionLayer items={reacts} />
       {(() => {
         const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
         const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier

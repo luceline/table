@@ -1,5 +1,7 @@
 import PushToggle from "../components/PushToggle.jsx";
 import ZoomView, { ZoomPreview } from "../components/ZoomView.jsx";
+import { ReactionPicker, ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
+import { reactionOf, reactionText } from "../lib/reactions.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -11,7 +13,7 @@ import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
-  PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
+  PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, KIN_COLOR, kinSub, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { myResult, saveResult } from "../lib/results.js";
@@ -74,6 +76,8 @@ export default function Table({ go, gameId, side = "" }) {
   const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
   const [phaseFlash, setPhaseFlash] = useState(null); // phase de l'adversaire annoncée en grand
+  const [reacts, pushReact] = useReactionQueue(); // réactions rapides affichées en grand
+  const lastReact = useRef(0);
   const [winner, setWinner] = useState(null);
   const [result, setResult] = useState(undefined); // mon résultat enregistré pour cette partie : "win" | "loss" | null
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche ({v: [u, v]} depuis un tapis filmé)
@@ -207,6 +211,9 @@ export default function Table({ go, gameId, side = "" }) {
   const applyMsg = useCallback((m) => {
     if (msgIds.current.has(m.id)) return;
     msgIds.current.add(m.id);
+    // réaction rapide : affichée en grand, pas dans le tchat
+    const r = reactionOf(m);
+    if (r) return pushReact({ r, name: m.name, mine: m.author === user.id });
     setMessages((l) => [...l, m].slice(-200));
     if (m.author !== user.id) {
       if (sheetRef.current !== "chat") setUnread((n) => n + 1);
@@ -223,8 +230,8 @@ export default function Table({ go, gameId, side = "" }) {
       pb.collection("messages").getList(1, 100, { filter: `game="${gameId}"`, sort: "-created" }).catch(() => ({ items: [] })),
     ]);
     // Messages déjà lus : pas de bulle au chargement
-    const fresh = msgs.items.filter((m) => !msgIds.current.has(m.id)).reverse();
-    fresh.forEach((m) => msgIds.current.add(m.id));
+    const fresh = msgs.items.filter((m) => !msgIds.current.has(m.id) && !reactionOf(m)).reverse();
+    msgs.items.forEach((m) => msgIds.current.add(m.id)); // réactions déjà passées : pas rejouées
     if (fresh.length) setMessages((l) => [...l, ...fresh].sort((a, b) => (a.created < b.created ? -1 : 1)).slice(-200));
     activateTcg(tcgOf(g)); // tapis et règles du jeu de cette partie
     applyGame(g);
@@ -422,7 +429,7 @@ export default function Table({ go, gameId, side = "" }) {
   const valsFilled = useRef(false);
   useEffect(() => {
     if (!mine || valsFilled.current) return;
-    const missing = [...new Set(Object.values(mine.cards).filter((c) => !("v" in c) || !("a" in c)).map((c) => c.c))];
+    const missing = [...new Set(Object.values(mine.cards).filter((c) => !("v" in c) || !("a" in c) || !("k" in c)).map((c) => c.c))];
     valsFilled.current = true;
     if (!missing.length) return;
     (async () => {
@@ -430,13 +437,13 @@ export default function Table({ go, gameId, side = "" }) {
       for (let i = 0; i < missing.length; i += 30) {
         const part = missing.slice(i, i + 30);
         try {
-          const recs = await pb.collection("cards").getFullList({ filter: part.map((id) => `id="${id}"`).join(" || "), fields: "id,val,atk,def" });
-          recs.forEach((r) => (vals[r.id] = { v: parseVal(r.val), a: parseVal(r.atk), d: parseVal(r.def) }));
+          const recs = await pb.collection("cards").getFullList({ filter: part.map((id) => `id="${id}"`).join(" || "), fields: "id,val,atk,def,factions" });
+          recs.forEach((r) => (vals[r.id] = { v: parseVal(r.val), a: parseVal(r.atk), d: parseVal(r.def), k: kinSub(r.factions) }));
         } catch { /* cartes inaccessibles : valeur inconnue */ }
       }
       mut((st) => {
         for (const c of Object.values(st.cards)) {
-          for (const k of ["v", "a", "d"]) if (!(k in c)) c[k] = vals[c.c]?.[k] ?? null;
+          for (const k of ["v", "a", "d", "k"]) if (!(k in c)) c[k] = vals[c.c]?.[k] ?? (k === "k" ? "" : null);
         }
         return true; // sans ligne de journal
       });
@@ -470,7 +477,8 @@ export default function Table({ go, gameId, side = "" }) {
     track(id, () => pb.collection("marks").delete(id));
   };
 
-  // Unification d'un combattant : 3 jetons (ATK rouge, Valeur or, DEF bleu) avec ses valeurs bonus comprises.
+  // Unification d'un combattant : 3 jetons à la couleur de sa sous-faction (Yan rouge, Tian bleu, Lin vert), posés sur
+  // ATK (en haut à gauche), Valeur (en haut au milieu) et DEF (en haut à droite), avec les bonus compris.
   // Les jetons d'une unification précédente sur la même carte sont remplacés ; niveau 0 = tout retirer.
   const setCardUnif = (iid, lvl) => {
     const st = mineRef.current;
@@ -483,13 +491,14 @@ export default function Table({ go, gameId, side = "" }) {
     const shown = [];
     if (bonus) {
       const dim = CARD[c.o === "l" ? "l" : "p"];
-      [["a", "red", "ATK", -1], ["v", "gold", "Valeur", 0], ["d", "blue", "DEF", 1]].forEach(([k, color, label, col]) => {
+      const color = KIN_COLOR[c.k] || "gold";
+      [["a", "ATK", -0.26, -0.35], ["v", "Valeur", 0, -0.38], ["d", "DEF", 0.26, -0.35]].forEach(([k, label, fx, fy]) => {
         if (typeof c[k] !== "number") return;
         const v = c[k] + bonus[k];
         const id = rid(15);
         ids.push(id);
         shown.push(`${label} ${v}`);
-        addMark({ id, side: mySide, color, v, on: iid, dx: col * dim.w * 0.32, dy: dim.h * 0.36, x: b.x, y: b.y }); // en bas de la carte : le centre reste libre pour la toucher
+        addMark({ id, side: mySide, color, v, on: iid, dx: fx * dim.w, dy: fy * dim.h, x: b.x, y: b.y }); // sur les valeurs imprimées en haut de la carte
       });
     }
     const missing = bonus ? [["a", "ATK"], ["v", "Valeur"], ["d", "DEF"]].filter(([k]) => typeof c[k] !== "number").map(([, l]) => l) : [];
@@ -942,6 +951,18 @@ export default function Table({ go, gameId, side = "" }) {
   }
 
   // ---------- Tchat ----------
+  // Réaction rapide (au plus une par seconde et demie, pour ne pas inonder la partie)
+  const sendReaction = async (r) => {
+    if (Date.now() - lastReact.current < 1500) return;
+    lastReact.current = Date.now();
+    try {
+      const rec = await pb.collection("messages").create({ game: gameId, author: user.id, name: mineRef.current?.name || user.name || "", text: reactionText(r) });
+      applyMsg(rec);
+    } catch (e) {
+      setToast(errMsg(e));
+    }
+  };
+
   const sendMsg = async (text) => {
     const t = (text || "").trim().slice(0, 300);
     if (!t) return;
@@ -1368,6 +1389,7 @@ export default function Table({ go, gameId, side = "" }) {
           </button>
         )}
         {canRecord() && !meta?.solo && <TalkButton onClip={sendVoice} setToast={setToast} />}
+        {!meta?.solo && opp && <ReactionPicker onPick={sendReaction} />}
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
           💬{unread + (trMute ? 0 : trUnread) > 0 && <span className="unread">{unread + (trMute ? 0 : trUnread)}</span>}
         </button>
@@ -1690,6 +1712,7 @@ export default function Table({ go, gameId, side = "" }) {
         })()}
       />
       <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
+      <ReactionLayer items={reacts} />
       {err && (
         <div className="toast" style={{ borderColor: "var(--danger)", pointerEvents: "auto", whiteSpace: "normal", borderRadius: 10 }} onClick={() => setErr("")}>{err}</div>
       )}
@@ -1785,7 +1808,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           <button key={n} className={`btn sm ${b.u === n ? "primary" : ""}`} onClick={run(() => A.setCardUnif(iid, n))} title={UNIF_BONUS[n]}>Unif {n}</button>
         ))}
         {b.u ? <button className="btn sm ghost" onClick={run(() => A.setCardUnif(iid, 0))}>Retirer</button> : null}
-        <span className="muted small unif-legend">Jetons <i className="dot red" /> ATK · <i className="dot gold" /> Valeur · <i className="dot blue" /> DEF, bonus compris</span>
+        <span className="muted small unif-legend">3 jetons posés sur ATK · Valeur · DEF, bonus compris, à la couleur de la sous-faction : <i className="dot red" /> Yan · <i className="dot blue" /> Tian · <i className="dot green" /> Lin</span>
       </div>
     ) : null;
     return (

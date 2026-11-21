@@ -791,3 +791,28 @@ html { background: var(--bg); }
 .unif-legend { flex-basis: 100%; }
 .unif-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 2px; }
 .unif-legend .dot.red { background: #d64545; } .unif-legend .dot.gold { background: #d6a93b; } .unif-legend .dot.blue { background: #3b82d6; }
+.unif-legend .dot.green { background: #3fae6a; }
+
+/* Réactions rapides */
+.react-wrap { position: relative; display: inline-flex; }
+.react-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 90; display: grid; grid-template-columns: repeat(4, 44px); gap: 4px; padding: 8px; border-radius: 14px;
+  background: rgba(18,16,14,.97); border: 1px solid var(--gold2); box-shadow: 0 12px 36px rgba(0,0,0,.65); animation: fade .12s; }
+.react-pop button { width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 26px; cursor: pointer; line-height: 1; }
+.react-pop button:hover, .react-pop button:active { background: rgba(255,255,255,.1); transform: scale(1.12); }
+.react-pop button.txt { font-size: 15px; font-weight: 800; color: var(--gold, #e0c072); letter-spacing: .04em; }
+.react-layer { position: fixed; inset: 0; z-index: 86; pointer-events: none; overflow: hidden; }
+.react-float { position: absolute; bottom: 18%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; animation: react-up 2.6s ease-out forwards; }
+.react-float b { font-size: clamp(64px, 16vw, 110px); line-height: 1; filter: drop-shadow(0 6px 18px rgba(0,0,0,.6)); }
+.react-float b.txt { font-family: var(--serif); font-weight: 400; color: #ffe08a; text-shadow: 0 0 18px rgba(255,190,80,.8), 0 4px 10px rgba(0,0,0,.8); font-size: clamp(54px, 13vw, 96px); }
+.react-float small { margin-top: 4px; padding: 2px 10px; border-radius: 999px; background: rgba(10,10,14,.8); color: var(--text); font-size: 13px; }
+.react-float.mine b { font-size: clamp(44px, 10vw, 70px); }
+@keyframes react-up {
+  0% { opacity: 0; transform: translate(-50%, 40px) scale(.4); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  25% { transform: translate(-50%, -10px) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -160px) scale(1); }
+}
+/* barre du haut : la ligne « main · deck » reste sur une seule ligne (la barre garde sa hauteur avec le bouton réactions) */
+.tbar .who > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+@media (max-width: 420px) { .tbar .react-btn { padding-left: 6px; padding-right: 6px; } }
