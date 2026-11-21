@@ -1,3 +1,4 @@
+import PushToggle from "../components/PushToggle.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -34,8 +35,10 @@ const logLine = (who, m) => (m.startsWith("⚠ ") ? `⚠ ${who} ${m.slice(2)}` :
 const terrOf = (x) => (x < 201.5 ? 0 : x < 398.5 ? 1 : 2);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export default function Table({ go, gameId }) {
+// side : "b" pour le second côté d'une partie solo (sinon "")
+export default function Table({ go, gameId, side = "" }) {
   const user = me();
+  const mySlot = side === "b" ? "b" : "";
   const [meta, setMeta] = useState(null);
   const [mine, setMine] = useState(null);
   const [opp, setOpp] = useState(null);
@@ -80,7 +83,7 @@ export default function Table({ go, gameId }) {
   const mainRef = useRef();
   const sheetRef = useRef(null);
   // Vocal en direct et caméra d'un joueur filmé (pair à pair)
-  const rtc = useTableRtc({ gameId, userId: user.id, meta, mine, opp });
+  const rtc = useTableRtc({ gameId: meta && !meta.solo ? gameId : null, userId: user.id, meta, mine, opp });
   const oppMicSeen = useRef(false);
   useEffect(() => {
     if (rtc.oppMic && !oppMicSeen.current && !rtc.mic && opp) setToast(`🎧 ${opp.name} a ouvert son micro : touchez 🎧 pour lui répondre`);
@@ -121,9 +124,9 @@ export default function Table({ go, gameId }) {
   // games : métadonnées + jetons partagés ; seats : un enregistrement d'état par joueur
   // (deux enregistrements distincts : les écritures des deux joueurs ne s'écrasent jamais)
   const applyGame = useCallback((r) => {
-    sideRef.current = r.p1 === user.id ? "p1" : "p2";
-    setMeta({ code: r.code, p1: r.p1, p2: r.p2, status: r.status, ...(r.open ? { open: true } : null) });
-  }, [user.id]);
+    sideRef.current = r.solo ? (mySlot === "b" ? "p2" : "p1") : r.p1 === user.id ? "p1" : "p2";
+    setMeta({ code: r.code, p1: r.p1, p2: r.p2, status: r.status, ...(r.open ? { open: true } : null), ...(r.solo ? { solo: true } : null) });
+  }, [user.id, mySlot]);
 
   // Jetons : un enregistrement "marks" par jeton, modifié indépendamment
   const setMarks = (list) => {
@@ -145,7 +148,8 @@ export default function Table({ go, gameId }) {
   }, []);
 
   const applySeat = useCallback((rec) => {
-    if (rec.player === user.id) {
+    // mon siège : le mien, et en solo celui du côté choisi (slot)
+    if (rec.player === user.id && (rec.slot || "") === mySlot) {
       seatRef.current = rec.id;
       const srv = normalize(rec.state);
       const loc = mineRef.current;
@@ -187,7 +191,7 @@ export default function Table({ go, gameId }) {
     }
     oppRef.current = o;
     setOpp(o);
-  }, [user.id, addPing]);
+  }, [user.id, addPing, mySlot]);
 
   const applyMsg = useCallback((m) => {
     if (msgIds.current.has(m.id)) return;
@@ -348,6 +352,13 @@ export default function Table({ go, gameId }) {
     }
     if (failed) setTimeout(() => pushMine(), 2500);
   }, []);
+
+  // Partie solo : passer à l'autre deck (après envoi de mes derniers changements)
+  const switchSide = async () => {
+    for (let i = 0; i < 40 && (sync.current.mBusy || sync.current.mDirty); i++) await new Promise((r) => setTimeout(r, 100));
+    if (sync.current.mDirty || sync.current.mBusy) await pushMine();
+    go("table", { gameId, side: mySlot === "b" ? "" : "b" });
+  };
 
   // Mutation de mon état : fn(s) modifie s et renvoie le message du journal, ou false pour annuler.
   // key : les messages successifs de même clé (moins de 8 s d'écart) sont fusionnés en une ligne
@@ -1253,7 +1264,12 @@ export default function Table({ go, gameId }) {
         >
           📖
         </button>
-        {rtc.ok && (
+        {meta?.solo && (
+          <button className="btn sm primary solo-switch" onClick={switchSide} title="Jouer l'autre deck">
+            ⇄ {opp?.name ? (opp.name.length > 14 ? `${opp.name.slice(0, 13)}…` : opp.name) : "Autre côté"}
+          </button>
+        )}
+        {rtc.ok && !meta?.solo && (
           <button
             className={`btn sm voice-btn ${rtc.mic ? "on" : ""} ${!rtc.mic && rtc.oppMic ? "ping" : ""}`}
             onClick={() => setSheet({ kind: "voice" })}
@@ -1263,7 +1279,7 @@ export default function Table({ go, gameId }) {
             🎧
           </button>
         )}
-        {canRecord() && <TalkButton onClip={sendVoice} setToast={setToast} />}
+        {canRecord() && !meta?.solo && <TalkButton onClip={sendVoice} setToast={setToast} />}
         <button className="btn sm chat-btn" onClick={() => setSheet({ kind: "chat" })} aria-label="Tchat">
           💬{unread + (trMute ? 0 : trUnread) > 0 && <span className="unread">{unread + (trMute ? 0 : trUnread)}</span>}
         </button>
@@ -1281,6 +1297,7 @@ export default function Table({ go, gameId }) {
                 <button className="btn sm" style={{ pointerEvents: "auto" }} onClick={share}>Partager le lien</button>
                 {meta.open && <div className="small">Table ouverte : les autres joueurs la voient dans « Tables ouvertes » et peuvent s'asseoir.</div>}
                 <div className="small">Vous pouvez déjà préparer votre jeu.</div>
+                <PushToggle compact />
               </div>
             ) : null;
             // Loupe : sur mon tapis en haut à droite (titre du territoire III) ; pour l'adversaire, dans sa barre PI/PV,

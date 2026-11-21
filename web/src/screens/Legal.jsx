@@ -93,6 +93,10 @@ export default function Legal() {
           <li>Vos photos de cartes, vos decks et vos parties (état du jeu, journal des actions).</li>
           <li>Le tchat de partie et les messages vocaux du talkie-walkie 🎤, visibles par les deux joueurs et par les spectateurs de la partie.</li>
           <li>Les messages de la tribune, publiés par les spectateurs sous le pseudo de leur choix.</li>
+          <li>
+            Les messages des salons de discussion, visibles par tous les joueurs connectés avec votre pseudo, et conservés jusqu'à leur
+            suppression (par vous, ou par un administrateur s'ils ne respectent pas les règles : propos injurieux, haineux, publicité, spam).
+          </li>
         </ul>
         <h3>Ce qui n'est pas enregistré</h3>
         <ul>
@@ -100,6 +104,11 @@ export default function Legal() {
             Le vocal en direct 🎧 et la vidéo d'un joueur filmé passent directement d'un appareil à l'autre, sans passer par le serveur
             ni être enregistrés. Pour établir ce lien direct, les appareils échangent leur adresse réseau (IP) et interrogent des serveurs
             publics de Google et de Cloudflare, qui voient donc cette adresse.
+          </li>
+          <li>
+            Si vous activez « 🔔 Me prévenir », l'adresse d'abonnement de votre appareil est enregistrée pour vous envoyer une notification
+            quand quelqu'un rejoint votre table. La notification passe par le service de votre navigateur (Google, Apple, Mozilla…) et contient
+            seulement le pseudo du joueur et le code de la table. Désactivez-la à tout moment au même endroit.
           </li>
           <li>Aucune publicité, aucun outil de mesure d'audience, aucun pistage. Le navigateur garde seulement votre session et vos préférences d'affichage.</li>
         </ul>

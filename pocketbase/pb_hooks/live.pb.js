@@ -11,7 +11,7 @@ routerAdd("GET", "/api/table/live", (e) => {
     "SELECT g.code AS code, g.n1 AS n1, g.n2 AS n2, MAX(s.updated) AS last, " +
     "(SELECT COUNT(*) FROM watchers w WHERE w.game = g.id AND w.updated >= {:wsince}) AS watching " +
     "FROM games g JOIN seats s ON s.game = g.id " +
-    "WHERE g.status = 'playing' AND g.p1 != {:me} AND g.p2 != {:me} AND " +
+    "WHERE g.status = 'playing' AND COALESCE(g.solo, 0) = 0 AND g.p1 != {:me} AND g.p2 != {:me} AND " +
     (tcg === "fab" ? "g.tcg = 'fab' " : "(g.tcg = '' OR g.tcg = 'safir') ") +
     "GROUP BY g.id HAVING last >= {:since} ORDER BY last DESC LIMIT 30"
   ).bind({ me: me, since: iso(45 * 60 * 1000), wsince: iso(90 * 1000) }).all(rows);

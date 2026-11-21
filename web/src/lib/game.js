@@ -82,9 +82,9 @@ export function buildState({ name, deck, cardsById }) {
     pi: START_PI,
     pv: TCG === "fab" ? fabLife(deck.format) : START_PV,
     ...TURN_RESET,
-    ...(TCG === "fab" ? { format: deck.format === "blitz" ? "blitz" : "cc" } : null),
+    ...(TCG === "fab" ? { format: FAB_FORMATS[deck.format] ? deck.format : "cc" } : null),
     log: [{ t: Date.now(), m: TCG === "fab"
-      ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format === "blitz" ? "blitz" : "cc"]}${deck.initiation ? " initiation" : ""}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
+      ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format] || FAB_FORMATS.cc}${deck.initiation ? " initiation" : ""}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
       : `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""}${cmd ? `, commandant « ${cmd.name} »` : ""})` }],
   };
 }
@@ -111,8 +111,8 @@ const FAB_PHASES = [
   { id: "com", label: "Action", short: "Action" },
   { id: "cal", label: "Fin de tour", short: "Fin" },
 ];
-export const FAB_FORMATS = { cc: "Classic Constructed", blitz: "Blitz" };
-export const fabLife = (format) => (format === "blitz" ? 20 : 40); // valeur de départ, à ajuster selon le héros
+export const FAB_FORMATS = { cc: "Classic Constructed", sage: "Silver Age", blitz: "Blitz" };
+export const fabLife = (format) => (format === "blitz" || format === "sage" ? 20 : 40); // valeur de départ (jeune héros : 20), à ajuster selon le héros
 
 // ---------- Jeu actif (liaisons vivantes) ----------
 export let TCG = "safir";

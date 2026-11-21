@@ -9,7 +9,7 @@ export const RULES_FAB = [
     items: [
       { k: "But", t: "Faire tomber la vie du héros adverse à 0. Le héros qui arrive à 0 point de vie perd la partie." },
       { k: "Héros", t: "Chaque joueur joue un héros : sa vie de départ et son intellect (nombre de cartes en main en fin de tour) sont indiqués sur la carte. Il détermine aussi les classes de cartes autorisées dans le deck." },
-      { k: "Vie dans l'appli", t: "Le compteur VIE part de 40 (Classic Constructed) ou 20 (Blitz). Ajustez-le avec + et − selon la vie imprimée sur votre héros." },
+      { k: "Vie dans l'appli", t: "Le compteur VIE part de 40 (Classic Constructed) ou 20 (Silver Age et Blitz). Ajustez-le avec + et − selon la vie imprimée sur votre héros." },
       { k: "Ressources", t: "Le compteur RES sert à suivre les ressources gagnées en pitchant. Il revient à 0 quand vous touchez « Tour fini »." },
     ],
   },
@@ -20,15 +20,17 @@ export const RULES_FAB = [
       {
         k: "Construction",
         table: {
-          head: ["", "Classic Constructed", "Blitz"],
+          head: ["", "Classic Constructed", "Silver Age", "Blitz"],
           rows: [
-            ["Héros", "Adulte", "Jeune héros"],
-            ["Deck", "60 cartes au moins", "Exactement 40 cartes"],
-            ["Total avec armes et équipements", "80 au plus", "52 au plus"],
-            ["Exemplaires d'une carte", "3 au plus", "1 au plus"],
+            ["Héros", "Adulte", "Jeune héros", "Jeune héros"],
+            ["Deck", "60 cartes au moins", "Exactement 40 cartes", "Exactement 40 cartes"],
+            ["Total avec armes et équipements", "80 au plus", "55 au plus", "52 au plus"],
+            ["Exemplaires d'une carte", "3 au plus", "2 au plus", "1 au plus"],
+            ["Raretés autorisées", "Toutes", "Commune, rare, basique", "Toutes"],
           ],
         },
       },
+      { k: "Silver Age et Blitz", t: "Silver Age est le format rapide joué en tournoi depuis fin 2025 : il a remplacé Blitz, qui reste jouable entre amis. Les jeunes héros des anciens decks Blitz ne sont légaux en Silver Age que s'ils existent en rareté commune ou rare." },
       { k: "Carte unique", t: "Une carte est identifiée par son nom ET sa couleur de pitch : une version rouge et une version bleue du même nom sont deux cartes différentes." },
       { k: "Armes et équipements", t: "Ils ne sont pas dans le deck. Avant la partie, on choisit au plus une carte par zone (tête, torse, bras, jambes, armes). Dans l'appli, ils sont dans l'onglet « Inventaire » : faites-les glisser dans leurs zones." },
       { k: "Cartes restreintes", t: "Certaines cartes sont limitées ou interdites selon le format (liste officielle de légalité). L'appli ne le vérifie pas." },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
-import { checkFab, fabKey, fabLabel, FAB_RULES, PITCH } from "../lib/deckrules.js";
+import { checkFab, fabKey, fabLabel, FAB_RULES, PITCH, fabFormat } from "../lib/deckrules.js";
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { Sheet } from "../components/ui.jsx";
 import { factionsOf } from "../lib/factions.js";
@@ -8,7 +8,7 @@ import { FAB_CLASSES, FAB_TALENTS } from "../components/FabFields.jsx";
 
 const PITCH_HEX = { r: "#c83a32", y: "#d6b13b", b: "#3b78c8" };
 
-// Deck Flesh and Blood : héros (obligatoire), format Classic Constructed ou Blitz, cartes du deck,
+// Deck Flesh and Blood : héros (obligatoire), format Classic Constructed, Silver Age ou Blitz, cartes du deck,
 // armes et équipements (réserve de la partie, hors deck), jetons.
 export default function DeckEditorFab({ go, deckId }) {
   const user = me();
@@ -35,7 +35,7 @@ export default function DeckEditorFab({ go, deckId }) {
         ]);
         setDeck(d);
         setName(d.name);
-        setFormat(d.format === "blitz" ? "blitz" : "cc");
+        setFormat(fabFormat(d.format));
         setInit(!!d.initiation);
         setHero(d.commander && c.some((x) => x.id === d.commander) ? d.commander : "");
         setCards(c);
@@ -171,9 +171,11 @@ export default function DeckEditorFab({ go, deckId }) {
               ))}
             </div>
             <p className="muted small" style={{ marginBottom: 0 }}>
-              {format === "blitz"
-                ? "Jeune héros, deck d'exactement 40 cartes, 52 cartes au plus avec armes et équipements, 1 exemplaire de chaque carte. 20 de vie au départ (à ajuster selon le héros)."
-                : "Héros adulte, deck d'au moins 60 cartes, 80 cartes au plus avec armes et équipements, 3 exemplaires au plus de chaque carte. 40 de vie au départ (à ajuster selon le héros)."}
+              {format === "sage"
+                ? "Format de tournoi actuel (remplace Blitz). Jeune héros, deck d'exactement 40 cartes, 55 cartes au plus avec armes et équipements, 2 exemplaires au plus de chaque carte. Uniquement des cartes communes, rares ou basiques, héros compris : l'appli ne peut pas lire la rareté, à vous de la vérifier. 20 de vie au départ (à ajuster selon le héros)."
+                : format === "blitz"
+                  ? "Plus joué en tournoi officiel (remplacé par Silver Age), mais toujours jouable entre amis. Jeune héros, deck d'exactement 40 cartes, 52 cartes au plus avec armes et équipements, 1 exemplaire de chaque carte. 20 de vie au départ (à ajuster selon le héros)."
+                  : "Héros adulte, deck d'au moins 60 cartes, 80 cartes au plus avec armes et équipements, 3 exemplaires au plus de chaque carte. 40 de vie au départ (à ajuster selon le héros)."}
             </p>
           </div>
 

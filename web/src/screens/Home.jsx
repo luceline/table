@@ -1,3 +1,6 @@
+import { useSalonsSummary } from "../lib/salons.js";
+import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
+import PushToggle from "../components/PushToggle.jsx";
 import { LegalFooter } from "./Legal.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
@@ -42,8 +45,19 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [busy, setBusy] = useState(false);
   const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
   const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
-  const [filmed, setFilmed] = useState(false); // je joue avec mes cartes réelles, filmées par un téléphone
+  const [filmed, setFilmed] = useState(false);
+  const [soloForm, setSoloForm] = useState(null); // partie solo : { a, b } decks choisis pour les deux côtés // je joue avec mes cartes réelles, filmées par un téléphone
   const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
+  // Arrivée depuis une notification « table ouverte » (?tables=jeu) : bon jeu, onglet Tables ouvertes à l'écran
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (!q.has("tables")) return;
+    const t = q.get("tables") === "fab" ? "fab" : "safir";
+    window.history.replaceState(null, "", window.location.pathname);
+    if (t !== tcg) pickTcg(t);
+    setLobby("open");
+    setTimeout(() => document.querySelector(".open-tables")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
+  }, []);
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
   const [themeKey, setThemeKey] = useState(0);
@@ -63,7 +77,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         pb.collection("games").getFullList({
           filter: `(p1="${user.id}" || p2="${user.id}") && status!="finished" && ${f}`,
           sort: "-updated",
-          fields: "id,code,p1,p2,n1,n2,status,updated",
+          fields: "id,code,p1,p2,n1,n2,status,updated,solo",
         }),
       ]);
       setCards(c);
@@ -140,6 +154,34 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     const chk = checkDeckFor(deck, cardsById);
     if (!chk.ok) throw new Error(`Deck « ${deck.name} » non conforme : ${chk.problems.join(" ")}`);
     return buildState({ name: myName, deck, cardsById });
+  }
+
+  // Partie solo : je joue mes deux decks l'un contre l'autre (decks non conformes acceptés, c'est pour tester)
+  async function createSolo() {
+    const da = decks.find((d) => d.id === soloForm.a), db = decks.find((d) => d.id === soloForm.b);
+    if (!da || !db) return setErr("Choisissez les deux decks.");
+    setErr("");
+    setBusy(true);
+    try {
+      const stA = buildState({ name: da.name, deck: da, cardsById });
+      const stB = buildState({ name: db.id === da.id ? `${db.name} (2)` : db.name, deck: db, cardsById });
+      let rec = null;
+      for (let i = 0; i < 4 && !rec; i++) {
+        try {
+          rec = await pb.collection("games").create({ code: genCode(), p1: user.id, n1: stA.name, p2: user.id, n2: stB.name, status: "playing", tcg, solo: true });
+        } catch (e) {
+          if (i === 3) throw e;
+        }
+      }
+      await pb.collection("seats").create({ game: rec.id, player: user.id, state: stA, slot: "" });
+      await pb.collection("seats").create({ game: rec.id, player: user.id, state: stB, slot: "b" });
+      setSoloForm(null);
+      go("table", { gameId: rec.id });
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Instantané du deck prêté, stocké dans la partie
@@ -336,6 +378,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
 
+      <SalonsCard tcg={tcg} userId={user.id} go={go} />
+
       <div className="card-box">
         <h2>Jouer</h2>
         <label className="init-toggle filmed-toggle">
@@ -392,17 +436,23 @@ export default function Home({ go, pendingJoin, clearJoin }) {
             </button>
           </div>
         </div>
+        {!filmed && decks.length > 0 && (
+          <button className="btn sm ghost solo-btn" onClick={() => setSoloForm({ a: decks[0].id, b: (decks[1] || decks[0]).id })} disabled={busy}>
+            🧪 Partie solo : tester deux de mes decks
+          </button>
+        )}
         {games.length > 0 && (
           <>
             <div className="spacer" />
             <div className="muted small" style={{ marginBottom: 6 }}>Parties en cours</div>
+            {games.some((g) => g.status === "waiting" && g.p1 === user.id) && <PushToggle />}
             <div className="list">
               {games.map((g) => {
                 const opp = g.p1 === user.id ? g.n2 : g.n1;
                 return (
                   <div className="list-item" key={g.id}>
                     <span className="code">{g.code}</span>
-                    <span className="grow small">{opp ? `contre ${opp}` : "en attente d'un adversaire"}</span>
+                    <span className="grow small">{g.solo ? `🧪 solo : ${g.n1} contre ${g.n2}` : opp ? `contre ${opp}` : "en attente d'un adversaire"}</span>
                     <button className="btn sm primary" onClick={() => go("table", { gameId: g.id })}>Reprendre</button>
                     <button className="btn sm ghost danger" onClick={() => removeGame(g)} aria-label="Supprimer">✕</button>
                   </div>
@@ -445,6 +495,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
         {lobby === "open" && (
         <>
+        <OpenAlertToggle tcg={tcg} />
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 4 }}>
           {!openForm && (
             <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length && !filmed}>
@@ -470,7 +521,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
             )}
             <div className="field">
               <label>Message <span className="muted">(facultatif)</span></label>
-              <input className="input" value={openForm.note} maxLength={80} placeholder={tcg === "fab" ? "Ex. Blitz, débutants bienvenus" : "Ex. Partie détente, débutants bienvenus"} onChange={(e) => setOpenForm({ ...openForm, note: e.target.value })} />
+              <input className="input" value={openForm.note} maxLength={80} placeholder={tcg === "fab" ? "Ex. Silver Age, débutants bienvenus" : "Ex. Partie détente, débutants bienvenus"} onChange={(e) => setOpenForm({ ...openForm, note: e.target.value })} />
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
               {filmed ? "Avec vos cartes réelles, filmées (choisi dans « Jouer »)." : <>Avec votre deck « {decks.find((d) => d.id === deckId)?.name || "?"} »{decks.find((d) => d.id === loanId) ? ` et le prêt « ${decks.find((d) => d.id === loanId).name} »` : ""} (choisis dans « Jouer »).</>}
@@ -509,6 +560,27 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
+      <Sheet open={!!soloForm} onClose={() => setSoloForm(null)} title="Partie solo">
+        {soloForm && (
+          <>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Vous jouez les deux côtés pour tester vos decks. En partie, le bouton ⇄ en haut passe d'un deck à l'autre.
+              Les decks non conformes sont acceptés.
+            </p>
+            {[["a", "Côté 1"], ["b", "Côté 2"]].map(([k, label]) => (
+              <div className="field" key={k}>
+                <label>{label}</label>
+                <select className="input" value={soloForm[k]} onChange={(e) => setSoloForm({ ...soloForm, [k]: e.target.value })}>
+                  {decks.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            <button className="btn primary" onClick={createSolo} disabled={busy}>Lancer la partie solo</button>
+          </>
+        )}
+      </Sheet>
       <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quoi jouer ?">
         {joinChoice && (
           <div className="actions">
@@ -570,6 +642,29 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <MatBgSettings />
       <CardBackSettings />
       <LegalFooter />
+    </div>
+  );
+}
+
+// Accès aux salons de discussion du jeu, avec les messages non lus
+function SalonsCard({ tcg, userId, go }) {
+  const { channels, unread } = useSalonsSummary(tcg, userId);
+  const total = channels.reduce((n, c) => n + (unread[c.id] || 0), 0);
+  if (!channels.length) return null;
+  return (
+    <div className="card-box salons-card">
+      <div className="row" style={{ alignItems: "center" }}>
+        <h2 className="grow" style={{ margin: 0 }}>💬 Salons{total > 0 && <span className="lobby-n live" style={{ marginLeft: 8, verticalAlign: "middle" }}>{total > 99 ? "99+" : total}</span>}</h2>
+        <button className="btn sm primary" onClick={() => go("salons", {})}>Ouvrir</button>
+      </div>
+      <div className="salons-chips">
+        {channels.map((c) => (
+          <button key={c.id} className="salon-chip" onClick={() => go("salons", { channelId: c.id })}>
+            <span className="hash">#</span>{c.name}
+            {unread[c.id] > 0 && <span className="salon-n">{unread[c.id] > 99 ? "99+" : unread[c.id]}</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

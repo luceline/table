@@ -30,20 +30,26 @@ export function checkDeck(entries, cardsById) {
 }
 
 // ---------- Flesh and Blood ----------
-// Règles officielles (rules.fabtcg.com, Tournament Rules and Policy, section 7) :
+// Règles officielles (rules.fabtcg.com, Tournament Rules and Policy, section 7, et fabtcg.com) :
 // Classic Constructed : 1 héros adulte, deck d'au moins 60 cartes, réserve totale (deck + armes et équipements) de 80 au plus,
-//   3 exemplaires au plus de chaque carte unique ; Blitz : 1 jeune héros, deck d'exactement 40 cartes, réserve de 52 au plus,
-//   1 exemplaire au plus de chaque carte unique. Une carte est unique par son nom ET sa couleur de pitch.
+//   3 exemplaires au plus de chaque carte unique.
+// Silver Age (depuis novembre 2025, format de tournoi qui remplace Blitz) : 1 jeune héros, deck d'exactement 40 cartes,
+//   réserve de 55 au plus, 2 exemplaires au plus, uniquement des cartes communes, rares ou basiques (héros compris) :
+//   la rareté n'est pas connue de l'appli, elle n'est donc pas vérifiée.
+// Blitz (plus joué en tournoi, reste un format libre) : 1 jeune héros, deck d'exactement 40 cartes, réserve de 52 au plus,
+//   1 exemplaire au plus. Une carte est unique par son nom ET sa couleur de pitch.
 export const FAB_RULES = {
   cc: { name: "Classic Constructed", deckMin: 60, deckMax: null, pool: 80, copies: 3 },
+  sage: { name: "Silver Age", deckMin: 40, deckMax: 40, pool: 55, copies: 2 },
   blitz: { name: "Blitz", deckMin: 40, deckMax: 40, pool: 52, copies: 1 },
 };
+export const fabFormat = (f) => (f && FAB_RULES[f] ? f : "cc");
 export const PITCH = { r: "rouge", y: "jaune", b: "bleu" };
 export const fabKey = (c) => `${nameKey(c?.name) || c?.id}|${c?.pitch || ""}`;
 export const fabLabel = (c) => `${c?.name || "Sans nom"}${c?.pitch ? ` (${PITCH[c.pitch]})` : ""}`;
 
 export function checkFab(deck, cardsById) {
-  const R = FAB_RULES[deck?.format === "blitz" ? "blitz" : "cc"];
+  const R = FAB_RULES[fabFormat(deck?.format)];
   let total = 0, arena = 0;
   const byKey = {};
   for (const e of deck?.entries || []) {

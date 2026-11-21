@@ -54,7 +54,7 @@ export default function Spectator({ code }) {
   const applySeat = useCallback((rec) => {
     const g = gameRef.current;
     if (!g || !rec?.state?.cards) return;
-    const who = rec.player === g.p1 ? "p1" : rec.player === g.p2 ? "p2" : null;
+    const who = g.solo ? ((rec.slot || "") === "b" ? "p2" : "p1") : rec.player === g.p1 ? "p1" : rec.player === g.p2 ? "p2" : null;
     if (!who) return;
     const st = normalize(rec.state);
     const prev = last.current[who];

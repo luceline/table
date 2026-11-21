@@ -11,6 +11,7 @@ import Table from "./screens/Table.jsx";
 import Spectator from "./screens/Spectator.jsx";
 import Cam from "./screens/Cam.jsx";
 import Legal from "./screens/Legal.jsx";
+import Salons from "./screens/Salons.jsx";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -39,7 +40,9 @@ function readGameParam() {
 
 export default function App() {
   const [user, setUser] = useState(me());
-  const [screen, setScreen] = useState(() => (readGameParam() ? { name: "table", gameId: readGameParam() } : { name: "home" }));
+  const [screen, setScreen] = useState(() =>
+    readGameParam() ? { name: "table", gameId: readGameParam(), side: new URLSearchParams(window.location.search).get("cote") === "b" ? "b" : "" } : { name: "home" },
+  );
   const [pendingJoin, setPendingJoin] = useState(readJoinParam());
 
   useEffect(() => pb.authStore.onChange(() => setUser(me())), []);
@@ -51,7 +54,7 @@ export default function App() {
   const go = (name, params = {}) => {
     setScreen({ name, ...params });
     // La partie en cours reste dans l'URL : un rechargement ramène à la table
-    const url = name === "table" ? `${window.location.pathname}?game=${params.gameId}` : window.location.pathname;
+    const url = name === "table" ? `${window.location.pathname}?game=${params.gameId}${params.side === "b" ? "&cote=b" : ""}` : window.location.pathname;
     if (name === "table" || !pendingJoin) window.history.replaceState(null, "", url);
     window.scrollTo(0, 0);
   };
@@ -69,12 +72,14 @@ export default function App() {
   switch (screen.name) {
     case "library":
       return <Library go={go} />;
+    case "salons":
+      return <Salons go={go} channelId={screen.channelId} />;
     case "scan":
       return <Scanner go={go} />;
     case "deck":
       return TCG === "fab" ? <DeckEditorFab go={go} deckId={screen.deckId} /> : <DeckEditor go={go} deckId={screen.deckId} />;
     case "table":
-      return <Table go={go} gameId={screen.gameId} />;
+      return <Table key={`${screen.gameId}:${screen.side || ""}`} go={go} gameId={screen.gameId} side={screen.side || ""} />;
     default:
       return (
         <Home
