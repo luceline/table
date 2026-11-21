@@ -1,3 +1,4 @@
+import { LegalFooter } from "./Legal.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
@@ -568,6 +569,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
+      <LegalFooter />
     </div>
   );
 }

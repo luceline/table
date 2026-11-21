@@ -10,6 +10,7 @@ import { TCG } from "./lib/game.js";
 import Table from "./screens/Table.jsx";
 import Spectator from "./screens/Spectator.jsx";
 import Cam from "./screens/Cam.jsx";
+import Legal from "./screens/Legal.jsx";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -56,6 +57,8 @@ export default function App() {
   };
 
   // Spectateur : accessible sans compte, par le lien ?voir=CODE
+  // Mentions légales et confidentialité : accessibles sans compte (?infos)
+  if (new URLSearchParams(window.location.search).has("infos")) return <Legal />;
   const cam = readCamParam();
   if (cam) return <Cam code={cam.code} player={cam.player} camKey={cam.key} />;
   const watch = readWatchParam();

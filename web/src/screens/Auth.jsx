@@ -1,3 +1,4 @@
+import { LegalFooter } from "./Legal.jsx";
 import { useStats, plural } from "../lib/stats.js";
 import { useState } from "react";
 import { pb, errMsg } from "../pb.js";
@@ -63,9 +64,16 @@ export default function Auth() {
         <button className="btn primary" style={{ width: "100%" }} disabled={busy}>
           {busy ? "…" : mode === "login" ? "Se connecter" : "Créer le compte"}
         </button>
+        {mode === "register" && (
+          <p className="muted small" style={{ marginBottom: 0 }}>
+            Votre e-mail sert uniquement à vous connecter. Ce que l'appli enregistre et vos droits :{" "}
+            <a href={`${window.location.pathname}?infos`}>confidentialité</a>.
+          </p>
+        )}
       </form>
       <div style={{ marginTop: 22 }}><TutoVideo /></div>
       <InstallHelp />
+      <LegalFooter />
     </div>
   );
 }

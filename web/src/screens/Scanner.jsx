@@ -37,6 +37,24 @@ export default function Scanner({ go }) {
   const [saved, setSaved] = useState(0);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  // Engagement au premier scan (enregistré sur le compte, demandé une seule fois)
+  const [pledged, setPledged] = useState(!!user.scan_pledge);
+  const [pledgeOk, setPledgeOk] = useState(false);
+
+  async function openCamera() {
+    setErr("");
+    if (!pledged) {
+      try {
+        await pb.collection("users").update(user.id, { scan_pledge: new Date().toISOString().replace("T", " ") });
+        await pb.collection("users").authRefresh().catch(() => {});
+        setPledged(true);
+      } catch (e) {
+        return setErr(errMsg(e));
+      }
+    }
+    if (!fab) preloadOcr();
+    setStep("camera");
+  }
 
   useEffect(() => {
     pb.collection("cards").getFullList({ filter: `owner="${user.id}" && ${tcgFilter(currentTcg())}`, fields: fab ? "id,name,pitch" : "id,name" })
@@ -169,7 +187,16 @@ export default function Scanner({ go }) {
             )}
           </ul>
           {tokenToggle}
-          <button className="btn primary" onClick={() => { setErr(""); if (!fab) preloadOcr(); setStep("camera"); }}>Ouvrir l'appareil photo</button>
+          {!pledged && (
+            <label className="init-toggle pledge">
+              <input type="checkbox" checked={pledgeOk} onChange={(e) => setPledgeOk(e.target.checked)} />
+              <span>
+                <b>Je n'ajoute que des cartes que je possède, en les photographiant moi-même.</b>
+                <span className="muted small"> Pas d'images trouvées en ligne ni photographiées sur un écran. En cas d'abus, le compte peut être supprimé (<a href={`${window.location.pathname}?infos`} target="_blank" rel="noreferrer">règles d'usage</a>).</span>
+              </span>
+            </label>
+          )}
+          <button className="btn primary" onClick={openCamera} disabled={!pledged && !pledgeOk}>Ouvrir l'appareil photo</button>
           <div className="spacer" />
           <button className="btn ghost sm" onClick={() => go("library")}>Voir mes cartes ({names?.length ?? "…"})</button>
         </div>
