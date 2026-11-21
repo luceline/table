@@ -2,6 +2,7 @@ import PushToggle from "../components/PushToggle.jsx";
 import ZoomView, { ZoomPreview } from "../components/ZoomView.jsx";
 import { ReactionPicker, ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf, reactionText } from "../lib/reactions.js";
+import { beHere } from "../lib/here.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -292,6 +293,8 @@ export default function Table({ go, gameId, side = "" }) {
     }
   }, [mine?.pv, opp?.pv]);
 
+  // Présence à la table (pour la liste « En direct » des autres joueurs)
+  useEffect(() => (meta && !meta.solo ? beHere(gameId, user.id) : undefined), [gameId, !!meta, meta?.solo]);
   // Une partie par manche : « Nouvelle partie » (tout remettre à zéro) ouvre une nouvelle ligne de bilan
   const resKey = mine?.round ? `${gameId}-${mine.round}` : gameId;
   // Bilan par deck (privé) : résultat enregistré pour cette partie, compté d'office à la victoire ou à la défaite

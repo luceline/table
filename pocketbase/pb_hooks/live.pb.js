@@ -13,8 +13,10 @@ routerAdd("GET", "/api/table/live", (e) => {
     "FROM games g JOIN seats s ON s.game = g.id " +
     "WHERE g.status = 'playing' AND COALESCE(g.solo, 0) = 0 AND g.p1 != {:me} AND g.p2 != {:me} AND " +
     (tcg === "fab" ? "g.tcg = 'fab' " : "(g.tcg = '' OR g.tcg = 'safir') ") +
+    // au moins un des deux joueurs encore à sa table (présence rafraîchie toutes les 45 s)
+    "AND EXISTS (SELECT 1 FROM here h WHERE h.game = g.id AND h.updated >= {:hsince}) " +
     "GROUP BY g.id HAVING last >= {:since} ORDER BY last DESC LIMIT 30"
-  ).bind({ me: me, since: iso(45 * 60 * 1000), wsince: iso(90 * 1000) }).all(rows);
+  ).bind({ me: me, since: iso(45 * 60 * 1000), wsince: iso(90 * 1000), hsince: iso(150 * 1000) }).all(rows);
   e.response.header().set("Cache-Control", "no-store");
   return e.json(200, { games: rows.map((r) => ({ code: r.code, n1: r.n1, n2: r.n2, last: r.last, watching: r.watching })) });
 }, $apis.requireAuth());
