@@ -724,3 +724,6 @@ html { background: var(--bg); }
 }
 .salon-input textarea { font: inherit; }
 .cam-select { max-width: 260px; height: 34px; padding: 4px 8px; font-size: 13px; }
+
+/* Bilan victoires / défaites d'un deck (privé) */
+.deck-ratio { display: block; margin-top: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--accent, inherit); font-weight: 600; }

@@ -13,6 +13,7 @@ import {
   PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
+import { myResult, saveResult } from "../lib/results.js";
 import { useTableRtc } from "../lib/useTableRtc.js";
 import { audioOut } from "../lib/rtc.js";
 import { CamOverlay, QrImg, VideoTokens, videoToBoard, videoPointAt } from "../components/CamView.jsx";
@@ -71,6 +72,7 @@ export default function Table({ go, gameId, side = "" }) {
   const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
   const [winner, setWinner] = useState(null);
+  const [result, setResult] = useState(undefined); // mon résultat enregistré pour cette partie : "win" | "loss" | null
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche ({v: [u, v]} depuis un tapis filmé)
   const [camGeo, setCamGeo] = useState({}); // tapis filmés affichés : { mine|opp: { ar, rot } } (placement des flèches)
   // Face à un joueur filmé (Safir) : son image est vue « assis en face » (retournée) et mes territoires sont inversés
@@ -273,6 +275,24 @@ export default function Table({ go, gameId, side = "" }) {
       pvPrev.current[k] = st.pv;
     }
   }, [mine?.pv, opp?.pv]);
+
+  // Bilan par deck (privé) : résultat enregistré pour cette partie, compté d'office à la victoire ou à la défaite
+  useEffect(() => {
+    if (!meta || meta.solo) return;
+    myResult(user.id, gameId).then((r) => setResult(r ? r.outcome : null));
+  }, [gameId, !!meta, meta?.solo]);
+  async function recordResult(outcome) {
+    if (!meta || meta.solo || !mine) return;
+    try {
+      await saveResult({ userId: user.id, gameId, st: mine, tcg: TCG, outcome, oppName: opp?.name });
+      setResult(outcome);
+    } catch (_) {
+      setToast("Résultat non enregistré, réessayez depuis le menu ☰.");
+    }
+  }
+  useEffect(() => {
+    if (winner && !meta?.solo) recordResult(winner.mine ? "win" : "loss");
+  }, [winner]);
 
   useEffect(() => {
     sheetRef.current = sheet?.kind || null;
@@ -1582,6 +1602,7 @@ export default function Table({ go, gameId, side = "" }) {
             ) : (
               <p className="muted">{winner.mine ? "Vous atteignez" : `${winner.name} atteint`} {WIN_PV} PV.</p>
             )}
+            {!meta?.solo && result && <p className="small muted">{result === "win" ? "Victoire" : "Défaite"} comptée pour « {mine?.deckName || "votre deck"} » (bilan privé, modifiable dans ☰).</p>}
             <button className="btn primary">Fermer</button>
           </div>
         </div>
@@ -1613,6 +1634,8 @@ export default function Table({ go, gameId, side = "" }) {
         rtc={rtc}
         gameTcg={TCG}
         setToast={setToast}
+        result={result}
+        onResult={recordResult}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
           startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
@@ -1622,7 +1645,7 @@ export default function Table({ go, gameId, side = "" }) {
   );
 }
 
-function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId, tribune, rtc, setToast }) {
+function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messages, userId, tribune, rtc, setToast, result, onResult }) {
   const close = () => setSheet(null);
   const A = actions;
   if (!sheet) return null;
@@ -1861,6 +1884,17 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           )}
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
         </div>
+        {meta && !meta.solo && mine && (
+          <>
+            <h3>Résultat de la partie</h3>
+            <p className="muted small" style={{ marginTop: 0 }}>Pour votre bilan par deck, visible de vous seul. Compté d'office à {TCG === "fab" ? "0 point de vie" : `${WIN_PV} PV`} ; à corriger ici en cas d'abandon.</p>
+            <div className="row" style={{ marginBottom: 14, flexWrap: "wrap" }}>
+              {[["win", "Victoire"], ["loss", "Défaite"], [null, "Non comptée"]].map(([k, l]) => (
+                <button key={l} className={`btn sm${(result ?? null) === k ? " primary" : ""}`} onClick={() => onResult(k)}>{l}</button>
+              ))}
+            </div>
+          </>
+        )}
         <h3>Journal</h3>
         <Journal mine={mine} opp={opp} />
       </Sheet>

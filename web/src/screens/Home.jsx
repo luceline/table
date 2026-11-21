@@ -11,6 +11,7 @@ import TutoVideo from "../components/TutoVideo.jsx";
 import MatBgSettings, { CardBackSettings, ThemeSettings } from "../components/MatBgSettings.jsx";
 import { applyTheme, storedTheme } from "../lib/theme.js";
 import { useLive, ago } from "../lib/live.js";
+import { useResults, ratioText } from "../lib/results.js";
 import { useStats, plural } from "../lib/stats.js";
 import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, activateTcg } from "../lib/tcg.js";
 
@@ -58,6 +59,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setLobby("open");
     setTimeout(() => document.querySelector(".open-tables")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
   }, []);
+  const wl = useResults(user?.id, tcg, decks.map((d) => d.id)); // victoires / défaites par deck (privé)
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
   const [themeKey, setThemeKey] = useState(0);
@@ -627,7 +629,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <div className="list">
           {decks.map((d) => (
             <div className="list-item" key={d.id}>
-              <span className="grow">{d.name}</span>
+              <span className="grow">
+                {d.name}
+                {wl.byDeck[d.id] && <span className="small deck-ratio" title="Victoires · défaites · taux de victoire (visible de vous seul)">{ratioText(wl.byDeck[d.id])}</span>}
+              </span>
               <span className={`small ${checkDeckFor(d, cardsById).ok ? "muted" : "warn"}`}>
                 {deckSize(d)} cartes{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
                 {checkDeckFor(d, cardsById).ok ? (d.initiation && tcg === "fab" ? " · initiation" : "") : " · non conforme"}
@@ -635,7 +640,18 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>
           ))}
+          {Object.entries(wl.byName).map(([n, v]) => (
+            <div className="list-item" key={"n:" + n}>
+              <span className="grow">
+                <span className="muted">{n}</span>
+                <span className="small deck-ratio">{ratioText(v)}</span>
+              </span>
+            </div>
+          ))}
         </div>
+        {(Object.keys(wl.byDeck).length > 0 || Object.keys(wl.byName).length > 0) && (
+          <p className="muted small" style={{ margin: "8px 0 0" }}>Bilan V · D visible de vous seul, hors parties solo.</p>
+        )}
       </div>
 
       <ThemeSettings key={themeKey} />
