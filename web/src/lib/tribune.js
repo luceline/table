@@ -1,5 +1,5 @@
 // Tribune des spectateurs (tchat) et présence des spectateurs (compteur pour les joueurs).
-import { pb, PB_URL } from "../pb.js";
+import { pb, PB_URL, safeUn } from "../pb.js";
 import { rid } from "./game.js";
 
 export const BEAT_MS = 30000; // un spectateur se signale toutes les 30 s
@@ -55,7 +55,7 @@ export function watchCount(gameId, onCount, query) {
         else list = [...list.filter((w) => w.id !== e.record.id), e.record];
         emit();
       }, { filter: `game="${gameId}"`, ...opt });
-      if (stop) unsub?.();
+      if (stop) safeUn(unsub);
     } catch (_) {}
   })();
   const tick = setInterval(emit, 15000);
@@ -64,7 +64,7 @@ export function watchCount(gameId, onCount, query) {
     stop = true;
     clearInterval(tick);
     clearInterval(reload);
-    unsub?.();
+    safeUn(unsub);
   };
 }
 

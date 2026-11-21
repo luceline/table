@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { pb } from "../pb.js";
+import { pb, safeUn } from "../pb.js";
 import { Mesh, rtcOk, camId } from "../lib/rtc.js";
 import { CamVideo } from "../components/CamView.jsx";
 
@@ -55,7 +55,7 @@ export default function Cam({ code, player, camKey }) {
     })();
     return () => {
       alive = false;
-      un?.();
+      safeUn(un);
     };
   }, [code, player]);
 

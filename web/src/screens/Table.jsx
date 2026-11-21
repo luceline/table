@@ -1,6 +1,6 @@
 import PushToggle from "../components/PushToggle.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pb, me, cardUrl, errMsg, fileUrl } from "../pb.js";
+import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
 import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
 import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
@@ -10,7 +10,7 @@ import { Sheet, Toast } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
-  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife,
+  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { myResult, saveResult } from "../lib/results.js";
@@ -256,7 +256,7 @@ export default function Table({ go, gameId, side = "" }) {
     window.addEventListener("online", refresh);
     return () => {
       alive = false;
-      unsubs.forEach((u) => u && u());
+      unsubs.forEach(safeUn);
       document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("online", refresh);
     };
@@ -276,15 +276,18 @@ export default function Table({ go, gameId, side = "" }) {
     }
   }, [mine?.pv, opp?.pv]);
 
+  // Une partie par manche : « Nouvelle partie » (tout remettre à zéro) ouvre une nouvelle ligne de bilan
+  const resKey = mine?.round ? `${gameId}-${mine.round}` : gameId;
   // Bilan par deck (privé) : résultat enregistré pour cette partie, compté d'office à la victoire ou à la défaite
   useEffect(() => {
     if (!meta || meta.solo) return;
-    myResult(user.id, gameId).then((r) => setResult(r ? r.outcome : null));
-  }, [gameId, !!meta, meta?.solo]);
+    setResult(undefined);
+    myResult(user.id, resKey).then((r) => setResult(r ? r.outcome : null));
+  }, [resKey, !!meta, meta?.solo]);
   async function recordResult(outcome) {
     if (!meta || meta.solo || !mine) return;
     try {
-      await saveResult({ userId: user.id, gameId, st: mine, tcg: TCG, outcome, oppName: opp?.name });
+      await saveResult({ userId: user.id, gameId: resKey, st: mine, tcg: TCG, outcome, oppName: opp?.name });
       setResult(outcome);
     } catch (_) {
       setToast("Résultat non enregistré, réessayez depuis le menu ☰.");
@@ -333,7 +336,7 @@ export default function Table({ go, gameId, side = "" }) {
     })();
     return () => {
       alive = false;
-      unsub?.();
+      safeUn(unsub);
     };
   }, [gameId]);
   const muteTribune = (v) => {
@@ -743,13 +746,15 @@ export default function Table({ go, gameId, side = "" }) {
     });
 
   const resetMine = () => {
-    if (TCG === "fab") {
+    if (mineRef.current?.filmed) {
+      if (!confirm(`Nouvelle partie : revenir à PI ${START_PI} / PV ${START_PV} et retirer vos jetons ?`)) return;
+    } else if (TCG === "fab") {
       if (!confirm(`Remettre vos cartes dans le deck (armes et équipements dans l'inventaire), le mélanger, retirer vos cartes jetons et revenir à ${fabLife(mineRef.current?.format)} de vie ?`)) return;
     } else if (!confirm("Remettre toutes vos cartes dans le deck, le mélanger, retirer vos cartes jetons et revenir à PI 4 / PV 0 ?")) return;
     mut((st) => {
       const r = resetState(st);
-      Object.assign(st, r);
-      return "remet tout son jeu dans son deck et le mélange";
+      Object.assign(st, r, { round: (st.round || 0) + 1 });
+      return st.filmed ? "commence une nouvelle partie (compteurs remis à zéro)" : "commence une nouvelle partie : remet tout son jeu dans son deck et le mélange";
     });
     tokRef.current.filter((t) => t.side === mySide).forEach((t) => delMark(t.id));
   };
@@ -1879,9 +1884,11 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             <>
           {TCG !== "fab" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>}
           <button className="btn" onClick={() => { A.shuffleDeck(); close(); }}>Mélanger mon deck</button>
-          <button className="btn" onClick={() => { close(); A.resetMine(); }}>Tout remettre dans le deck</button>
             </>
           )}
+          <button className="btn" style={{ gridColumn: "1 / -1" }} onClick={() => { close(); A.resetMine(); }}>
+            🔄 {TCG === "fab" ? "Nouvelle partie : tout remettre à zéro" : `Nouvelle partie : tout remettre à zéro (PV ${START_PV} / PI ${START_PI})`}
+          </button>
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
         </div>
         {meta && !meta.solo && mine && (

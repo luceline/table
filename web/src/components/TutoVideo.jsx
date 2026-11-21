@@ -12,7 +12,7 @@ const SETS = {
     pc: { label: "Ordinateur", src: `${B}videos/fab-ordinateur.mp4`, poster: `${B}videos/fab-ordinateur.jpg` },
   },
 };
-const DUR = { safir: { tel: "1 min 55", pc: "1 min" }, fab: { tel: "1 min 40", pc: "1 min" } };
+const DUR = { safir: { tel: "1 min 55", pc: "1 min 10" }, fab: { tel: "1 min 50", pc: "1 min 10" } };
 
 // Tutoriel vidéo du jeu sélectionné : version téléphone ou ordinateur, celle de l'écran choisie par défaut
 export default function TutoVideo({ open: open0 = false, tcg: tcg0 }) {

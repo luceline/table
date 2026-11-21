@@ -3,7 +3,7 @@ import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
 import { LegalFooter } from "./Legal.jsx";
 import { useEffect, useRef, useState } from "react";
-import { pb, me, errMsg } from "../pb.js";
+import { pb, me, errMsg, safeUn } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
 import { checkDeck, checkDeckFor } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
@@ -110,10 +110,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     loadOpen();
     let unsub = null, alive = true;
     pb.collection("games").subscribe("*", (e) => { if (e.record.open || e.action === "delete") loadOpen(tcgRef.current); })
-      .then((u) => (alive ? (unsub = u) : u()))
+      .then((u) => (alive ? (unsub = u) : safeUn(u)))
       .catch(() => {});
     const t = setInterval(() => loadOpen(tcgRef.current), 60000); // les tables qui ouvrent passent en « ouverte »
-    return () => { alive = false; unsub?.(); clearInterval(t); };
+    return () => { alive = false; safeUn(unsub); clearInterval(t); };
   }, []);
 
   function openTable() {

@@ -30,3 +30,8 @@ export function errMsg(e) {
   }
   return e?.response?.message || e?.message || "Erreur inconnue";
 }
+
+// Désabonnement du temps réel sans erreur (connexion déjà fermée : « Missing or invalid client id »)
+export function safeUn(u) {
+  try { Promise.resolve(u?.()).catch(() => {}); } catch (_) {}
+}

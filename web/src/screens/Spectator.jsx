@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pb, cardUrl, fileUrl } from "../pb.js";
+import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
 import { Sheet, Toast } from "../components/ui.jsx";
@@ -131,7 +131,7 @@ export default function Spectator({ code }) {
     })();
     return () => {
       alive = false;
-      unsubs.forEach((u) => u?.());
+      unsubs.forEach(safeUn);
     };
   }, [code]);
 
