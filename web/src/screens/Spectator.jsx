@@ -3,9 +3,9 @@ import { ZoomPreview } from "../components/ZoomView.jsx";
 import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
-import { Sheet, Toast } from "../components/ui.jsx";
+import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
-import { normalize, rid, TCG } from "../lib/game.js";
+import { normalize, rid, TCG, PHASE_BY_ID } from "../lib/game.js";
 import { activateTcg, tcgOf } from "../lib/tcg.js";
 import { PILE_BY_ID } from "../lib/mat.js";
 import { playVoice, unlockAudio, onVoiceState } from "../lib/voice.js";
@@ -26,6 +26,7 @@ export default function Spectator({ code }) {
   const [messages, setMessages] = useState([]);
   const [err, setErr] = useState("");
   const [toast, setToast] = useState("");
+  const [phaseFlash, setPhaseFlash] = useState(null); // nouvelle phase d'un joueur, annoncée en grand
   const [view, setView] = useState(null); // carte agrandie
   const [pileView, setPileView] = useState(null); // défausse ouverte : { who, pile }
   const [pings, setPings] = useState([]);
@@ -60,15 +61,18 @@ export default function Spectator({ code }) {
     const st = normalize(rec.state);
     const prev = last.current[who];
     if (prev) {
+      // Nouvelle phase d'un joueur : annoncée en grand
       const lg = st.log?.[st.log.length - 1];
-      if (lg && lg.t > prev.log) setToast(logLine(st.name, lg.m));
+      const newPhase = st.phase && st.phase !== prev.phase && PHASE_BY_ID[st.phase];
+      if (newPhase) setPhaseFlash({ key: Date.now(), id: st.phase, who: `${st.name}${lg?.m?.startsWith("commence") ? ` · tour ${st.turn}` : ""}`, label: PHASE_BY_ID[st.phase].label });
+      if (lg && lg.t > prev.log && !(newPhase && /^(commence son tour|passe en phase)/.test(lg.m))) setToast(logLine(st.name, lg.m));
       if (st.ping && st.ping.t > prev.ping) addPing(st.ping.s === "me" ? who : who === "p1" ? "p2" : "p1", st.ping.iid);
       const rvc = st.reveal && (st.reveal.card || st.cards[st.reveal.iid]);
       if (st.reveal && st.reveal.t > prev.reveal && rvc) {
         setView({ c: rvc, title: st.reveal.card ? `${st.name} montre une carte` : `${st.name} montre une carte de sa main` });
       }
     }
-    last.current[who] = { log: st.log?.[st.log.length - 1]?.t || 0, ping: st.ping?.t || 0, reveal: st.reveal?.t || 0 };
+    last.current[who] = { log: st.log?.[st.log.length - 1]?.t || 0, ping: st.ping?.t || 0, reveal: st.reveal?.t || 0, phase: st.phase || "" };
     (who === "p1" ? setP1 : setP2)(st);
   }, [addPing]);
 
@@ -330,7 +334,8 @@ export default function Spectator({ code }) {
       </div>
 
       {speaking && <div className="bubble voice spec-bubble">🔊 <b>{speaking.name}</b> parle…</div>}
-      <Toast text={toast} onDone={() => setToast("")} ms={3500} />
+      <Toast text={toast} onDone={() => setToast("")} ms={3500} className="act" />
+      <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
       {(() => {
         const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
         const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier

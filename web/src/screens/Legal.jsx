@@ -99,7 +99,7 @@ export default function Legal() {
           </li>
           <li>
             Vos disponibilités (jours et heures de jeu de votre semaine type) : personne ne voit votre agenda ; les autres joueurs voient
-            seulement votre pseudo et les créneaux que vous avez en commun avec eux. Les propositions de partie (jour, heure, petit mot)
+            seulement votre pseudo, les créneaux que vous avez en commun avec eux, et vos préférences de jeu (vocal, cartes filmées…) avec votre petit mot. Les propositions de partie (jour, heure, petit mot)
             sont visibles par les deux joueurs concernés.
           </li>
         </ul>

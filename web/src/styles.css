@@ -757,3 +757,31 @@ html { background: var(--bg); }
 .preview.zoomable { position: relative; cursor: zoom-in; }
 .preview .zoom-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff; pointer-events: none; white-space: nowrap; }
 .cam-zoom { position: absolute; right: 8px; bottom: 8px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.55); color: #fff; font-size: 15px; cursor: pointer; z-index: 3; }
+
+/* Actions de l'adversaire : texte deux fois plus grand, sur plusieurs lignes si besoin */
+.toast.act { transform: translate(-50%, -50%); font-size: 24px; line-height: 1.25; padding: 10px 20px; border-radius: 12px; white-space: normal; text-align: center; width: max-content; max-width: min(92vw, 760px); overflow: visible; }
+@media (max-width: 600px) { .toast.act { font-size: 20px; padding: 8px 14px; } }
+
+/* Phase annoncée en grand, puis effacée */
+.phase-flash { position: fixed; left: 50%; top: 46%; z-index: 84; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 16px 34px; border-radius: 16px; background: #0e0c0b; border: 2px solid var(--gold2); box-shadow: 0 14px 50px rgba(0,0,0,.7);
+  animation: phase-flash 2.2s ease forwards; text-align: center; max-width: 92vw; }
+.phase-flash b { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 8vw, 64px); line-height: 1.05; letter-spacing: .04em; color: #fff3e2; }
+.phase-flash small { font-size: clamp(14px, 3.4vw, 20px); color: var(--muted); }
+.phase-flash.pf-lan { border-color: #4fb38f; } .phase-flash.pf-lan b { color: #8fe0c0; }
+.phase-flash.pf-inv { border-color: #e0c072; } .phase-flash.pf-inv b { color: #f0d690; }
+.phase-flash.pf-com { border-color: #e0574e; } .phase-flash.pf-com b { color: #ff8a80; }
+.phase-flash.pf-cal { border-color: #7a9ab8; } .phase-flash.pf-cal b { color: #b8d0e8; }
+@keyframes phase-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  20% { transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
+}
+.pref-chips, .match-prefs { display: flex; flex-wrap: wrap; gap: 6px; }
+.match-prefs { margin: 2px 0 6px; align-items: center; }
+.pref-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 13px; cursor: pointer; }
+.pref-chip.on { border-color: var(--gold2); background: rgba(224, 192, 114, .16); }
+.pref-chip.small { padding: 2px 9px; font-size: 12px; cursor: default; }
+.match-note { flex-basis: 100%; }

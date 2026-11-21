@@ -62,7 +62,9 @@ routerAdd("GET", "/api/table/agenda-matches", (e) => {
     if (!common.length) continue;
     let name = "Joueur";
     try { name = $app.findRecordById("users", o.getString("user")).getString("name") || "Joueur"; } catch (_) {}
-    players.push({ id: o.getString("user"), name: name, slots: merge(common.map((c) => [((c[0] % W) + W) % W, ((c[0] % W) + W) % W + (c[1] - c[0])])) });
+    let prefs = [];
+    try { prefs = (JSON.parse(o.getString("prefs") || "[]") || []).filter((x) => typeof x === "string").slice(0, 12); } catch (_) {}
+    players.push({ id: o.getString("user"), name: name, prefs: prefs, note: o.getString("note"), slots: merge(common.map((c) => [((c[0] % W) + W) % W, ((c[0] % W) + W) % W + (c[1] - c[0])])) });
   }
   players.sort((x, y) => y.slots.reduce((n, s) => n + s[1] - s[0], 0) - x.slots.reduce((n, s) => n + s[1] - s[0], 0));
   e.response.header().set("Cache-Control", "no-store");

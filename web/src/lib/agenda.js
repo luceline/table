@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 import { pb, safeUn } from "../pb.js";
 
 export const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+// Préférences de jeu, montrées aux joueurs disponibles en même temps (not : préférence contraire, décochée d'office)
+export const PREFS = [
+  { id: "vocal", label: "🎧 Vocal OK", not: "novocal" },
+  { id: "novocal", label: "🔇 Sans vocal", not: "vocal" },
+  { id: "filme", label: "🎥 Je joue filmé (cartes réelles)" },
+  { id: "numerique", label: "🃏 Cartes numériques" },
+  { id: "pret", label: "🤝 Je peux prêter un deck" },
+  { id: "debutant", label: "🌱 Débutant" },
+  { id: "explique", label: "📚 J'explique les règles" },
+  { id: "detente", label: "😌 Partie détente", not: "compet" },
+  { id: "compet", label: "🏆 Compétitif", not: "detente" },
+];
+export const PREF_BY_ID = Object.fromEntries(PREFS.map((p) => [p.id, p]));
 const W = 7 * 1440;
 
 // 1230 -> "20 h 30"

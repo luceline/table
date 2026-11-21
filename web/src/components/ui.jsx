@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Panneau du bas. Il s'ouvre souvent au relâchement du doigt (toucher une carte) : sur téléphone, le navigateur envoie
 // ensuite un « clic fantôme » au même endroit, qui tomberait sur un bouton du panneau (Défausse, Sur le deck…).
@@ -40,12 +40,33 @@ export function Face({ src, down, alt }) {
   return <img src={src} alt={alt || ""} draggable={false} loading="lazy" />;
 }
 
-export function Toast({ text, onDone, ms = 2600, style }) {
+export function Toast({ text, onDone, ms = 2600, style, className = "" }) {
+  // onDone change à chaque rendu du parent : on garde la dernière version sans relancer la minuterie
+  const done = useRef(onDone);
+  done.current = onDone;
   useEffect(() => {
     if (!text) return;
-    const t = setTimeout(onDone, ms);
+    const t = setTimeout(() => done.current?.(), ms);
     return () => clearTimeout(t);
-  }, [text, onDone, ms]);
+  }, [text, ms]);
   if (!text) return null;
-  return <div className="toast" style={style}>{text}</div>;
+  return <div className={`toast ${className}`} style={style}>{text}</div>;
+}
+
+// Phase annoncée en grand au milieu de l'écran, puis effacée d'elle-même
+export function PhaseFlash({ flash, onDone }) {
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => done.current?.(), 2200);
+    return () => clearTimeout(t);
+  }, [flash]);
+  if (!flash) return null;
+  return (
+    <div key={flash.key} className={`phase-flash pf-${flash.id}`} aria-live="polite">
+      {flash.who && <small>{flash.who}</small>}
+      <b>{flash.label}</b>
+    </div>
+  );
 }

@@ -7,7 +7,7 @@ import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
 import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
 import { Mat } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
-import { Sheet, Toast } from "../components/ui.jsx";
+import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
@@ -73,6 +73,7 @@ export default function Table({ go, gameId, side = "" }) {
   const trTabRef = useRef(false); // onglet Tribune ouvert
   const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
+  const [phaseFlash, setPhaseFlash] = useState(null); // phase de l'adversaire annoncée en grand
   const [winner, setWinner] = useState(null);
   const [result, setResult] = useState(undefined); // mon résultat enregistré pour cette partie : "win" | "loss" | null
   const [aim, setAim] = useState(null); // {iid, k: "atk" | "cib"} : choix de la cible d'une flèche ({v: [u, v]} depuis un tapis filmé)
@@ -167,7 +168,9 @@ export default function Table({ go, gameId, side = "" }) {
     const o = rec.state && rec.state.cards ? normalize(rec.state) : null;
     if (o) {
       const last = o.log?.[o.log.length - 1];
-      if (last && lastOppLog.current !== null && last.t > lastOppLog.current) setToast(logLine(o.name, last.m));
+      // (un changement de phase est annoncé en grand : pas de bandeau en plus)
+      const phaseMsg = last && /^(commence son tour|passe en phase)/.test(last.m) && o.phase && o.phase !== lastOppPhase.current;
+      if (last && lastOppLog.current !== null && last.t > lastOppLog.current && !phaseMsg) setToast(logLine(o.name, last.m));
       lastOppLog.current = last ? last.t : 0;
       // Carte montrée par l'adversaire (ignorée au premier chargement)
       const rv = o.reveal;
@@ -178,6 +181,10 @@ export default function Table({ go, gameId, side = "" }) {
       lastReveal.current = rv ? rv.t : 0;
       // Fin du tour adverse : c'est à moi
       if (lastOppPhase.current && !o.phase) setBanner(`${o.name} a fini son tour : à vous de jouer !`);
+      // Nouvelle phase de l'adversaire : annoncée en grand (pas au chargement de la partie)
+      if (lastOppPhase.current !== undefined && o.phase && o.phase !== lastOppPhase.current && PHASE_BY_ID[o.phase]) {
+        setPhaseFlash({ key: Date.now(), id: o.phase, who: `${o.name}${phaseMsg && last.m.startsWith("commence") ? ` · tour ${o.turn}` : ""}`, label: PHASE_BY_ID[o.phase].label });
+      }
       lastOppPhase.current = o.phase || null;
       // Carte signalée par l'adversaire (appui long)
       const pg = o.ping;
@@ -1627,11 +1634,14 @@ export default function Table({ go, gameId, side = "" }) {
       <Toast
         text={toast}
         onDone={() => setToast("")}
+        className="act"
+        ms={3500}
         style={(() => {
           const r = oppMatRef.current?.getBoundingClientRect() || vpRef.current?.getBoundingClientRect();
-          return r ? { top: Math.max(r.top + 8, r.top + r.height / 2 - 16), left: r.left + r.width / 2 } : null;
+          return r ? { top: Math.max(r.top + 40, r.top + r.height / 2), left: r.left + r.width / 2 } : null;
         })()}
       />
+      <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
       {err && (
         <div className="toast" style={{ borderColor: "var(--danger)", pointerEvents: "auto", whiteSpace: "normal", borderRadius: 10 }} onClick={() => setErr("")}>{err}</div>
       )}

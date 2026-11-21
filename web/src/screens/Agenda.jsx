@@ -7,7 +7,7 @@ import PushToggle from "../components/PushToggle.jsx";
 import { currentTcg, tcgName } from "../lib/tcg.js";
 import {
   DAYS, STEPS, hm, loadAvail, saveAvail, isPaused, nextMonday, loadMatches, loadInvites, sendInvite,
-  slotText, occurrences, dayText, whenText,
+  slotText, occurrences, dayText, whenText, PREFS, PREF_BY_ID,
 } from "../lib/agenda.js";
 
 const STATUS = { pending: "en attente de réponse", accepted: "acceptée", declined: "refusée" };
@@ -17,6 +17,7 @@ export default function Agenda({ go }) {
   const tcg = currentTcg();
   const [rec, setRec] = useState(undefined); // mon agenda (null : pas encore créé)
   const [slots, setSlots] = useState([]);
+  const [note, setNote] = useState(""); // petit mot montré aux autres joueurs
   const [adding, setAdding] = useState(null); // { d, s, e } créneau en cours d'ajout
   const [players, setPlayers] = useState(null);
   const [invites, setInvites] = useState([]);
@@ -30,6 +31,7 @@ export default function Agenda({ go }) {
     const r = await loadAvail(user.id, tcg);
     setRec(r);
     setSlots(r?.slots || []);
+    setNote(r?.note || "");
     setPlayers(await loadMatches(tcg));
     setInvites(await loadInvites(user.id, tcg));
   };
@@ -70,6 +72,13 @@ export default function Agenda({ go }) {
     store(out);
   }
   const removeSlot = (i) => store(slots.filter((_, k) => k !== i));
+  const prefs = rec?.prefs || [];
+  function togglePref(id) {
+    const p = PREF_BY_ID[id];
+    const next = prefs.includes(id) ? prefs.filter((x) => x !== id) : [...prefs.filter((x) => x !== p.not), id];
+    store(slots, { prefs: next });
+  }
+  const saveNote = () => (note.trim() !== (rec?.note || "") ? store(slots, { note: note.trim().slice(0, 120) }) : null);
   const paused = isPaused(rec);
   const togglePause = () => store(slots, { paused_until: paused ? "" : nextMonday().toISOString().replace("T", " ") });
 
@@ -209,6 +218,28 @@ export default function Agenda({ go }) {
       </div>
 
       <div className="card-box">
+        <h2>Mes préférences de jeu</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>Montrées aux joueurs qui ont des créneaux en commun avec vous.</p>
+        <div className="pref-chips">
+          {PREFS.map((p) => (
+            <button key={p.id} className={`pref-chip ${prefs.includes(p.id) ? "on" : ""}`} onClick={() => togglePref(p.id)} aria-pressed={prefs.includes(p.id)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
+          <label>Un mot (facultatif)</label>
+          <div className="row">
+            <input
+              className="input grow" maxLength={120} value={note} placeholder="Ex. : je joue surtout Kin, je cherche à progresser"
+              onChange={(e) => setNote(e.target.value)} onBlur={saveNote} onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            />
+            {note.trim() !== (rec?.note || "") && <button className="btn" onClick={saveNote}>OK</button>}
+          </div>
+        </div>
+      </div>
+
+      <div className="card-box">
         <h2>Joueurs disponibles en même temps que vous</h2>
         {!slots.length ? (
           <p className="muted small">Ajoutez d'abord vos créneaux ci-dessus.</p>
@@ -223,6 +254,12 @@ export default function Agenda({ go }) {
             {players.map((p) => (
               <div className="match" key={p.id}>
                 <b>{p.name}</b>
+                {(p.prefs?.length > 0 || p.note) && (
+                  <div className="match-prefs">
+                    {(p.prefs || []).filter((id) => PREF_BY_ID[id]).map((id) => <span key={id} className="pref-chip small on">{PREF_BY_ID[id].label}</span>)}
+                    {p.note && <span className="muted small match-note">« {p.note} »</span>}
+                  </div>
+                )}
                 {p.slots.map((sl, k) => (
                   <div className="list-item" key={k}>
                     <span className="grow small">{slotText(sl)}</span>
