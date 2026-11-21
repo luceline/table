@@ -785,3 +785,9 @@ html { background: var(--bg); }
 .pref-chip.on { border-color: var(--gold2); background: rgba(224, 192, 114, .16); }
 .pref-chip.small { padding: 2px 9px; font-size: 12px; cursor: default; }
 .match-note { flex-basis: 100%; }
+
+/* Unification d'un combattant (panneau de la carte) */
+.unif-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.unif-legend { flex-basis: 100%; }
+.unif-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 2px; }
+.unif-legend .dot.red { background: #d64545; } .unif-legend .dot.gold { background: #d6a93b; } .unif-legend .dot.blue { background: #3b82d6; }

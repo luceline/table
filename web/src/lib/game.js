@@ -40,7 +40,7 @@ export function buildState({ name, deck, cardsById }) {
   for (const e of deck.entries || []) {
     const rec = cardsById[e.card];
     if (!rec || !(e.qty > 0)) continue;
-    const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p", v: parseVal(rec.val) };
+    const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p", v: parseVal(rec.val), a: parseVal(rec.atk), d: parseVal(rec.def) };
     // Cartes jetons : modèles en réserve, copies illimitées, jamais dans le deck
     // (tok : carte normale choisie aussi comme jeton, son entrée de réserve est distincte de celle du deck)
     if (rec.kind === "jeton" || e.tok) {
@@ -136,6 +136,8 @@ export function setRules(id) {
 // Bonus rappelés sous le badge d'unification (Saison 3, Kin)
 // Bonus cumulés : le niveau 2 donne aussi celui du 1, le niveau 3 ceux du 1 et du 2
 export const UNIF_BONUS = ["", "+1 DEF", "+1 ATK, +1 DEF, +1 pioche", "+1 ATK, +1 DEF, +1 Valeur, +1 pioche, +1 PI"];
+// Bonus d'unification sur un combattant Tian / Yan / Lin, par niveau (cumulés, d'après le rappel des règles)
+export const UNIF_STATS = [null, { a: 0, v: 0, d: 1 }, { a: 1, v: 0, d: 1 }, { a: 1, v: 1, d: 1 }];
 
 // phase = null hors de son tour ; turn = numéro de son tour (début de tour à début de tour suivant)
 // arrows = flèches d'attaque / de ciblage ; mull = mulligan déjà fait
@@ -251,7 +253,7 @@ export function territoryValues(st) {
     if (b.y < 30 || b.y > 130) continue; // rangée des combattants seulement
     const t = b.x < 201.5 ? 0 : b.x < 398.5 ? 1 : 2;
     out[t].n++;
-    if (typeof c.v === "number") out[t].sum += c.v;
+    if (typeof c.v === "number") out[t].sum += c.v + (b.u === 3 ? 1 : 0); // unification 3 : +1 Valeur
     else out[t].unknown++;
   }
   return out;

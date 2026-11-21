@@ -11,7 +11,7 @@ import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
-  PHASES, PHASE_BY_ID, UNIF_BONUS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
+  PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { myResult, saveResult } from "../lib/results.js";
@@ -416,7 +416,7 @@ export default function Table({ go, gameId, side = "" }) {
   const valsFilled = useRef(false);
   useEffect(() => {
     if (!mine || valsFilled.current) return;
-    const missing = [...new Set(Object.values(mine.cards).filter((c) => !("v" in c)).map((c) => c.c))];
+    const missing = [...new Set(Object.values(mine.cards).filter((c) => !("v" in c) || !("a" in c)).map((c) => c.c))];
     valsFilled.current = true;
     if (!missing.length) return;
     (async () => {
@@ -424,12 +424,14 @@ export default function Table({ go, gameId, side = "" }) {
       for (let i = 0; i < missing.length; i += 30) {
         const part = missing.slice(i, i + 30);
         try {
-          const recs = await pb.collection("cards").getFullList({ filter: part.map((id) => `id="${id}"`).join(" || "), fields: "id,val" });
-          recs.forEach((r) => (vals[r.id] = parseVal(r.val)));
+          const recs = await pb.collection("cards").getFullList({ filter: part.map((id) => `id="${id}"`).join(" || "), fields: "id,val,atk,def" });
+          recs.forEach((r) => (vals[r.id] = { v: parseVal(r.val), a: parseVal(r.atk), d: parseVal(r.def) }));
         } catch { /* cartes inaccessibles : valeur inconnue */ }
       }
       mut((st) => {
-        for (const c of Object.values(st.cards)) if (!("v" in c)) c.v = vals[c.c] ?? null;
+        for (const c of Object.values(st.cards)) {
+          for (const k of ["v", "a", "d"]) if (!(k in c)) c[k] = vals[c.c]?.[k] ?? null;
+        }
         return true; // sans ligne de journal
       });
     })();
@@ -460,6 +462,38 @@ export default function Table({ go, gameId, side = "" }) {
   const delMark = (id) => {
     setMarks(tokRef.current.filter((t) => t.id !== id));
     track(id, () => pb.collection("marks").delete(id));
+  };
+
+  // Unification d'un combattant : 3 jetons (ATK rouge, Valeur or, DEF bleu) avec ses valeurs bonus comprises.
+  // Les jetons d'une unification précédente sur la même carte sont remplacés ; niveau 0 = tout retirer.
+  const setCardUnif = (iid, lvl) => {
+    const st = mineRef.current;
+    const b = st?.board.find((x) => x.iid === iid);
+    const c = st?.cards[iid];
+    if (!b || !c) return;
+    for (const id of b.ut || []) if (tokRef.current.some((t) => t.id === id)) delMark(id);
+    const bonus = UNIF_STATS[lvl];
+    const ids = [];
+    const shown = [];
+    if (bonus) {
+      const dim = CARD[c.o === "l" ? "l" : "p"];
+      [["a", "red", "ATK", -1], ["v", "gold", "Valeur", 0], ["d", "blue", "DEF", 1]].forEach(([k, color, label, col]) => {
+        if (typeof c[k] !== "number") return;
+        const v = c[k] + bonus[k];
+        const id = rid(15);
+        ids.push(id);
+        shown.push(`${label} ${v}`);
+        addMark({ id, side: mySide, color, v, on: iid, dx: col * dim.w * 0.32, dy: dim.h * 0.36, x: b.x, y: b.y }); // en bas de la carte : le centre reste libre pour la toucher
+      });
+    }
+    const missing = bonus ? [["a", "ATK"], ["v", "Valeur"], ["d", "DEF"]].filter(([k]) => typeof c[k] !== "number").map(([, l]) => l) : [];
+    if (missing.length) setToast(`${missing.join(", ")} non renseignée${missing.length > 1 ? "s" : ""} sur « ${c.n} » : à compléter dans Mes cartes.`);
+    mut((s2) => {
+      const bb = s2.board.find((x) => x.iid === iid);
+      if (!bb) return false;
+      if (lvl) { bb.u = lvl; bb.ut = ids; } else { delete bb.u; delete bb.ut; }
+      return lvl ? `passe « ${c.n} » en Unification ${lvl}${shown.length ? ` : ${shown.join(" · ")}` : ""}` : `retire l'unification de « ${c.n} »`;
+    });
   };
 
   // Retirer d'un coup tous mes jetons de couleur (les marqueurs de territoire restent)
@@ -1663,7 +1697,7 @@ export default function Table({ go, gameId, side = "" }) {
         onResult={recordResult}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
+          startAim, clearArrows, pingCard, mulligan, setCardUnif, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
         }}
       />
     </div>
@@ -1716,6 +1750,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
       if (A.hasOpp) btns.push(["Montrer à l'adversaire", () => A.showCard(iid)]);
     } else if (zone === "board" && b) {
       btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
+
       btns.push([b.down ? "Révéler" : "Face cachée", () => A.flipCard(iid)]);
     }
     if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
@@ -1728,10 +1763,22 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     btns.push(["Dessus du deck", () => A.toPile(iid, "deck", zone)]);
     btns.push(["Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
     if (c?.tok) btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
+    // Unification d'un combattant (Safir) : jetons ATK / Valeur / DEF avec les bonus du niveau
+    const unifBtns = zone === "board" && b && TCG !== "fab" && !c?.tok && !c?.cmd ? (
+      <div className="unif-row">
+        <span className="muted small">Unification :</span>
+        {[1, 2, 3].map((n) => (
+          <button key={n} className={`btn sm ${b.u === n ? "primary" : ""}`} onClick={run(() => A.setCardUnif(iid, n))} title={UNIF_BONUS[n]}>Unif {n}</button>
+        ))}
+        {b.u ? <button className="btn sm ghost" onClick={run(() => A.setCardUnif(iid, 0))}>Retirer</button> : null}
+        <span className="muted small unif-legend">Jetons <i className="dot red" /> ATK · <i className="dot gold" /> Valeur · <i className="dot blue" /> DEF, bonus compris</span>
+      </div>
+    ) : null;
     return (
       <Sheet open onClose={close} title={c?.n}>
         <ZoomPreview src={cardUrl(c, true)} alt={c?.n} />
         {aimBtns}
+        {unifBtns}
         <div className="actions">
           {btns.map(([label, f]) => (
             <button key={label} className="btn" onClick={run(f)}>{label}</button>
