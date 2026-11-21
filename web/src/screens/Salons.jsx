@@ -86,14 +86,14 @@ export default function Salons({ go, channelId }) {
         },
         { filter: postsOfTcg(tcg) },
       )
-      .then((u) => (alive ? (un = u) : u()))
+      .then((u) => (alive ? (un = u) : Promise.resolve(u()).catch(() => {})))
       .catch(() => {});
     pb.collection("channels")
       .subscribe("*", () => reloadChannels(), {})
       .catch(() => {});
     return () => {
       alive = false;
-      un?.();
+      Promise.resolve(un?.()).catch(() => {});
       pb.collection("channels").unsubscribe("*").catch(() => {});
     };
   }, [tcg]);

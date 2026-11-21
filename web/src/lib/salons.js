@@ -77,11 +77,11 @@ export function useSalonsSummary(tcg, myId) {
     refresh();
     pb.collection("posts")
       .subscribe("*", () => refresh(), { filter: postsOfTcg(tcg) })
-      .then((u) => (alive ? (un = u) : u()))
+      .then((u) => (alive ? (un = u) : Promise.resolve(u()).catch(() => {})))
       .catch(() => {});
     return () => {
       alive = false;
-      un?.();
+      Promise.resolve(un?.()).catch(() => {}); // désabonnement : sans erreur si le direct n'était pas encore connecté
     };
   }, [tcg, myId]);
   return state;

@@ -88,7 +88,7 @@ export class Mesh {
         (e) => e.action === "create" && e.record.to === this.self && e.record.game === this.gameId && this.onMsg(e.record),
         { filter: `game="${this.gameId}" && to="${this.self}"`, ...this.opt },
       );
-      if (!this.alive) return un();
+      if (!this.alive) return Promise.resolve(un()).catch(() => {});
       this.unsub = un;
     } catch (_) {
       return;
@@ -267,13 +267,16 @@ export class Mesh {
     }
   }
 
-  setVideo(track) {
+  // Caméra changée : remplace l'image envoyée à chaque pair, sans renégocier
+  async setVideo(track) {
     this.video = track || null;
+    const all = [];
     for (const [, p] of this.peers) {
       for (const t of p.pc.getTransceivers()) {
-        if (t.receiver.track?.kind === "video" && (t.direction === "sendonly" || t.direction === "sendrecv")) t.sender.replaceTrack(this.video).catch(() => {});
+        if (t.receiver.track?.kind === "video" && (t.direction === "sendonly" || t.direction === "sendrecv")) all.push(t.sender.replaceTrack(this.video).catch(() => {}));
       }
     }
+    await Promise.all(all);
   }
 
   // Message de contrôle à tous les pairs reliés par un canal (ex. état du micro)
@@ -294,7 +297,7 @@ export class Mesh {
       this.send(id, "bye");
       this.drop(id, true);
     }
-    this.unsub?.();
+    Promise.resolve(this.unsub?.()).catch(() => {});
   }
 }
 

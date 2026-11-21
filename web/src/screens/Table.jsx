@@ -2363,7 +2363,10 @@ function CamSetup({ link, compact }) {
           <li>Cadrez le tapis en entier, téléphone à l'horizontale.</li>
         </ol>
         {!compact && <p className="muted small" style={{ margin: "4px 0" }}>Ce lien est secret : il permet de filmer pour vous. Ne le partagez pas.</p>}
-        <button className="btn sm" onClick={copy}>{copied ? "Lien copié ✓" : "Copier le lien"}</button>
+        <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+          <button className="btn sm" onClick={copy}>{copied ? "Lien copié ✓" : "Copier le lien"}</button>
+          <button className="btn sm" onClick={() => window.open(link, "_blank")} title="Filmer avec la webcam de cet ordinateur (nouvel onglet)">💻 Webcam de cet ordinateur</button>
+        </div>
       </div>
     </div>
   );

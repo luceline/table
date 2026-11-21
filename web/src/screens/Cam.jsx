@@ -14,6 +14,15 @@ export default function Cam({ code, player, camKey }) {
   const [track, setTrack] = useState(null);
   const [stream, setStream] = useState(null);
   const [facing, setFacing] = useState("environment");
+  // Caméras disponibles (webcam d'ordinateur, caméras avant/arrière) et caméra choisie, mémorisée sur l'appareil
+  const [devices, setDevices] = useState([]);
+  const [deviceId, setDeviceId] = useState(() => {
+    try {
+      return localStorage.getItem("table_cam_device") || "";
+    } catch (_) {
+      return "";
+    }
+  });
   const [peers, setPeers] = useState({});
   const [portrait, setPortrait] = useState(false);
   const [wake, setWake] = useState(null); // true / false (non disponible)
@@ -58,22 +67,57 @@ export default function Cam({ code, player, camKey }) {
     return () => mq.removeEventListener?.("change", upd);
   }, []);
 
-  async function openCam(face) {
-    const s = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: face }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 24, max: 30 } },
-    });
+  async function openCam(face, devId) {
+    const size = { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 24, max: 30 } };
+    let s;
+    try {
+      s = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: devId ? { deviceId: { exact: devId }, ...size } : { facingMode: { ideal: face }, ...size },
+      });
+    } catch (e) {
+      if (!devId || e?.name === "NotAllowedError") throw e;
+      // caméra mémorisée débranchée : caméra par défaut
+      s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: face }, ...size } });
+    }
     const t = s.getVideoTracks()[0];
     try {
       t.contentHint = "detail"; // privilégier la netteté (texte des cartes)
     } catch (_) {}
+    // liste des caméras (les noms ne sont connus qu'une fois l'accès autorisé)
+    try {
+      const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+      setDevices(list.map((d, i) => ({ id: d.deviceId, label: d.label || `Caméra ${i + 1}` })));
+      const cur = t.getSettings?.().deviceId;
+      if (cur) setDeviceId(cur);
+      const fm = t.getSettings?.().facingMode;
+      if (fm) setFacing(fm);
+    } catch (_) {}
     return { s, t };
+  }
+
+  // Choisir une autre caméra dans la liste (ex. webcam USB au-dessus du tapis)
+  async function pickDevice(id) {
+    try {
+      const { s, t } = await openCam(facing, id);
+      const old = trackRef.current;
+      trackRef.current = t;
+      setTrack(t);
+      setStream(s);
+      await meshRef.current?.setVideo(t); // la nouvelle image part d'abord, l'ancienne caméra est coupée ensuite
+      old?.stop();
+      try {
+        localStorage.setItem("table_cam_device", id);
+      } catch (_) {}
+    } catch (_) {
+      setErr("Impossible d'ouvrir cette caméra : est-elle utilisée par une autre application ?");
+    }
   }
 
   async function start() {
     setErr("");
     try {
-      const { s, t } = await openCam(facing);
+      const { s, t } = await openCam(facing, deviceId);
       trackRef.current = t;
       setTrack(t);
       setStream(s);
@@ -108,7 +152,7 @@ export default function Cam({ code, player, camKey }) {
       m.start([player, opp].filter(Boolean));
       keepAwake();
     } catch (e) {
-      setErr(e?.name === "NotAllowedError" ? "Accès à la caméra refusé : autorisez-le pour ce site dans les réglages du navigateur." : "Impossible d'ouvrir la caméra de ce téléphone.");
+      setErr(e?.name === "NotAllowedError" ? "Accès à la caméra refusé : autorisez-le pour ce site dans les réglages du navigateur." : "Impossible d'ouvrir la caméra : est-elle branchée, ou utilisée par une autre application (visio, autre onglet) ?");
     }
   }
 
@@ -116,12 +160,13 @@ export default function Cam({ code, player, camKey }) {
     const nf = facing === "environment" ? "user" : "environment";
     try {
       const { s, t } = await openCam(nf);
-      trackRef.current?.stop();
+      const old = trackRef.current;
       trackRef.current = t;
       setTrack(t);
       setStream(s);
       setFacing(nf);
-      meshRef.current?.setVideo(t);
+      await meshRef.current?.setVideo(t);
+      old?.stop();
     } catch (_) {}
   }
 
@@ -183,9 +228,9 @@ export default function Cam({ code, player, camKey }) {
           <h2>🎥 Caméra de la table</h2>
           {g && <p>Partie <b>{g.code}</b> · vous filmez le tapis de <b>{me || "votre joueur"}</b>{oppName ? <> pour <b>{oppName}</b></> : null}.</p>}
           <ol className="small">
-            <li>Posez le téléphone au-dessus du tapis, caméra arrière vers le bas, à l'horizontale.</li>
-            <li>Touchez « Démarrer la caméra » et autorisez l'accès.</li>
-            <li>Cadrez tout le tapis dans le rectangle. Le son passe par votre autre écran.</li>
+            <li>Placez la caméra au-dessus du tapis : téléphone (caméra arrière vers le bas, à l'horizontale) ou webcam d'ordinateur.</li>
+            <li>Touchez « Démarrer la caméra » et autorisez l'accès. Avec plusieurs caméras, choisissez la bonne dans la liste en bas.</li>
+            <li>Cadrez tout le tapis dans le rectangle. Le son passe par l'écran de jeu.</li>
           </ol>
           {err && <p className="err">{err}</p>}
           <button className="btn primary" onClick={start} disabled={!g}>Démarrer la caméra</button>
@@ -203,7 +248,15 @@ export default function Cam({ code, player, camKey }) {
           {wake === false && <div className="cam-warn">Désactivez la mise en veille de l'écran pendant la partie, sinon la caméra se coupe.</div>}
           {err && <div className="cam-warn">{err}</div>}
           <div className="cam-hud-row">
-            <button className="btn sm" onClick={switchCam}>Changer de caméra</button>
+            {devices.length > 1 ? (
+              <select className="input cam-select" value={deviceId} onChange={(e) => pickDevice(e.target.value)} aria-label="Caméra">
+                {devices.map((d) => (
+                  <option key={d.id} value={d.id}>{d.label}</option>
+                ))}
+              </select>
+            ) : (
+              <button className="btn sm" onClick={switchCam}>Changer de caméra</button>
+            )}
             <button className="btn sm ghost" onClick={stop}>Arrêter</button>
           </div>
         </div>
