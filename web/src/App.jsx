@@ -81,7 +81,7 @@ export default function App() {
     case "moderation":
       return <Moderation go={go} />;
     case "salons":
-      return <Salons go={go} channelId={screen.channelId} />;
+      return <Salons go={go} channelId={screen.channelId} dm={screen.dm} />;
     case "scan":
       return <Scanner go={go} />;
     case "deck":

@@ -1,4 +1,5 @@
 import { useSalonsSummary, useIsAdmin } from "../lib/salons.js";
+import { useDmUnread } from "../lib/dms.js";
 import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
@@ -60,6 +61,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     if (t !== tcg) pickTcg(t);
     setLobby("open");
     setTimeout(() => document.querySelector(".open-tables")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
+  }, []);
+  // Arrivée depuis une notification de message privé (?dm=joueur)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (!q.has("dm")) return;
+    const uid = q.get("dm") || "";
+    window.history.replaceState(null, "", window.location.pathname);
+    go("salons", { dm: uid });
   }, []);
   // Arrivée depuis une notification de proposition de partie (?agenda=jeu)
   useEffect(() => {
@@ -736,6 +745,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 // Accès aux salons de discussion du jeu, avec les messages non lus
 function SalonsCard({ tcg, userId, go }) {
   const { channels, unread } = useSalonsSummary(tcg, userId);
+  const dmUnread = useDmUnread(userId);
   const total = channels.reduce((n, c) => n + (unread[c.id] || 0), 0);
   if (!channels.length) return null;
   return (
@@ -745,6 +755,11 @@ function SalonsCard({ tcg, userId, go }) {
         <button className="btn sm primary" onClick={() => go("salons", {})}>Ouvrir</button>
       </div>
       <div className="salons-chips">
+        {dmUnread > 0 && (
+          <button className="salon-chip dm-chip" onClick={() => go("salons", { dm: "" })}>
+            ✉ Messages privés <span className="salon-n">{dmUnread > 99 ? "99+" : dmUnread}</span>
+          </button>
+        )}
         {channels.map((c) => (
           <button key={c.id} className="salon-chip" onClick={() => go("salons", { channelId: c.id })}>
             <span className="hash">#</span>{c.name}

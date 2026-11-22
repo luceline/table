@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 78,
+    date: "22 novembre 2026",
+    items: [
+      { t: "✉ Messages privés : dans les salons, touchez le pseudo d'un joueur puis « Message privé ». Vos conversations sont à gauche, sous les salons, avec les non-lus." },
+      { t: "🔔 Notification sur votre téléphone à chaque message privé (si les notifications sont activées). Vous pouvez bloquer un joueur, ou signaler une conversation à l'administrateur." },
+    ],
+  },
+  {
     id: 77,
     date: "22 novembre 2026",
     items: [

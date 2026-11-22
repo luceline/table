@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, fileUrl } from "../pb.js";
 import ZoomView from "../components/ZoomView.jsx";
+import { loadThreads, loadConvo, markRead, loadBlocks, setBlocked } from "../lib/dms.js";
+import { reportLook } from "../lib/looks.js";
 import { Sheet } from "../components/ui.jsx";
 import { currentTcg, tcgName } from "../lib/tcg.js";
 import { loadChannels, unreadCounts, markSeen, useIsAdmin, postsOfTcg } from "../lib/salons.js";
@@ -37,7 +39,7 @@ function when(s) {
 }
 
 // Salons de discussion du jeu choisi, comme sur Discord : salons à gauche (ou en haut sur téléphone), messages en direct
-export default function Salons({ go, channelId }) {
+export default function Salons({ go, channelId, dm: dmStart }) {
   const user = me();
   const tcg = currentTcg();
   const admin = useIsAdmin(user.id);
@@ -56,6 +58,15 @@ export default function Salons({ go, channelId }) {
   const [reacts, setReacts] = useState({}); // postId -> [{ id, user, emoji }]
   const [picker, setPicker] = useState(null); // message dont on choisit la réaction
   const fileRef = useRef();
+  // Messages privés
+  const [threads, setThreads] = useState([]);
+  const [dm, setDm] = useState(dmStart ?? null); // joueur de la conversation privée ouverte (sinon : salon)
+  const [dmName, setDmName] = useState("");
+  const [dmMsgs, setDmMsgs] = useState([]);
+  const [blocks, setBlocks] = useState(new Map());
+  const [nameMenu, setNameMenu] = useState(null); // { uid, name, x, y } : clic sur un pseudo
+  const dmRef = useRef(dm);
+  dmRef.current = dm;
   const curRef = useRef(cur);
   curRef.current = cur;
   const listRef = useRef();
@@ -126,6 +137,77 @@ export default function Salons({ go, channelId }) {
     };
   }, [tcg]);
 
+  // Conversations privées : liste, conversation ouverte, direct
+  const refreshThreads = () => loadThreads(user.id).then((l) => {
+    setThreads(l);
+    // arrivée par « Messages privés » sans joueur précis : la plus récente
+    if (dmRef.current === "" && l[0]) setDm(l[0].uid);
+    return l;
+  }).catch(() => []);
+  useEffect(() => {
+    refreshThreads();
+    loadBlocks(user.id).then(setBlocks);
+    let un = null, alive = true;
+    pb.collection("dms")
+      .subscribe("*", (e) => {
+        const m = e.record;
+        const other = m.from === user.id ? m.to : m.from;
+        if (other === dmRef.current) {
+          if (e.action === "delete") setDmMsgs((l) => l.filter((x) => x.id !== m.id));
+          else if (e.action === "create") {
+            setDmMsgs((l) => (l.some((x) => x.id === m.id) ? l : [...l, m]));
+            if (m.to === user.id && document.visibilityState === "visible") markRead([m], user.id);
+          }
+        }
+        refreshThreads();
+      }, { requestKey: null })
+      .then((u) => (alive ? (un = u) : Promise.resolve(u()).catch(() => {})))
+      .catch(() => {});
+    return () => { alive = false; Promise.resolve(un?.()).catch(() => {}); };
+  }, []);
+  useEffect(() => {
+    if (!dm) return;
+    let alive = true;
+    setDmMsgs([]);
+    atBottom.current = true;
+    loadConvo(user.id, dm).then(async (l) => {
+      if (!alive) return;
+      setDmMsgs(l);
+      await markRead(l, user.id);
+      refreshThreads();
+    }).catch(() => {});
+    const t = threads.find((x) => x.uid === dm);
+    if (t) setDmName(t.name);
+    else if (!dmName) pb.collection("dms").getFirstListItem(`from = "${dm}" || to = "${dm}"`, { requestKey: null }).then((m) => setDmName(m.from === dm ? m.from_name : m.to_name)).catch(() => {});
+    return () => { alive = false; };
+  }, [dm]);
+  function openDm(uid, name) {
+    setNameMenu(null);
+    if (name) setDmName(name);
+    setDm(uid);
+  }
+  async function toggleBlock(uid, name) {
+    setNameMenu(null);
+    const on = !blocks.has(uid);
+    if (on && !window.confirm(`Bloquer ${name || "ce joueur"} ? Il ne pourra plus vous envoyer de messages privés.`)) return;
+    try {
+      await setBlocked(user.id, uid, on, blocks);
+      setBlocks(await loadBlocks(user.id));
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  }
+  async function reportDm() {
+    if (!window.confirm(`Signaler la conversation avec ${dmName || "ce joueur"} à l'administrateur ? Il pourra lire vos derniers messages échangés.`)) return;
+    try {
+      await reportLook({ reporter: user.id, target: dm, kinds: ["dm"], reason: "" });
+      setErr("");
+      window.alert("Merci : l'administrateur a été prévenu.");
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  }
+
   // Réactions des messages affichés, puis en direct
   const postIds = posts.map((p) => p.id).join(",");
   useEffect(() => {
@@ -179,7 +261,7 @@ export default function Salons({ go, channelId }) {
   useEffect(() => {
     const el = listRef.current;
     if (el && atBottom.current) el.scrollTop = el.scrollHeight;
-  }, [posts]);
+  }, [posts, dmMsgs, dm]);
   const onScroll = () => {
     const el = listRef.current;
     if (el) atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -200,6 +282,22 @@ export default function Salons({ go, channelId }) {
   async function send(e) {
     e?.preventDefault();
     const t = text.trim().slice(0, 1000);
+    if (dm) {
+      if (!t) return;
+      if (Date.now() - lastSend.current < 1500) return setErr("Doucement : un message toutes les deux secondes au plus.");
+      lastSend.current = Date.now();
+      setErr("");
+      try {
+        const m = await pb.collection("dms").create({ from: user.id, to: dm, text: t, read: false });
+        setText("");
+        atBottom.current = true;
+        setDmMsgs((l) => (l.some((x) => x.id === m.id) ? l : [...l, m]));
+        refreshThreads();
+      } catch (e2) {
+        setErr(errMsg(e2));
+      }
+      return;
+    }
     if ((!t && !pic) || !cur) return;
     if (Date.now() - lastSend.current < 1500) return setErr("Doucement : un message toutes les deux secondes au plus.");
     lastSend.current = Date.now();
@@ -294,15 +392,33 @@ export default function Salons({ go, channelId }) {
           {channels === null && <span className="muted small">Chargement…</span>}
           {channels?.length === 0 && <span className="muted small">Aucun salon pour l'instant.</span>}
           {(channels || []).map((c) => (
-            <button key={c.id} className={`salon-chip ${c.id === cur ? "on" : ""}`} onClick={() => setCur(c.id)}>
+            <button key={c.id} className={`salon-chip ${c.id === cur && !dm ? "on" : ""}`} onClick={() => { setDm(null); setCur(c.id); }}>
               <span className="hash">#</span>
               {c.name}
-              {unread[c.id] > 0 && c.id !== cur && <span className="salon-n">{unread[c.id] > 99 ? "99+" : unread[c.id]}</span>}
+              {unread[c.id] > 0 && (c.id !== cur || dm) && <span className="salon-n">{unread[c.id] > 99 ? "99+" : unread[c.id]}</span>}
+            </button>
+          ))}
+          {threads.length > 0 && <div className="dm-head">Messages privés</div>}
+          {threads.map((t) => (
+            <button key={t.uid} className={`salon-chip dm ${dm === t.uid ? "on" : ""}`} onClick={() => openDm(t.uid, t.name)}>
+              <span className="hash">@</span>
+              {t.name}
+              {t.unread > 0 && dm !== t.uid && <span className="salon-n">{t.unread > 99 ? "99+" : t.unread}</span>}
             </button>
           ))}
         </nav>
         <section className="salon-main">
-          {ch && (
+          {dm && (
+            <div className="salon-head">
+              <div className="grow">
+                <b>@ {dmName || "Joueur"}</b>
+                <span className="muted small"> · conversation privée</span>
+              </div>
+              <button className="btn sm ghost" onClick={() => toggleBlock(dm, dmName)}>{blocks.has(dm) ? "Débloquer" : "🚫 Bloquer"}</button>
+              <button className="btn sm ghost" onClick={reportDm} title="Signaler à l'administrateur">⚑</button>
+            </div>
+          )}
+          {ch && !dm && (
             <div className="salon-head">
               <div className="grow">
                 <b># {ch.name}</b>
@@ -312,9 +428,22 @@ export default function Salons({ go, channelId }) {
             </div>
           )}
           <div className="salon-posts" ref={listRef} onScroll={onScroll}>
-            {more && <button className="btn sm ghost salon-more" onClick={older}>Messages plus anciens</button>}
-            {ch && !posts.length && <p className="muted small salon-empty">Aucun message dans # {ch.name}. Lancez la conversation !</p>}
-            {posts.map((p, i) => {
+            {dm && !dmMsgs.length && <p className="muted small salon-empty">Aucun message avec {dmName || "ce joueur"} pour l'instant. Écrivez-lui !</p>}
+            {dm && dmMsgs.map((m, i) => {
+              const prev = dmMsgs[i - 1];
+              const grouped = prev && prev.from === m.from && new Date(m.created.replace(" ", "T")) - new Date(prev.created.replace(" ", "T")) < 5 * 60000;
+              const mine = m.from === user.id;
+              return (
+                <div key={m.id} className={`salon-post ${grouped ? "grouped" : ""} ${mine ? "mine" : ""}`}>
+                  {!grouped && <div className="salon-meta"><b>{mine ? "Vous" : m.from_name}</b> <span className="muted small">{when(m.created)}</span></div>}
+                  <div className="salon-text">{m.text}</div>
+                  {mine && <button className="salon-del" onClick={() => window.confirm("Supprimer ce message ?") && pb.collection("dms").delete(m.id).then(() => setDmMsgs((l) => l.filter((x) => x.id !== m.id))).catch((e) => setErr(errMsg(e)))} aria-label="Supprimer le message" title="Supprimer">✕</button>}
+                </div>
+              );
+            })}
+            {!dm && more && <button className="btn sm ghost salon-more" onClick={older}>Messages plus anciens</button>}
+            {!dm && ch && !posts.length && <p className="muted small salon-empty">Aucun message dans # {ch.name}. Lancez la conversation !</p>}
+            {!dm && posts.map((p, i) => {
               const prev = posts[i - 1];
               const grouped = prev && prev.author === p.author && new Date(p.created.replace(" ", "T")) - new Date(prev.created.replace(" ", "T")) < 5 * 60000;
               const mine = p.author === user.id;
@@ -322,7 +451,10 @@ export default function Salons({ go, channelId }) {
                 <div key={p.id} className={`salon-post ${grouped ? "grouped" : ""} ${mine ? "mine" : ""}`}>
                   {!grouped && (
                     <div className="salon-meta">
-                      <b>{p.name || "Joueur"}</b> <span className="muted small">{when(p.created)}</span>
+                      {mine ? <b>{p.name || "Joueur"}</b> : (
+                        <button className="salon-name" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setNameMenu({ uid: p.author, name: p.name, x: r.left, y: r.bottom }); }}>{p.name || "Joueur"}</button>
+                      )}{" "}
+                      <span className="muted small">{when(p.created)}</span>
                     </div>
                   )}
                   {(() => {
@@ -372,7 +504,7 @@ export default function Salons({ go, channelId }) {
               );
             })}
           </div>
-          {ch && (
+          {(ch || dm) && (
             <form className="salon-input" onSubmit={send}>
               {pic && (
                 <div className="salon-pic">
@@ -381,23 +513,33 @@ export default function Salons({ go, channelId }) {
                 </div>
               )}
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickFile} />
-              <button type="button" className="btn icon ghost" onClick={() => fileRef.current?.click()} aria-label="Joindre une image" title="Joindre une image">📎</button>
-              <button type="button" className={`btn sm ${spoil ? "warn-on" : "ghost"}`} onClick={() => setSpoil((v) => !v)} aria-pressed={spoil} title="Cacher le message derrière un avertissement « spoiler »">⚠<span className="hide-xs"> Spoiler</span></button>
+              {!dm && <><button type="button" className="btn icon ghost" onClick={() => fileRef.current?.click()} aria-label="Joindre une image" title="Joindre une image">📎</button>
+              <button type="button" className={`btn sm ${spoil ? "warn-on" : "ghost"}`} onClick={() => setSpoil((v) => !v)} aria-pressed={spoil} title="Cacher le message derrière un avertissement « spoiler »">⚠<span className="hide-xs"> Spoiler</span></button></>}
               <textarea
                 className="input"
                 rows={1}
                 maxLength={1000}
                 value={text}
-                placeholder={`Écrire dans # ${ch.name}`}
+                placeholder={dm ? `Message privé à ${dmName || "ce joueur"}` : `Écrire dans # ${ch.name}`}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) send(e);
                 }}
               />
-              <button className="btn primary" disabled={!text.trim() && !pic}>Envoyer</button>
+              <button className="btn primary" disabled={!text.trim() && (!pic || dm)}>Envoyer</button>
             </form>
           )}
           {big && <ZoomView src={big} title="Image" onClose={() => setBig(null)} />}
+          {nameMenu && (
+            <>
+              <div className="name-menu-back" onClick={() => setNameMenu(null)} />
+              <div className="name-menu" style={{ left: Math.min(nameMenu.x, window.innerWidth - 230), top: nameMenu.y + 4 }}>
+                <b>{nameMenu.name}</b>
+                <button onClick={() => openDm(nameMenu.uid, nameMenu.name)}>✉ Message privé</button>
+                <button onClick={() => toggleBlock(nameMenu.uid, nameMenu.name)}>{blocks.has(nameMenu.uid) ? "Débloquer" : "🚫 Bloquer"}</button>
+              </div>
+            </>
+          )}
           {err && <div className="err small" style={{ padding: "0 12px 8px" }}>{err}</div>}
         </section>
       </div>

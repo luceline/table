@@ -34,15 +34,22 @@ onRecordCreateRequest((e) => {
   let target;
   try { target = $app.findRecordById("users", r.getString("target")); } catch (_) { throw new BadRequestError("Joueur introuvable."); }
   const kind = r.getString("kind");
-  const field = kind === "bg" ? "mat_bg" : "card_back";
-  const file = target.getString(field);
-  if (!file) throw new BadRequestError("Ce joueur n'a pas d'image personnalisée.");
-  r.set("file", file);
-  e.next();
-  target.set(kind === "bg" ? "bg_blocked" : "back_blocked", true);
-  $app.save(target);
+  if (kind === "dm") {
+    // conversation privée signalée : il faut au moins un message entre les deux joueurs
+    const n = $app.countRecords("dms", $dbx.exp("([[from]] = {:a} AND [[to]] = {:b}) OR ([[from]] = {:b} AND [[to]] = {:a})", { a: r.getString("reporter"), b: target.id }));
+    if (!n) throw new BadRequestError("Aucun message privé avec ce joueur.");
+    e.next();
+  } else {
+    const field = kind === "bg" ? "mat_bg" : "card_back";
+    const file = target.getString(field);
+    if (!file) throw new BadRequestError("Ce joueur n'a pas d'image personnalisée.");
+    r.set("file", file);
+    e.next();
+    target.set(kind === "bg" ? "bg_blocked" : "back_blocked", true);
+    $app.save(target);
+  }
 
-  const what = kind === "bg" ? "tapis" : "dos de cartes";
+  const what = kind === "bg" ? "tapis" : kind === "back" ? "dos de cartes" : "conversation privée avec lui";
   let reporter = "un joueur";
   try { reporter = $app.findRecordById("users", r.getString("reporter")).getString("name") || reporter; } catch (_) {}
   const base = ($app.settings().meta.appURL || "").replace(/\/$/, "");
@@ -60,8 +67,10 @@ onRecordCreateRequest((e) => {
         subject: `Signalement : ${what} de ${target.getString("name") || "un joueur"}`,
         html: `<p>${reporter} a signalé le <b>${what}</b> de <b>${target.getString("name") || "un joueur"}</b>.</p>` +
           (r.getString("reason") ? `<p>Motif : « ${r.getString("reason").replace(/[<>]/g, "")} »</p>` : "") +
-          `<p>L'image est masquée pour ses adversaires et les spectateurs jusqu'à votre décision.</p>` +
-          `<p><a href="${img}">Voir l'image</a> · <a href="${base}/?moderation">Décider (débloquer ou supprimer)</a></p>`,
+          (kind === "dm"
+            ? `<p><a href="${base}/?moderation">Lire la conversation signalée</a></p>`
+            : `<p>L'image est masquée pour ses adversaires et les spectateurs jusqu'à votre décision.</p>` +
+              `<p><a href="${img}">Voir l'image</a> · <a href="${base}/?moderation">Décider (débloquer ou supprimer)</a></p>`),
       });
       $app.newMailClient().send(msg);
     } catch (err) {
@@ -79,6 +88,9 @@ onRecordCreateRequest((e) => {
 routerAdd("GET", "/api/table/mod/reports", (e) => {
   try { $app.findFirstRecordByFilter("admins", "user = {:u}", { u: e.auth.id }); } catch (_) { return e.json(403, { message: "Réservé à l'administrateur." }); }
   const list = $app.findRecordsByFilter("reports", "status = 'open'", "-created", 100, 0);
+  // 40 derniers messages entre les deux joueurs (conversation signalée)
+  const convo = (a, b) => $app.findRecordsByFilter("dms", "(from = {:a} && to = {:b}) || (from = {:b} && to = {:a})", "-created", 40, 0, { a: a, b: b })
+    .reverse().map((m) => ({ from: m.getString("from_name"), text: m.getString("text"), created: m.getString("created") }));
   const out = [];
   for (const r of list) {
     let t = null, rep = null;
@@ -88,7 +100,9 @@ routerAdd("GET", "/api/table/mod/reports", (e) => {
       id: r.id, kind: r.getString("kind"), reason: r.getString("reason"), created: r.getString("created"),
       target: r.getString("target"), target_name: t ? t.getString("name") : "(compte supprimé)",
       reporter_name: rep ? rep.getString("name") : "(compte supprimé)",
-      file: r.getString("file"), current: t ? t.getString(r.getString("kind") === "bg" ? "mat_bg" : "card_back") : "",
+      file: r.getString("file"), current: t && r.getString("kind") !== "dm" ? t.getString(r.getString("kind") === "bg" ? "mat_bg" : "card_back") : "",
+      reporter: r.getString("reporter"),
+      messages: r.getString("kind") === "dm" ? convo(r.getString("reporter"), r.getString("target")) : undefined,
     });
   }
   return e.json(200, { reports: out });
@@ -98,6 +112,11 @@ routerAdd("GET", "/api/table/mod/reports", (e) => {
 routerAdd("POST", "/api/table/mod/decide", (e) => {
   try { $app.findFirstRecordByFilter("admins", "user = {:u}", { u: e.auth.id }); } catch (_) { return e.json(403, { message: "Réservé à l'administrateur." }); }
   const b = e.requestInfo().body || {};
+  if (b.kind === "dm") {
+    const open = $app.findRecordsByFilter("reports", "status = 'open' && kind = 'dm' && target = {:t} && reporter = {:r}", "", 50, 0, { t: String(b.target || ""), r: String(b.reporter || "") });
+    for (const r of open) { r.set("status", "ok"); $app.save(r); }
+    return e.json(200, { ok: true, closed: open.length });
+  }
   const kind = b.kind === "back" ? "back" : "bg";
   let t;
   try { t = $app.findRecordById("users", String(b.target || "")); } catch (_) { return e.json(404, { message: "Joueur introuvable." }); }

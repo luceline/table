@@ -96,6 +96,8 @@ export default function Legal() {
           <li>
             Les messages des salons de discussion, visibles par tous les joueurs connectés avec votre pseudo, et conservés jusqu'à leur
             suppression (par vous, ou par un administrateur s'ils ne respectent pas les règles : propos injurieux, haineux, publicité, spam).
+            Messages privés : lisibles par les deux joueurs concernés seulement. Vous pouvez bloquer un joueur, ou signaler une
+            conversation ; dans ce cas seulement, l'administrateur peut lire les derniers messages de cette conversation.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
             qui peut la débloquer ou la supprimer.

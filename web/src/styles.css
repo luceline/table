@@ -898,3 +898,15 @@ html { background: var(--bg); }
 .mod-img.back { max-height: 260px; }
 .news-link { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .report-btn.inline { position: static; width: 30px; height: 30px; opacity: .7; flex: none; }
+
+/* Messages privés */
+.dm-head { margin: 12px 4px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.salon-chip.dm .hash { opacity: .7; }
+.salon-name { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.salon-name:hover { text-decoration: underline; }
+.name-menu-back { position: fixed; inset: 0; z-index: 40; }
+.name-menu { position: fixed; z-index: 41; min-width: 200px; display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 12px; background: rgba(18,16,14,.98); border: 1px solid var(--gold2, #c9a45c); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+.name-menu b { padding: 2px 8px 6px; }
+.name-menu button { text-align: left; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; font: inherit; }
+.name-menu button:hover { background: rgba(255,255,255,.08); }
+.mod-dm { max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; white-space: pre-wrap; }
