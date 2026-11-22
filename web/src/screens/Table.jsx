@@ -3,6 +3,7 @@ import ZoomView, { ZoomPreview } from "../components/ZoomView.jsx";
 import { ReactionPicker, ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf, reactionText } from "../lib/reactions.js";
 import { beHere } from "../lib/here.js";
+import { SignalBar, SignalBadge, SignalButton } from "../components/Signals.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -513,6 +514,14 @@ export default function Table({ go, gameId, side = "" }) {
       return lvl ? `passe « ${c.n} » en Unification ${lvl}${shown.length ? ` : ${shown.join(" · ")}` : ""}` : `retire l'unification de « ${c.n} »`;
     });
   };
+
+  // Signal rapide (« Attendez ! »…) : sur mon tapis, chez tous ; rien dans le tchat ni dans le journal
+  const setSignal = (k) =>
+    mut((st) => {
+      if (k) st.sig = { k, t: Date.now() };
+      else delete st.sig;
+      return true;
+    });
 
   // Retirer d'un coup tous mes jetons de couleur (les marqueurs de territoire restent)
   const clearMyTokens = () => {
@@ -1545,6 +1554,8 @@ export default function Table({ go, gameId, side = "" }) {
                   </>
                 )}
                 <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} flipMine={mirrorMine} />
+                {L.opp && <SignalBadge st={opp} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} />}
+                {L.mine && <SignalBadge st={mine} mine box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} onClear={() => setSignal(null)} />}
                 {camZoom === "opp" && opp?.filmed && rtc.oppCam?.stream && (
                   <ZoomView stream={rtc.oppCam.stream} rot={((opp.camRot || 0) + (mirrorMine ? 180 : 0)) % 360} title={`Tapis de ${opp.name}`} onClose={() => setCamZoom(null)} />
                 )}
@@ -1557,7 +1568,8 @@ export default function Table({ go, gameId, side = "" }) {
         </div>
 
         <div className="side">
-          <PhaseBar st={mine} opp={opp} onPhase={setPhase} onEnd={endTurn} onClear={() => clearArrows()} />
+          <PhaseBar st={mine} opp={opp} onPhase={setPhase} onEnd={endTurn} onClear={() => clearArrows()} extra={opp && !meta?.solo ? <SignalButton st={mine} onSignal={setSignal} /> : null} />
+          {opp && !meta?.solo && <SignalBar st={mine} onSignal={setSignal} />}
           {mine?.filmed ? (
             <>
             <div className="controls">
@@ -2398,7 +2410,7 @@ function MarkerSheet({ onClose, t, onCreate, onUpd, onDel }) {
 }
 
 // Barre des phases du joueur (au-dessus de la main)
-function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
+function PhaseBar({ st, opp, onPhase, onEnd, onClear, extra }) {
   if (!st) return <div className="phases" />;
   const n = st.arrows?.length || 0;
   return (
@@ -2411,6 +2423,7 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear }) {
       ))}
       {n > 0 && <button className="ph clr" onClick={onClear} title="Effacer mes flèches">✕ {n}</button>}
       <button className="ph end" onClick={onEnd} disabled={!st.phase}>{TCG === "fab" ? "Tour fini ⏎" : "Fin ⏎"}</button>
+      {extra}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf } from "../lib/reactions.js";
+import { SignalBadge } from "../components/Signals.jsx";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
 import { normalize, rid, TCG, PHASE_BY_ID } from "../lib/game.js";
 import { activateTcg, tcgOf } from "../lib/tcg.js";
@@ -332,6 +333,8 @@ export default function Spectator({ code }) {
               {p1?.filmed && <VideoTokens tokens={tokens("p1").filter((t) => t.on === "v")} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.mine} s={s} />}
               <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
               <Arrows L={L} s={s} mine={p1} opp={p2} cams={camGeo} flipMine={mirrorP1} />
+              <SignalBadge st={p2} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} />
+              <SignalBadge st={p1} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} />
             </div>
           )}
         </div>

@@ -824,3 +824,30 @@ html { background: var(--bg); }
 .drag-line.atk line, .drag-line.atk circle { stroke: #ff5b5b; }
 .drag-line.cib line, .drag-line.cib circle { stroke: #5ba8ff; }
 .aim-tip { grid-column: 1 / -1; }
+
+/* Signaux rapides (Attendez, je lis une carte…) */
+.signals { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px 0; }
+.signals::-webkit-scrollbar { display: none; }
+.sig-btn { flex: none; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.sig-btn.on { border-color: #ffb35c; background: rgba(255,179,92,.18); color: #ffd9a8; font-weight: 600; }
+.sig-badge { position: absolute; z-index: 9; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 14px;
+  background: rgba(14,12,11,.93); border: 2px solid #ffb35c; box-shadow: 0 10px 34px rgba(0,0,0,.65), 0 0 0 4px rgba(255,179,92,.18); pointer-events: none;
+  white-space: nowrap; animation: sig-in .25s ease-out, sig-pulse 2s ease-in-out .25s infinite; }
+.sig-badge.mine { pointer-events: auto; cursor: pointer; padding: 6px 14px; opacity: .92; }
+.sig-badge .sig-ico { font-size: 34px; line-height: 1; }
+.sig-badge.mine .sig-ico { font-size: 22px; }
+.sig-badge b { display: block; font-family: var(--serif); font-weight: 400; font-size: 24px; color: #ffe2bd; letter-spacing: .02em; line-height: 1.1; }
+.sig-badge.mine b { font-size: 16px; }
+.sig-badge small { display: block; font-size: 12px; color: var(--muted); }
+.sig-badge.sig-ok { border-color: #6fd39a; box-shadow: 0 10px 34px rgba(0,0,0,.65), 0 0 0 4px rgba(111,211,154,.18); animation: sig-in .25s ease-out; }
+.sig-badge.sig-ok b { color: #c8f5da; }
+@keyframes sig-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes sig-pulse { 50% { box-shadow: 0 10px 34px rgba(0,0,0,.65), 0 0 0 9px rgba(255,179,92,.08); } }
+@media (max-width: 600px) { .sig-badge b { font-size: 19px; } .sig-badge .sig-ico { font-size: 28px; } .sig-badge { padding: 8px 14px; } }
+@media (max-width: 600px) { .signals { padding-top: 4px; gap: 3px; } .sig-btn { padding: 2px 8px; font-size: 11px; line-height: 16px; } }
+/* Téléphone : signaux derrière un seul bouton ✋ au bout des phases (le plateau garde sa taille) */
+.phases .ph.sig-one { display: none; flex: none; min-width: 34px; padding: 0 6px; font-size: 16px; }
+.phases .ph.sig-one.on { border-color: #ffb35c; background: rgba(255,179,92,.22); }
+.sig-pop { position: fixed; z-index: 95; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 14px; background: rgba(18,16,14,.97); border: 1px solid var(--gold2); box-shadow: 0 12px 36px rgba(0,0,0,.65); animation: fade .12s; }
+.sig-pop .sig-btn { font-size: 15px; padding: 8px 14px; text-align: left; }
+@media (max-width: 600px) { .signals { display: none; } .phases .ph.sig-one { display: inline-flex; align-items: center; justify-content: center; } }
