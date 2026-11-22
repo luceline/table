@@ -472,4 +472,37 @@ function remindEvening() {
   return sent;
 }
 
-module.exports = { cleanName, isJunk, paris, parisOffsetMin, addDays, sameName, norm, state, guess, board, titles, profile, online, remindEvening, streakEnding, MAX_TRIES };
+// Partage du résultat dans le salon « carte-du-jour » du jeu : texte écrit par le serveur (jamais la réponse),
+// une fois par jour et par jeu. C'est la seule façon de publier dans ce salon.
+const SHARE_CHANNEL = "carte-du-jour";
+function share(uid, tcg) {
+  const t = tcgOf(tcg);
+  const d = today(t);
+  const p = d ? playOf(uid, d) : null;
+  if (!p || !p.getBool("done")) throw new BadRequestError("Finissez d'abord la carte du jour.");
+  let ch;
+  try {
+    ch = $app.findFirstRecordByFilter("channels", (t === "fab" ? "tcg = 'fab'" : "(tcg = '' || tcg = 'safir')") + " && name = {:n}", { n: SHARE_CHANNEL });
+  } catch (_) {
+    throw new BadRequestError("Le salon # carte-du-jour n'existe pas pour ce jeu.");
+  }
+  const num = d.getInt("num");
+  const tag = `n°${num} :`;
+  const since = new Date(Date.now() - 2 * 86400000).toISOString().replace("T", " ");
+  const already = $app.findRecordsByFilter("posts", "channel = {:c} && author = {:u} && created >= {:s} && text ~ {:t}", "", 1, 0, { c: ch.id, u: uid, s: since, t: tag });
+  if (already.length) throw new BadRequestError("Résultat déjà partagé aujourd'hui.");
+  const tries = triesOf(p);
+  const n = tries.length;
+  const st = streaks(uid);
+  const game = t === "fab" ? "Flesh and Blood" : "Safir Cards";
+  const text = `🃏 Carte du jour ${game} ${tag} ${p.getBool("found") ? `trouvée en ${n} essai${n > 1 ? "s" : ""}` : "pas trouvée"} ${tries.map((x) => (x.ok ? "🟩" : "🟥")).join("")} · 🔥 ${st.current} jour${st.current > 1 ? "s" : ""}`;
+  const r = new Record($app.findCollectionByNameOrId("posts"));
+  r.set("channel", ch.id);
+  r.set("author", uid);
+  r.set("name", nameOf(uid).slice(0, 40));
+  r.set("text", text);
+  $app.save(r);
+  return { ok: true, channel: ch.id, name: ch.getString("name"), text: text };
+}
+
+module.exports = { share, SHARE_CHANNEL, cleanName, isJunk, paris, parisOffsetMin, addDays, sameName, norm, state, guess, board, titles, profile, online, remindEvening, streakEnding, MAX_TRIES };

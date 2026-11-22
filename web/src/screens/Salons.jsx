@@ -816,7 +816,13 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
             })}
           </div>
           )}
-          {showText && (ch || dm) && (!isGroupKey(dm) || grp) && (
+          {showText && ch && !dm && ch.name === "carte-du-jour" && (
+            <div className="salon-input daily-only">
+              <span className="grow small muted">Ici, on partage seulement son résultat de la carte du jour (sans la réponse), depuis le bouton prévu. Les réactions restent possibles.</span>
+              <button className="btn primary" onClick={() => go("daily")}>🃏 Carte du jour</button>
+            </div>
+          )}
+          {showText && (ch || dm) && (!isGroupKey(dm) || grp) && !(ch && !dm && ch.name === "carte-du-jour") && (
             <form className="salon-input" onSubmit={send}>
               {pic && (
                 <div className="salon-pic">

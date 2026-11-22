@@ -1041,3 +1041,4 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .daily-board li { display: flex; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .daily-board li.me { background: rgba(201,164,92,.1); border-radius: 8px; }
 .daily-board .rk { width: 26px; text-align: center; }
+.salon-input.daily-only { align-items: center; gap: 10px; }

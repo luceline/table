@@ -12,6 +12,21 @@ routerAdd("POST", "/api/table/daily/guess", (e) => {
   return e.json(200, require(`${__hooks}/daily_lib.js`).guess(e.auth.id, String(b.tcg || ""), b.guess));
 }, $apis.requireAuth());
 
+routerAdd("POST", "/api/table/daily/share", (e) => {
+  const b = e.requestInfo().body || {};
+  return e.json(200, require(`${__hooks}/daily_lib.js`).share(e.auth.id, String(b.tcg || "")));
+}, $apis.requireAuth());
+
+// Salon « carte-du-jour » : pas de message libre (seul le partage du résultat, écrit par le serveur, y est publié)
+onRecordCreateRequest((e) => {
+  let ch = null;
+  try { ch = $app.findRecordById("channels", e.record.getString("channel")); } catch (_) {}
+  if (ch && ch.getString("name") === require(`${__hooks}/daily_lib.js`).SHARE_CHANNEL) {
+    throw new BadRequestError("Dans ce salon, on partage seulement son résultat, avec le bouton de la carte du jour.");
+  }
+  e.next();
+}, "posts");
+
 routerAdd("GET", "/api/table/daily/board", (e) => {
   e.response.header().set("Cache-Control", "no-store");
   return e.json(200, require(`${__hooks}/daily_lib.js`).board(e.auth.id, e.request.url.query().get("tcg")));

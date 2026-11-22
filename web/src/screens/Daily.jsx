@@ -103,18 +103,8 @@ export default function Daily({ go }) {
   async function postToSalon() {
     setErr("");
     try {
-      const f = tcg === "fab" ? 'tcg = "fab"' : '(tcg = "" || tcg = "safir")';
-      const chs = await pb.collection("channels").getFullList({ filter: f, sort: "sort", requestKey: null });
-      const ch = chs.find((c) => c.name === "carte-du-jour") || chs[0];
-      if (!ch) return setErr("Aucun salon pour ce jeu.");
-      const fd = new FormData();
-      fd.append("channel", ch.id);
-      fd.append("author", user.id);
-      fd.append("name", (user.name || "Joueur").slice(0, 40));
-      fd.append("text", shareText);
-      fd.append("spoiler", "false");
-      await pb.collection("posts").create(fd);
-      setMsg(`Partagé dans # ${ch.name}.`);
+      const r = await pb.send("/api/table/daily/share", { method: "POST", body: { tcg }, requestKey: null });
+      setMsg(`Partagé dans # ${r.name}.`);
     } catch (e) {
       setErr(errMsg(e));
     }

@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 87,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🔒 Salon # carte-du-jour : on n'y écrit plus librement. Seul le bouton « Partager dans le salon » de la carte du jour y publie votre résultat (sans la réponse), une fois par jour. Fini les spoilers !" },
+    ],
+  },
+  {
     id: 86,
     date: "23 novembre 2026",
     items: [
