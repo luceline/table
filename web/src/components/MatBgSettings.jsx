@@ -205,7 +205,7 @@ export function CardBackSettings() {
 export function ThemeSettings() {
   const [cur, setCur] = useState(storedTheme());
   async function pick(id) {
-    setCur(applyTheme(id));
+    setCur(applyTheme(id, true));
     const u = me();
     if (u) pb.collection("users").update(u.id, { theme: id }).catch(() => {});
   }

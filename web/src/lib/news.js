@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 81,
+    date: "22 novembre 2026",
+    items: [
+      { t: "🎨 Nouveau thème par défaut : « Arène arcane ». Si vous aviez choisi un thème vous-même, il est conservé. Pour changer : « Thème de l'appli », en bas de l'accueil." },
+    ],
+  },
+  {
     id: 80,
     date: "22 novembre 2026",
     items: [

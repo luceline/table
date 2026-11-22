@@ -89,7 +89,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [themeKey, setThemeKey] = useState(0);
   useEffect(() => {
     if (user?.theme && user.theme !== storedTheme()) {
-      applyTheme(user.theme);
+      applyTheme(user.theme, true);
       setThemeKey((k) => k + 1);
     }
   }, []); // jeu sélectionné : collection, decks et parties de ce jeu seulement
