@@ -276,6 +276,7 @@ export default function Agenda({ go }) {
             offText="Soyez prévenu des propositions de partie, des réponses, et 10 minutes avant une partie prévue."
           />
         </div>
+        <RemindToggle />
       </div>
 
       {sent.length > 0 && (
@@ -360,6 +361,31 @@ export default function Agenda({ go }) {
           </>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+// Rappel du soir : vers 17 h 30, une notification si des joueurs sont disponibles en même temps que moi ce soir
+function RemindToggle() {
+  const [on, setOn] = useState(!!me()?.remind);
+  const [err, setErr] = useState("");
+  async function toggle(v) {
+    setOn(v);
+    setErr("");
+    try {
+      await pb.collection("users").update(me().id, { remind: v });
+    } catch (e) {
+      setOn(!v);
+      setErr(errMsg(e));
+    }
+  }
+  return (
+    <div style={{ marginTop: 10 }}>
+      <label className="row small" style={{ gap: 8, alignItems: "flex-start" }}>
+        <input type="checkbox" checked={on} onChange={(e) => toggle(e.target.checked)} style={{ marginTop: 3 }} />
+        <span>🔔 <b>Rappel du soir</b> : vers 17 h 30, une notification (une par jour au plus) quand des joueurs sont disponibles en même temps que vous ce soir. Il faut aussi activer les notifications ci-dessus.</span>
+      </label>
+      {err && <p className="err small">{err}</p>}
     </div>
   );
 }

@@ -16,6 +16,8 @@ import Moderation from "./screens/Moderation.jsx";
 import Agenda from "./screens/Agenda.jsx";
 import { VoiceBar } from "./components/VoiceRoom.jsx";
 import { leaveVoice, voiceState } from "./lib/voicechan.js";
+import Daily from "./screens/Daily.jsx";
+import { startPresence, setWhere } from "./lib/presence.js";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -47,7 +49,8 @@ export default function App() {
   const [screen, setScreen] = useState(() =>
     readGameParam()
       ? { name: "table", gameId: readGameParam(), side: new URLSearchParams(window.location.search).get("cote") === "b" ? "b" : "" }
-      : new URLSearchParams(window.location.search).has("moderation") ? { name: "moderation" } : { name: "home" },
+      : new URLSearchParams(window.location.search).has("moderation") ? { name: "moderation" }
+      : new URLSearchParams(window.location.search).has("daily") ? { name: "daily" } : { name: "home" },
   );
   const [pendingJoin, setPendingJoin] = useState(readJoinParam());
 
@@ -58,6 +61,13 @@ export default function App() {
   useEffect(() => {
     if (!user && voiceState().room) leaveVoice();
   }, [user]);
+  // Présence : signe de vie toutes les 60 s, et l'endroit où l'on est (accueil, salons, partie, carte du jour)
+  useEffect(() => {
+    if (user) startPresence();
+  }, [user]);
+  useEffect(() => {
+    setWhere(screen.name === "table" ? "partie" : screen.name === "salons" ? (voiceState().room ? "vocal" : "salons") : screen.name === "daily" ? "carte" : voiceState().room ? "vocal" : "accueil");
+  }, [screen.name]);
 
   useEffect(() => {
     if (pb.authStore.isValid) pb.collection("users").authRefresh().catch(() => pb.authStore.clear());
@@ -95,6 +105,8 @@ export default function App() {
       return <Agenda go={go} />;
     case "moderation":
       return <Moderation go={go} />;
+    case "daily":
+      return <Daily go={go} />;
     case "salons":
       return <Salons go={go} channelId={screen.channelId} dm={screen.dm} voice={screen.voice} />;
     case "scan":

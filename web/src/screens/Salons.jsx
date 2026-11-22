@@ -9,6 +9,8 @@ import { loadChannels, unreadCounts, markSeen, useIsAdmin, postsOfTcg } from "..
 import { GROUP_MAX, gkey, isGroupKey, groupId, groupTitle, loadGroups, loadReads, groupUnread, loadGroupMsgs, markGroupRead, setGroupMuted, groupAction, searchPlayers } from "../lib/groups.js";
 import { useVoice, useVoiceRooms } from "../lib/voicechan.js";
 import { VoiceBar, VoiceStage } from "../components/VoiceRoom.jsx";
+import { useOnline, useTitles, WHERE } from "../lib/presence.js";
+import ProfileSheet, { ProfileBody, TitleChip } from "../components/Profile.jsx";
 
 const PAGE = 60;
 // Réactions aux messages (mêmes émojis que la règle du serveur)
@@ -119,6 +121,10 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const grp = isGroupKey(dm) ? groups.find((g) => g.id === groupId(dm)) : null;
+  // Présence et titres
+  const presence = useOnline(tcg);
+  const [onlineSheet, setOnlineSheet] = useState(false);
+  const [profileOf, setProfileOf] = useState(null); // { uid, name }
   const dmRef = useRef(dm);
   dmRef.current = dm;
   const curRef = useRef(cur);
@@ -599,6 +605,8 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   const pickChannel = (id) => { setDm(null); setVview(null); setCur(id); openChat(); };
   const openVoice = (id) => { setDm(null); setVview(id); openChat(); };
   const msgTime = (m) => new Date(m.created.replace(" ", "T"));
+  const titleOf = useTitles([...posts.map((p) => p.author), ...gMsgs.map((m) => m.from)]);
+  const dot = (uid) => (presence.ids.has(uid) ? <span className="on-dot on" title="En ligne" /> : null);
 
   return (
     <div className={`salons ${mList ? "m-list" : "m-chat"}`}>
@@ -606,6 +614,12 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
         <button className="btn icon ghost" onClick={() => (narrow && !mList ? backToList() : go("home"))} aria-label={narrow && !mList ? "Retour à la liste des salons" : "Retour"}>←</button>
         <h1 className="grow">Salons · {tcgName(tcg)}</h1>
         {admin && <button className="btn sm" onClick={() => setEdit({ name: "", topic: "", kind: "text", max: 6 })}>＋ Salon</button>}
+      </div>
+      <div className="presence-line small">
+        <button className="linkish" onClick={() => setOnlineSheet(true)}><span className="on-dot on" /> {presence.online.length} en ligne</button>
+        <span>· 🎲 {presence.games} partie{presence.games > 1 ? "s" : ""} en cours</span>
+        <span>· 🔊 {presence.voice} au vocal</span>
+        <span>· <button className="linkish" onClick={() => go("daily")}>🃏 Carte du jour</button></span>
       </div>
       <div className="salons-body">
         <nav className="salons-list">
@@ -649,6 +663,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
             <button key={t.key} className={`salon-chip dm ${dm === t.key ? "on" : ""} ${t.unread > 0 ? "unread" : ""}`} onClick={() => (t.group ? (setNameMenu(null), openChat(), setDm(t.key)) : openDm(t.key, t.name))}>
               <span className="hash">{t.group ? "👥" : "@"}</span>
               <span className="dm-name">{t.name}</span>
+              {!t.group && dot(t.key)}
               {t.muted && <span className="muted small" title="Sourdine">🔕</span>}
               {t.unread > 0 && dm !== t.key && <span className="salon-n">{t.unread > 99 ? "99+" : t.unread}</span>}
             </button>
@@ -711,7 +726,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
                 <div key={m.id} className={`salon-post ${grouped ? "grouped" : ""} ${mine ? "mine" : ""}`}>
                   {!grouped && (
                     <div className="salon-meta">
-                      {mine ? <b>Vous</b> : <button className="salon-name" onClick={(e) => openName(e, m.from, m.from_name, true)}>{m.from_name}</button>}{" "}
+                      {mine ? <b>Vous</b> : <button className="salon-name" onClick={(e) => openName(e, m.from, m.from_name, true)}>{m.from_name}</button>}{dot(m.from)}<TitleChip t={titleOf(m.from)} />{" "}
                       <span className="muted small">{when(m.created)}</span>
                     </div>
                   )}
@@ -749,7 +764,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
                     <div className="salon-meta">
                       {mine ? <b>{p.name || "Joueur"}</b> : (
                         <button className="salon-name" onClick={(e) => openName(e, p.author, p.name, false)}>{p.name || "Joueur"}</button>
-                      )}{" "}
+                      )}{dot(p.author)}<TitleChip t={titleOf(p.author)} />{" "}
                       <span className="muted small">{when(p.created)}</span>
                     </div>
                   )}
@@ -832,6 +847,8 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
               <div className="name-menu-back" onClick={() => setNameMenu(null)} />
               <div className="name-menu" style={{ left: Math.min(nameMenu.x, window.innerWidth - 230), top: Math.min(nameMenu.y + 4, window.innerHeight - 220) }}>
                 <b>{nameMenu.name}</b>
+                <ProfileBody uid={nameMenu.uid} compact />
+                <button onClick={() => { setProfileOf({ uid: nameMenu.uid, name: nameMenu.name }); setNameMenu(null); }}>🏅 Profil et badges</button>
                 <button onClick={() => openDm(nameMenu.uid, nameMenu.name)}>✉ Message privé</button>
                 {nameMenu.grp && iOwn && (grp.members || []).includes(nameMenu.uid) && <button onClick={() => { setNameMenu(null); removeFromGroup(nameMenu.uid, nameMenu.name); }}>Retirer du groupe</button>}
                 <button onClick={() => toggleBlock(nameMenu.uid, nameMenu.name)}>{blocks.has(nameMenu.uid) ? "Débloquer" : "🚫 Bloquer"}</button>
@@ -842,6 +859,23 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
           {err && <div className="err small" style={{ padding: "0 12px 8px" }}>{err}</div>}
         </section>
       </div>
+
+      <Sheet open={onlineSheet} onClose={() => setOnlineSheet(false)} title={`En ligne · ${presence.online.length}`}>
+        {!presence.online.length && <p className="muted small">Personne pour l'instant.</p>}
+        <div className="grp-members">
+          {presence.online.map((o) => (
+            <div key={o.id} className="grp-member">
+              <span className="on-dot on" />
+              <button className="linkish grow" style={{ textAlign: "left" }} onClick={() => { setOnlineSheet(false); setProfileOf({ uid: o.id, name: o.name }); }}>
+                <b>{o.id === user.id ? "Vous" : o.name}</b> <TitleChip t={o.title} /> <span className="muted small">{WHERE[o.where] || ""}</span>
+              </button>
+              {o.id !== user.id && <button className="btn sm ghost" onClick={() => { setOnlineSheet(false); openDm(o.id, o.name); }} title="Message privé">✉</button>}
+            </div>
+          ))}
+        </div>
+        <p className="muted small">Un joueur peut apparaître hors ligne : réglage dans son profil (🏅 sur l'accueil).</p>
+      </Sheet>
+      <ProfileSheet uid={profileOf?.uid} name={profileOf?.name} onClose={() => setProfileOf(null)} />
 
       <Sheet open={grpSheet && !!grp} onClose={() => setGrpSheet(false)} title="Groupe privé">
         {grp && (

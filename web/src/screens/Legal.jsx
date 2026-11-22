@@ -100,6 +100,12 @@ export default function Legal() {
             conversation ; dans ce cas seulement, l'administrateur peut lire les derniers messages de cette conversation.
             Groupes privés (10 joueurs au plus) : lisibles par leurs membres seulement ; un joueur qui quitte le groupe ne le lit plus.
             Signaler un membre permet à l'administrateur de lire les derniers messages du groupe.
+            Présence et profil : les joueurs connectés voient qui est en ligne et où (accueil, salons, partie, vocal, carte du jour),
+            sauf si vous choisissez « Apparaître hors ligne » dans votre profil. Votre profil montre à eux seuls votre titre et vos badges,
+            calculés à partir du nombre de vos parties, decks, cartes scannées, messages et résultats de la carte du jour.
+            La carte du jour montre l'image d'une carte scannée par un joueur, sans dire laquelle ni de qui ; le classement du mois
+            affiche les pseudos et les points. Rappel du soir (facultatif) : une notification si des joueurs ont des disponibilités
+            en commun avec vous ce soir.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
             qui peut la débloquer ou la supprimer.

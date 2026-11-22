@@ -4,6 +4,16 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 85,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🃏 Carte du jour : chaque jour, retrouvez une carte à partir d'un morceau de son illustration (5 essais, l'image se dévoile à chaque erreur). Points, classement du mois, série 🔥 de jours (un oubli par semaine pardonné), et partage de votre résultat dans le salon # carte-du-jour. Sur l'accueil." },
+      { t: "🏅 Titres et badges : un titre selon vos parties des 30 derniers jours (🌱 Novice, 🎲 Habitué, ⚔️ Vétéran, 👑 Légende) s'affiche à côté de votre pseudo, et 13 badges sont à débloquer. « Mon profil et mes badges » sur l'accueil." },
+      { t: "🟢 Qui est là : en haut des salons, le nombre de joueurs en ligne, de parties en cours et de joueurs au vocal ; une pastille verte à côté des joueurs connectés. Touchez un pseudo pour voir son profil. Vous pouvez apparaître hors ligne depuis votre profil." },
+      { t: "🔔 Rappel du soir (Disponibilités) : vers 17 h 30, une notification si des joueurs sont disponibles en même temps que vous ce soir. À activer dans l'agenda." },
+    ],
+  },
+  {
     id: 84,
     date: "22 novembre 2026",
     items: [

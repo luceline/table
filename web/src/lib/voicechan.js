@@ -4,6 +4,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { pb, me, errMsg, PB_URL, safeUn } from "../pb.js";
 import { Mesh, rtcOk, getMic, audioOut } from "./rtc.js";
+import { setWhere } from "./presence.js";
 
 export const FRESH = 150000; // présence périmée sans signe de vie depuis 2 min 30
 const fresh = (h) => !h.beat || Date.now() - new Date(h.beat.replace(" ", "T") + (h.beat.endsWith("Z") ? "" : "Z")).getTime() < FRESH;
@@ -204,6 +205,7 @@ export async function joinVoice(room) {
   mesh.start(here.filter((h) => h.user !== user.id).map((h) => h.user));
   beatT = setInterval(beat, 20000);
   window.addEventListener("pagehide", onHide);
+  setWhere("vocal");
 }
 
 function stopTracks() {
@@ -234,6 +236,7 @@ export async function leaveVoice(err = "") {
   set({ room: null, here: [], peers: {}, mic: false, hasMic: false, share: "", local: null, speaking: {}, muted: {}, deaf: false, err });
   if (rec) await pb.collection("voice_here").delete(rec.id, { requestKey: null }).catch(() => {});
   leaving = false;
+  setWhere(/[?&]game=/.test(location.search) ? "partie" : "salons");
 }
 
 const saveHere = (data) => hereRec && pb.collection("voice_here").update(hereRec.id, data, { requestKey: null }).then((r) => (hereRec = r)).catch(() => {});

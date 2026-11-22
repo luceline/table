@@ -6,6 +6,8 @@ import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
 import { LegalFooter } from "./Legal.jsx";
 import NewsPopup from "../components/NewsPopup.jsx";
+import ProfileSheet from "../components/Profile.jsx";
+import { loadDaily } from "./Daily.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, safeUn } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
@@ -431,6 +433,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
 
+      <DailyCard tcg={tcg} userId={user.id} go={go} />
       <SalonsCard tcg={tcg} userId={user.id} go={go} />
       <AgendaCard agenda={agenda} go={go} />
 
@@ -739,6 +742,36 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       </p>
       <LegalFooter />
       <NewsPopup user={user} tcg={tcg} forceOpen={newsOpen} onClose={() => setNewsOpen(false)} />
+    </div>
+  );
+}
+
+// Carte du jour (mini-jeu quotidien) et accès à son profil (titre, badges)
+function DailyCard({ tcg, userId, go }) {
+  const [d, setD] = useState(null);
+  const [prof, setProf] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadDaily(tcg === "fab" ? "fab" : "safir").then((r) => alive && setD(r)).catch(() => {});
+    return () => { alive = false; };
+  }, [tcg]);
+  if (!d || d.empty) return null;
+  const n = d.tries?.length || 0;
+  return (
+    <div className="card-box daily-card">
+      <div className="row" style={{ alignItems: "center" }}>
+        <h2 className="grow" style={{ margin: 0 }}>
+          🃏 Carte du jour <span className="muted small">n°{d.num}</span>
+          {!d.done && <span className="lobby-n live" style={{ marginLeft: 8, verticalAlign: "middle" }}>!</span>}
+        </h2>
+        <button className="btn sm primary" onClick={() => go("daily")}>{d.done ? "Voir" : n ? "Continuer" : "Jouer"}</button>
+      </div>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>
+        {d.done ? (d.found ? `Trouvée en ${n} essai${n > 1 ? "s" : ""} ✓` : "Pas trouvée aujourd'hui") : n ? `${n} essai${n > 1 ? "s" : ""} sur ${d.max}` : "Devinez la carte à partir d'un morceau de son illustration."}
+        {" "}· 🔥 série {d.streak.current} jour{d.streak.current > 1 ? "s" : ""}
+        {" "}· <button className="linkish" onClick={() => setProf(true)}>🏅 Mon profil et mes badges</button>
+      </p>
+      <ProfileSheet uid={prof ? userId : null} onClose={() => setProf(false)} />
     </div>
   );
 }
