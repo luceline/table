@@ -98,6 +98,8 @@ export default function Legal() {
             suppression (par vous, ou par un administrateur s'ils ne respectent pas les règles : propos injurieux, haineux, publicité, spam).
             Messages privés : lisibles par les deux joueurs concernés seulement. Vous pouvez bloquer un joueur, ou signaler une
             conversation ; dans ce cas seulement, l'administrateur peut lire les derniers messages de cette conversation.
+            Groupes privés (10 joueurs au plus) : lisibles par leurs membres seulement ; un joueur qui quitte le groupe ne le lit plus.
+            Signaler un membre permet à l'administrateur de lire les derniers messages du groupe.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
             qui peut la débloquer ou la supprimer.
@@ -113,9 +115,11 @@ export default function Legal() {
         <h3>Ce qui n'est pas enregistré</h3>
         <ul>
           <li>
-            Le vocal en direct 🎧 et la vidéo d'un joueur filmé passent directement d'un appareil à l'autre, sans passer par le serveur
-            ni être enregistrés. Pour établir ce lien direct, les appareils échangent leur adresse réseau (IP) et interrogent des serveurs
-            publics de Google et de Cloudflare, qui voient donc cette adresse.
+            Le vocal en direct 🎧, la vidéo d'un joueur filmé, les salons vocaux 🔊 et les partages d'écran ou de caméra passent
+            directement d'un appareil à l'autre, sans être enregistrés. Pour établir ce lien direct, les appareils échangent leur adresse
+            réseau (IP) et interrogent des serveurs publics de Google et de Cloudflare, qui voient donc cette adresse. Quand le lien direct
+            est impossible (certains réseaux mobiles ou d'entreprise), le son et l'image passent par notre relais, toujours chiffrés
+            de bout en bout : le relais ne peut ni les écouter ni les voir. Dans un salon vocal, les joueurs connectés voient qui y est.
           </li>
           <li>
             Si vous activez « 🔔 Me prévenir », l'adresse d'abonnement de votre appareil est enregistrée pour vous envoyer une notification

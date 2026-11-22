@@ -4,6 +4,16 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 79,
+    date: "22 novembre 2026",
+    items: [
+      { t: "👥 Groupes privés : dans une conversation privée, « ➕ Inviter » crée un groupe avec d'autres joueurs (10 au plus). Le bouton ＋ à côté de « Messages privés » en crée un aussi. Renommer, ajouter, sourdine, quitter : bouton « 👥 Membres »." },
+      { t: "🔊 Salons vocaux : touchez un salon 🔊 dans la liste des salons puis « Rejoindre le vocal ». Le vocal reste ouvert quand vous changez d'écran (petite barre verte en bas), et se ferme quand vous allez à une table de jeu." },
+      { t: "🖥 Partage d'écran depuis un ordinateur, ou 📷 caméra depuis un téléphone pour montrer vos cartes. Touchez une image pour l'agrandir." },
+      { t: "📶 Vidéo et vocal plus fiables, en partie comme dans les salons : un relais prend le relais quand deux appareils n'arrivent pas à se joindre directement (4G, certaines box)." },
+    ],
+  },
+  {
     id: 78,
     date: "22 novembre 2026",
     items: [

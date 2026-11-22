@@ -16,3 +16,5 @@ web/public/ocr/*
 push/node_modules/
 push/vapid.json
 push/package-lock.json
+# Relais vidéo : secret du serveur (deploy/turn.sh)
+turn/

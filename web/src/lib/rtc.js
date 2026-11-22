@@ -6,7 +6,26 @@
 // « hello » pour la demander (à son arrivée, ou si la connexion tombe).
 import { pb } from "../pb.js";
 
-const ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] }];
+// Serveurs de mise en relation : publics (STUN), plus notre relais (TURN) quand le serveur en a un. Demandés une fois,
+// gardés jusqu'à une heure avant leur expiration ; sans réponse en 2 s, on démarre avec les serveurs publics.
+let ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun.cloudflare.com:3478"] }];
+let iceUntil = 0;
+let iceLoading = null;
+export function loadIce(opt = {}) {
+  if (Date.now() < iceUntil) return Promise.resolve(ICE);
+  if (!iceLoading) {
+    iceLoading = pb.send("/api/table/ice", { requestKey: null, ...opt })
+      .then((r) => {
+        if (Array.isArray(r.ice) && r.ice.length) {
+          ICE = r.ice;
+          iceUntil = Date.now() + Math.max(600, (r.ttl || 0) - 3600) * 1000;
+        }
+      })
+      .catch(() => {})
+      .finally(() => { iceLoading = null; });
+  }
+  return Promise.race([iceLoading, new Promise((ok) => setTimeout(ok, 2000))]).then(() => ICE);
+}
 export const rtcOk = () => typeof window !== "undefined" && typeof window.RTCPeerConnection === "function";
 export const rnd = (n = 12) => {
   const a = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -61,8 +80,10 @@ export class Mesh {
   // accept(peerId, data) -> bool (vérifie une offre reçue, ex. clé de la caméra)
   // onPeer(peerId, info | null) : changement d'état d'un pair ({ state, stream, offerer })
   // onCtl(peerId, obj) : message reçu sur le canal de contrôle (ex. { mic: true })
-  constructor({ gameId, self, query, plan, accept, onPeer, onCtl, offerExtra, onBusy }) {
-    Object.assign(this, { gameId, self, query, plan, accept, onPeer, onCtl, offerExtra, onBusy });
+  // coll / scope : collection des messages et champ qui les rattache (« rtc » / « game » pour une partie,
+  // « vrtc » / « room » pour un salon vocal)
+  constructor({ gameId, self, query, plan, accept, onPeer, onCtl, offerExtra, onBusy, coll = "rtc", scope = "game" }) {
+    Object.assign(this, { gameId, self, query, plan, accept, onPeer, onCtl, offerExtra, onBusy, coll, scope });
     this.peers = new Map();
     this.audio = null;
     this.video = null;
@@ -76,17 +97,19 @@ export class Mesh {
   }
 
   async start(targets = []) {
+    const { coll, scope } = this;
+    await loadIce(this.opt);
     try {
       // anciens messages qui me sont adressés (session précédente) : effacés
-      const old = await pb.collection("rtc").getFullList({ filter: `game="${this.gameId}" && to="${this.self}"`, fields: "id", ...this.opt });
-      await Promise.all(old.map((r) => pb.collection("rtc").delete(r.id, this.opt).catch(() => {})));
+      const old = await pb.collection(coll).getFullList({ filter: `${scope}="${this.gameId}" && to="${this.self}"`, fields: "id", ...this.opt });
+      await Promise.all(old.map((r) => pb.collection(coll).delete(r.id, this.opt).catch(() => {})));
     } catch (_) {}
     if (!this.alive) return;
     try {
-      const un = await pb.collection("rtc").subscribe(
+      const un = await pb.collection(coll).subscribe(
         "*",
-        (e) => e.action === "create" && e.record.to === this.self && e.record.game === this.gameId && this.onMsg(e.record),
-        { filter: `game="${this.gameId}" && to="${this.self}"`, ...this.opt },
+        (e) => e.action === "create" && e.record.to === this.self && e.record[scope] === this.gameId && this.onMsg(e.record),
+        { filter: `${scope}="${this.gameId}" && to="${this.self}"`, ...this.opt },
       );
       if (!this.alive) return Promise.resolve(un()).catch(() => {});
       this.unsub = un;
@@ -109,11 +132,11 @@ export class Mesh {
   }
 
   send(to, type, data = {}) {
-    return pb.collection("rtc").create({ game: this.gameId, from: this.self, to, type, data }, this.opt).catch(() => {});
+    return pb.collection(this.coll).create({ [this.scope]: this.gameId, from: this.self, to, type, data }, this.opt).catch(() => {});
   }
 
   async onMsg(rec) {
-    pb.collection("rtc").delete(rec.id, this.opt).catch(() => {});
+    pb.collection(this.coll).delete(rec.id, this.opt).catch(() => {});
     if (!this.alive) return;
     const { from, type } = rec;
     const data = rec.data || {};
@@ -274,6 +297,17 @@ export class Mesh {
     for (const [, p] of this.peers) {
       for (const t of p.pc.getTransceivers()) {
         if (t.receiver.track?.kind === "video" && (t.direction === "sendonly" || t.direction === "sendrecv")) all.push(t.sender.replaceTrack(this.video).catch(() => {}));
+      }
+    }
+    await Promise.all(all);
+  }
+
+  // Débit et netteté de l'image envoyée à tous les pairs (ex. partage d'écran : texte lisible)
+  async tuneVideoAll(max, scale) {
+    const all = [];
+    for (const [, p] of this.peers) {
+      for (const t of p.pc.getTransceivers()) {
+        if (t.receiver.track?.kind === "video" && (t.direction === "sendonly" || t.direction === "sendrecv")) all.push(tuneVideo(t.sender, max, scale));
       }
     }
     await Promise.all(all);

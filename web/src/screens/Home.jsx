@@ -1,5 +1,6 @@
 import { useSalonsSummary, useIsAdmin } from "../lib/salons.js";
 import { useDmUnread } from "../lib/dms.js";
+import { useVoiceRooms } from "../lib/voicechan.js";
 import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
@@ -746,6 +747,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 function SalonsCard({ tcg, userId, go }) {
   const { channels, unread } = useSalonsSummary(tcg, userId);
   const dmUnread = useDmUnread(userId);
+  const { rooms: vrooms, byRoom } = useVoiceRooms(tcg);
   const total = channels.reduce((n, c) => n + (unread[c.id] || 0), 0);
   if (!channels.length) return null;
   return (
@@ -760,6 +762,11 @@ function SalonsCard({ tcg, userId, go }) {
             ✉ Messages privés <span className="salon-n">{dmUnread > 99 ? "99+" : dmUnread}</span>
           </button>
         )}
+        {vrooms.filter((r) => byRoom[r.id]?.length).map((r) => (
+          <button key={r.id} className="salon-chip vroom in" onClick={() => go("salons", { voice: r.id })} title={byRoom[r.id].map((h) => h.name).join(", ")}>
+            🔊 {r.name} <span className="vroom-n">{byRoom[r.id].length}</span>
+          </button>
+        ))}
         {channels.map((c) => (
           <button key={c.id} className="salon-chip" onClick={() => go("salons", { channelId: c.id })}>
             <span className="hash">#</span>{c.name}

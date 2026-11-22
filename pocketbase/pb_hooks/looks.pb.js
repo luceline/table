@@ -39,6 +39,14 @@ onRecordCreateRequest((e) => {
     const n = $app.countRecords("dms", $dbx.exp("([[from]] = {:a} AND [[to]] = {:b}) OR ([[from]] = {:b} AND [[to]] = {:a})", { a: r.getString("reporter"), b: target.id }));
     if (!n) throw new BadRequestError("Aucun message privé avec ce joueur.");
     e.next();
+  } else if (kind === "grp") {
+    // joueur signalé dans un groupe : le signaleur en est membre, le joueur signalé y est ou y a écrit
+    let g;
+    try { g = $app.findRecordById("dm_groups", r.getString("grp")); } catch (_) { throw new BadRequestError("Groupe introuvable."); }
+    if (!g.getStringSlice("members").includes(r.getString("reporter"))) throw new BadRequestError("Groupe introuvable.");
+    const wrote = $app.countRecords("gmsgs", $dbx.exp("[[group]] = {:g} AND [[from]] = {:t}", { g: g.id, t: target.id }));
+    if (!g.getStringSlice("members").includes(target.id) && !wrote) throw new BadRequestError("Ce joueur n'est pas dans le groupe.");
+    e.next();
   } else {
     const field = kind === "bg" ? "mat_bg" : "card_back";
     const file = target.getString(field);
@@ -49,11 +57,11 @@ onRecordCreateRequest((e) => {
     $app.save(target);
   }
 
-  const what = kind === "bg" ? "tapis" : kind === "back" ? "dos de cartes" : "conversation privée avec lui";
+  const what = kind === "bg" ? "tapis" : kind === "back" ? "dos de cartes" : kind === "grp" ? "comportement dans un groupe privé" : "conversation privée avec lui";
   let reporter = "un joueur";
   try { reporter = $app.findRecordById("users", r.getString("reporter")).getString("name") || reporter; } catch (_) {}
   const base = ($app.settings().meta.appURL || "").replace(/\/$/, "");
-  const img = `${base}/api/files/users/${target.id}/${file}`;
+  const img = `${base}/api/files/users/${target.id}/${r.getString("file")}`;
   const admins = $app.findRecordsByFilter("admins", "user != ''", "", 20, 0);
   const emails = [];
   for (const a of admins) {
@@ -67,7 +75,7 @@ onRecordCreateRequest((e) => {
         subject: `Signalement : ${what} de ${target.getString("name") || "un joueur"}`,
         html: `<p>${reporter} a signalé le <b>${what}</b> de <b>${target.getString("name") || "un joueur"}</b>.</p>` +
           (r.getString("reason") ? `<p>Motif : « ${r.getString("reason").replace(/[<>]/g, "")} »</p>` : "") +
-          (kind === "dm"
+          (kind === "dm" || kind === "grp"
             ? `<p><a href="${base}/?moderation">Lire la conversation signalée</a></p>`
             : `<p>L'image est masquée pour ses adversaires et les spectateurs jusqu'à votre décision.</p>` +
               `<p><a href="${img}">Voir l'image</a> · <a href="${base}/?moderation">Décider (débloquer ou supprimer)</a></p>`),
@@ -91,6 +99,9 @@ routerAdd("GET", "/api/table/mod/reports", (e) => {
   // 40 derniers messages entre les deux joueurs (conversation signalée)
   const convo = (a, b) => $app.findRecordsByFilter("dms", "(from = {:a} && to = {:b}) || (from = {:b} && to = {:a})", "-created", 40, 0, { a: a, b: b })
     .reverse().map((m) => ({ from: m.getString("from_name"), text: m.getString("text"), created: m.getString("created") }));
+  // 40 derniers messages d'un groupe
+  const gconvo = (gid) => $app.findRecordsByFilter("gmsgs", "group = {:g}", "-created", 40, 0, { g: gid })
+    .reverse().map((m) => ({ from: m.getString("from_name"), text: m.getString("text"), created: m.getString("created"), sys: m.getBool("sys") }));
   const out = [];
   for (const r of list) {
     let t = null, rep = null;
@@ -100,9 +111,10 @@ routerAdd("GET", "/api/table/mod/reports", (e) => {
       id: r.id, kind: r.getString("kind"), reason: r.getString("reason"), created: r.getString("created"),
       target: r.getString("target"), target_name: t ? t.getString("name") : "(compte supprimé)",
       reporter_name: rep ? rep.getString("name") : "(compte supprimé)",
-      file: r.getString("file"), current: t && r.getString("kind") !== "dm" ? t.getString(r.getString("kind") === "bg" ? "mat_bg" : "card_back") : "",
+      file: r.getString("file"), current: t && (r.getString("kind") === "bg" || r.getString("kind") === "back") ? t.getString(r.getString("kind") === "bg" ? "mat_bg" : "card_back") : "",
       reporter: r.getString("reporter"),
-      messages: r.getString("kind") === "dm" ? convo(r.getString("reporter"), r.getString("target")) : undefined,
+      grp: r.getString("grp"),
+      messages: r.getString("kind") === "dm" ? convo(r.getString("reporter"), r.getString("target")) : r.getString("kind") === "grp" ? gconvo(r.getString("grp")) : undefined,
     });
   }
   return e.json(200, { reports: out });
@@ -114,6 +126,11 @@ routerAdd("POST", "/api/table/mod/decide", (e) => {
   const b = e.requestInfo().body || {};
   if (b.kind === "dm") {
     const open = $app.findRecordsByFilter("reports", "status = 'open' && kind = 'dm' && target = {:t} && reporter = {:r}", "", 50, 0, { t: String(b.target || ""), r: String(b.reporter || "") });
+    for (const r of open) { r.set("status", "ok"); $app.save(r); }
+    return e.json(200, { ok: true, closed: open.length });
+  }
+  if (b.kind === "grp") {
+    const open = $app.findRecordsByFilter("reports", "status = 'open' && kind = 'grp' && target = {:t} && grp = {:g}", "", 50, 0, { t: String(b.target || ""), g: String(b.grp || "") });
     for (const r of open) { r.set("status", "ok"); $app.save(r); }
     return e.json(200, { ok: true, closed: open.length });
   }

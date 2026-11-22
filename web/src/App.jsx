@@ -14,6 +14,8 @@ import Legal from "./screens/Legal.jsx";
 import Salons from "./screens/Salons.jsx";
 import Moderation from "./screens/Moderation.jsx";
 import Agenda from "./screens/Agenda.jsx";
+import { VoiceBar } from "./components/VoiceRoom.jsx";
+import { leaveVoice, voiceState } from "./lib/voicechan.js";
 
 function readJoinParam() {
   const p = new URLSearchParams(window.location.search);
@@ -50,6 +52,12 @@ export default function App() {
   const [pendingJoin, setPendingJoin] = useState(readJoinParam());
 
   useEffect(() => pb.authStore.onChange(() => setUser(me())), []);
+  useEffect(() => {
+    if (screen.name === "table" && voiceState().room) leaveVoice();
+  }, [screen.name]);
+  useEffect(() => {
+    if (!user && voiceState().room) leaveVoice();
+  }, [user]);
 
   useEffect(() => {
     if (pb.authStore.isValid) pb.collection("users").authRefresh().catch(() => pb.authStore.clear());
@@ -72,7 +80,14 @@ export default function App() {
   if (watch) return <Spectator code={watch} />;
 
   if (!user) return <Auth />;
+  // Salon vocal : reste ouvert d'un écran à l'autre (petite barre en bas), sauf à la table de jeu qui a son propre vocal
+  const el = pick();
+  const bar = screen.name !== "salons" && screen.name !== "table" && (
+    <VoiceBar className="float" onOpen={() => go("salons", { voice: voiceState().room?.id })} />
+  );
+  return <>{el}{bar}</>;
 
+  function pick() {
   switch (screen.name) {
     case "library":
       return <Library go={go} />;
@@ -81,7 +96,7 @@ export default function App() {
     case "moderation":
       return <Moderation go={go} />;
     case "salons":
-      return <Salons go={go} channelId={screen.channelId} dm={screen.dm} />;
+      return <Salons go={go} channelId={screen.channelId} dm={screen.dm} voice={screen.voice} />;
     case "scan":
       return <Scanner go={go} />;
     case "deck":
@@ -99,5 +114,6 @@ export default function App() {
           }}
         />
       );
+  }
   }
 }

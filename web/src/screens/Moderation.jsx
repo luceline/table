@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { pb, errMsg, fileUrl } from "../pb.js";
 
-const KIND = { bg: "Tapis", back: "Dos de cartes", dm: "Conversation privée avec" };
+const KIND = { bg: "Tapis", back: "Dos de cartes", dm: "Conversation privée avec", grp: "Groupe privé : signalement de" };
+const CONVO = (k) => k === "dm" || k === "grp";
 
 export default function Moderation({ go }) {
   const [list, setList] = useState(null);
@@ -14,16 +15,16 @@ export default function Moderation({ go }) {
   // un même joueur peut avoir été signalé plusieurs fois pour la même image : une carte par joueur et par type
   const groups = [];
   for (const r of list || []) {
-    const g = groups.find((x) => x.target === r.target && x.kind === r.kind && (r.kind !== "dm" || x.reporter === r.reporter));
+    const g = groups.find((x) => x.target === r.target && x.kind === r.kind && (r.kind !== "dm" || x.reporter === r.reporter) && (r.kind !== "grp" || x.grp === r.grp));
     if (g) g.reports.push(r);
-    else groups.push({ target: r.target, kind: r.kind, name: r.target_name, current: r.current, file: r.file, reporter: r.reporter, messages: r.messages, reports: [r] });
+    else groups.push({ target: r.target, kind: r.kind, name: r.target_name, current: r.current, file: r.file, reporter: r.reporter, grp: r.grp, messages: r.messages, reports: [r] });
   }
 
   async function decide(g, action) {
     if (action === "remove" && !window.confirm(`Supprimer définitivement ${g.kind === "bg" ? "le tapis" : "le dos de cartes"} de ${g.name} ?`)) return;
     setBusy(g.target + g.kind);
     try {
-      await pb.send("/api/table/mod/decide", { method: "POST", body: { target: g.target, kind: g.kind, action, reporter: g.reporter } });
+      await pb.send("/api/table/mod/decide", { method: "POST", body: { target: g.target, kind: g.kind, action, reporter: g.reporter, grp: g.grp } });
       await load();
     } catch (e) {
       setErr(errMsg(e));
@@ -42,12 +43,12 @@ export default function Moderation({ go }) {
       {list === null && <p className="muted">Chargement…</p>}
       {list?.length === 0 && !err && <div className="card-box"><p className="muted" style={{ margin: 0 }}>Aucun signalement en attente.</p></div>}
       {groups.map((g) => (
-        <div className="card-box mod-item" key={g.target + g.kind}>
-          <h2 style={{ marginTop: 0 }}>{KIND[g.kind]} {g.kind === "dm" ? "" : "de "}{g.name}</h2>
-          {g.kind === "dm" ? (
+        <div className="card-box mod-item" key={g.target + g.kind + (g.grp || "")}>
+          <h2 style={{ marginTop: 0 }}>{KIND[g.kind]} {CONVO(g.kind) ? "" : "de "}{g.name}</h2>
+          {CONVO(g.kind) ? (
             <div className="mod-dm">
               {(g.messages || []).map((m, i) => (
-                <div key={i}><b>{m.from}</b> <span className="muted small">{new Date(m.created.replace(" ", "T")).toLocaleString("fr-FR")}</span><br />{m.text}</div>
+                <div key={i} className={m.sys ? "muted" : ""}><b>{m.from}</b> <span className="muted small">{new Date(m.created.replace(" ", "T")).toLocaleString("fr-FR")}</span><br />{m.text}</div>
               ))}
             </div>
           ) : g.current ? (
@@ -67,7 +68,7 @@ export default function Moderation({ go }) {
             ))}
           </ul>
           <div className="row" style={{ flexWrap: "wrap" }}>
-            {g.kind === "dm" ? (
+            {CONVO(g.kind) ? (
               <button className="btn primary" disabled={!!busy} onClick={() => decide(g, "close")}>✅ Vu : classer le signalement</button>
             ) : (
               <>

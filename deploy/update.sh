@@ -12,6 +12,7 @@ main() {
   else
     echo "Notifications : Node introuvable, les notifications ne partiront pas."
   fi
+  [ -f turn/turn.json ] || echo "Relais vidéo et vocal pas encore installé : lancer une fois « bash deploy/turn.sh »."
   pm2 restart pb-table
   echo "À jour. Recharger la page sur le téléphone suffit (pas de cache d'appli)."
 }

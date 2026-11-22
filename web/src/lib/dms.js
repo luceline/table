@@ -1,6 +1,7 @@
 // Messages privés : conversations (une par joueur), non-lus, blocage
 import { useEffect, useState } from "react";
 import { pb, safeUn } from "../pb.js";
+import { loadGroups, loadReads, groupUnread } from "./groups.js";
 
 // Conversations récentes : [{ uid, name, last, unread }], la plus récente d'abord
 export async function loadThreads(myId) {
@@ -32,16 +33,24 @@ export async function setBlocked(myId, uid, on, blocks) {
   else if (blocks.get(uid)) await pb.collection("blocks").delete(blocks.get(uid));
 }
 
-// Accueil : nombre de messages privés non lus, en direct
+// Accueil : nombre de messages privés non lus (conversations à deux et groupes), en direct
 export function useDmUnread(myId) {
   const [n, setN] = useState(0);
+  const [g, setG] = useState(0);
   useEffect(() => {
     if (!myId) return;
-    let alive = true, un = null;
+    let alive = true, un = null, un2 = null, t = null;
     const refresh = () => pb.collection("dms").getList(1, 1, { filter: `to = "${myId}" && read = false`, requestKey: null }).then((r) => alive && setN(r.totalItems)).catch(() => {});
+    const refreshG = async () => {
+      const groups = await loadGroups();
+      const u = await groupUnread(groups, await loadReads(myId), myId);
+      if (alive) setG(Object.values(u).reduce((a, b) => a + b, 0));
+    };
     refresh();
+    refreshG();
     pb.collection("dms").subscribe("*", refresh, { requestKey: null }).then((u) => (alive ? (un = u) : safeUn(u))).catch(() => {});
-    return () => { alive = false; safeUn(un); };
+    pb.collection("gmsgs").subscribe("*", () => { clearTimeout(t); t = setTimeout(refreshG, 400); }, { requestKey: null }).then((u) => (alive ? (un2 = u) : safeUn(u))).catch(() => {});
+    return () => { alive = false; clearTimeout(t); safeUn(un); safeUn(un2); };
   }, [myId]);
-  return n;
+  return n + g;
 }

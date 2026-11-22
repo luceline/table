@@ -26,8 +26,8 @@ export function useLooks(gameId, enabled = true) {
   return { look, hide };
 }
 
-export async function reportLook({ reporter, target, kinds, reason, game }) {
+export async function reportLook({ reporter, target, kinds, reason, game, grp }) {
   for (const kind of kinds) {
-    await pb.collection("reports").create({ reporter, target, kind, reason: (reason || "").trim().slice(0, 300), game: game || "", status: "open" }, { requestKey: null });
+    await pb.collection("reports").create({ reporter, target, kind, reason: (reason || "").trim().slice(0, 300), game: game || "", grp: grp || "", status: "open" }, { requestKey: null });
   }
 }
