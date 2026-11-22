@@ -3,6 +3,7 @@ import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
 import { LegalFooter } from "./Legal.jsx";
+import NewsPopup from "../components/NewsPopup.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, safeUn } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
@@ -70,6 +71,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     go("agenda");
   }, []);
   const agenda = useAgenda(user?.id, tcg); // propositions de partie et parties prévues
+  const [newsOpen, setNewsOpen] = useState(false); // relire les nouveautés
   const wl = useResults(user?.id, tcg, decks.map((d) => d.id)); // victoires / défaites par deck (privé)
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
@@ -720,7 +722,9 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
+      <p className="news-link"><button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button></p>
       <LegalFooter />
+      <NewsPopup user={user} tcg={tcg} forceOpen={newsOpen} onClose={() => setNewsOpen(false)} />
     </div>
   );
 }

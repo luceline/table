@@ -1,10 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { pb, me, errMsg } from "../pb.js";
+import { pb, me, errMsg, fileUrl } from "../pb.js";
+import ZoomView from "../components/ZoomView.jsx";
 import { Sheet } from "../components/ui.jsx";
 import { currentTcg, tcgName } from "../lib/tcg.js";
 import { loadChannels, unreadCounts, markSeen, useIsAdmin, postsOfTcg } from "../lib/salons.js";
 
 const PAGE = 60;
+// Réactions aux messages (mêmes émojis que la règle du serveur)
+export const POST_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "👏", "🤔"];
+
+// Image jointe : réduite dans le navigateur (1600 px au plus, JPEG), les GIF restent tels quels (animés)
+async function shrinkImage(file) {
+  if (file.type === "image/gif") return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = url; });
+    const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k);
+    c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+    return new File([blob], (file.name || "image").replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 const hhmm = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 function when(s) {
   const d = new Date((s || "").replace(" ", "T"));
@@ -28,6 +49,13 @@ export default function Salons({ go, channelId }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
   const [edit, setEdit] = useState(null); // salon créé ou modifié par l'admin : { id?, name, topic }
+  const [pic, setPic] = useState(null); // image à envoyer : { file, url }
+  const [spoil, setSpoil] = useState(false); // message marqué « spoiler »
+  const [shown, setShown] = useState(() => new Set()); // spoilers dévoilés
+  const [big, setBig] = useState(null); // image ouverte en grand
+  const [reacts, setReacts] = useState({}); // postId -> [{ id, user, emoji }]
+  const [picker, setPicker] = useState(null); // message dont on choisit la réaction
+  const fileRef = useRef();
   const curRef = useRef(cur);
   curRef.current = cur;
   const listRef = useRef();
@@ -98,6 +126,55 @@ export default function Salons({ go, channelId }) {
     };
   }, [tcg]);
 
+  // Réactions des messages affichés, puis en direct
+  const postIds = posts.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!posts.length) return;
+    const ids = posts.map((p) => p.id);
+    const missing = ids.filter((id) => !(id in reacts));
+    if (!missing.length) return;
+    pb.collection("post_reacts")
+      .getFullList({ filter: missing.map((id) => `post="${id}"`).join(" || "), requestKey: null })
+      .then((list) => setReacts((r) => {
+        const n = { ...r };
+        for (const id of missing) n[id] = [];
+        for (const x of list) n[x.post] = [...n[x.post], x];
+        return n;
+      }))
+      .catch(() => {});
+  }, [postIds]);
+  useEffect(() => {
+    if (!cur) return;
+    let un = null, alive = true;
+    pb.collection("post_reacts")
+      .subscribe("*", (e) => {
+        const x = e.record;
+        setReacts((r) => {
+          if (!(x.post in r)) return r;
+          const l = r[x.post].filter((y) => y.id !== x.id);
+          return { ...r, [x.post]: e.action === "delete" ? l : [...l, x] };
+        });
+      }, { filter: `post.channel = "${cur}"` })
+      .then((u) => (alive ? (un = u) : Promise.resolve(u()).catch(() => {})))
+      .catch(() => {});
+    return () => { alive = false; Promise.resolve(un?.()).catch(() => {}); };
+  }, [cur]);
+  async function toggleReact(p, emoji) {
+    setPicker(null);
+    const mineR = (reacts[p.id] || []).find((x) => x.user === user.id && x.emoji === emoji);
+    try {
+      if (mineR) {
+        setReacts((r) => ({ ...r, [p.id]: r[p.id].filter((x) => x.id !== mineR.id) }));
+        await pb.collection("post_reacts").delete(mineR.id);
+      } else {
+        const x = await pb.collection("post_reacts").create({ post: p.id, user: user.id, emoji });
+        setReacts((r) => ({ ...r, [p.id]: [...(r[p.id] || []).filter((y) => y.id !== x.id), x] }));
+      }
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  }
+
   // Défilement : rester en bas si on y était
   useEffect(() => {
     const el = listRef.current;
@@ -123,18 +200,46 @@ export default function Salons({ go, channelId }) {
   async function send(e) {
     e?.preventDefault();
     const t = text.trim().slice(0, 1000);
-    if (!t || !cur) return;
+    if ((!t && !pic) || !cur) return;
     if (Date.now() - lastSend.current < 1500) return setErr("Doucement : un message toutes les deux secondes au plus.");
     lastSend.current = Date.now();
     setErr("");
     try {
-      const p = await pb.collection("posts").create({ channel: cur, author: user.id, name: (user.name || "Joueur").slice(0, 40), text: t });
+      const fd = new FormData();
+      fd.append("channel", cur);
+      fd.append("author", user.id);
+      fd.append("name", (user.name || "Joueur").slice(0, 40));
+      fd.append("text", t);
+      fd.append("spoiler", spoil ? "true" : "false");
+      if (pic) fd.append("image", pic.file);
+      const p = await pb.collection("posts").create(fd);
       setText("");
+      clearPic();
+      setSpoil(false);
       atBottom.current = true;
       setPosts((l) => (l.some((x) => x.id === p.id) ? l : [...l, p]));
       markSeen(cur, p.created);
     } catch (e2) {
       setErr(errMsg(e2));
+    }
+  }
+
+  function clearPic() {
+    setPic((x) => { if (x) URL.revokeObjectURL(x.url); return null; });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+  async function pickFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return setErr("Seules les images sont acceptées.");
+    try {
+      const file = await shrinkImage(f);
+      if (file.size > 4 * 1024 * 1024) return setErr("Image trop lourde (4 Mo au plus).");
+      clearPic();
+      setPic({ file, url: URL.createObjectURL(file) });
+      setErr("");
+    } catch (_) {
+      setErr("Image illisible.");
     }
   }
 
@@ -220,7 +325,48 @@ export default function Salons({ go, channelId }) {
                       <b>{p.name || "Joueur"}</b> <span className="muted small">{when(p.created)}</span>
                     </div>
                   )}
-                  <div className="salon-text">{p.text}</div>
+                  {(() => {
+                    const hidden = p.spoiler && !shown.has(p.id);
+                    const body = (
+                      <>
+                        {p.text && <div className="salon-text">{p.text}</div>}
+                        {p.image && (
+                          <img
+                            className="salon-img" src={fileUrl("posts", p.id, p.image, "0x480")} alt="" loading="lazy"
+                            onClick={() => !hidden && setBig(fileUrl("posts", p.id, p.image))}
+                          />
+                        )}
+                      </>
+                    );
+                    return hidden ? (
+                      <div className="spoiler" onClick={() => setShown((s) => new Set(s).add(p.id))} role="button" title="Afficher">
+                        <div className="spoiler-in" aria-hidden="true">{body}</div>
+                        <span className="spoiler-tag">⚠ Spoiler · toucher pour afficher</span>
+                      </div>
+                    ) : body;
+                  })()}
+                  {(() => {
+                    const list = reacts[p.id] || [];
+                    const by = {};
+                    for (const x of list) (by[x.emoji] ||= []).push(x);
+                    return (
+                      <div className="post-reacts">
+                        {POST_EMOJIS.filter((e) => by[e]).map((e) => (
+                          <button key={e} className={`post-react ${by[e].some((x) => x.user === user.id) ? "on" : ""}`} onClick={() => toggleReact(p, e)}>
+                            {e} {by[e].length}
+                          </button>
+                        ))}
+                        <span className="post-react-add">
+                          <button onClick={() => setPicker(picker === p.id ? null : p.id)} aria-label="Réagir" title="Réagir">😀+</button>
+                          {picker === p.id && (
+                            <span className="post-react-pop">
+                              {POST_EMOJIS.map((e) => <button key={e} onClick={() => toggleReact(p, e)}>{e}</button>)}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   {(mine || admin) && <button className="salon-del" onClick={() => del(p)} aria-label="Supprimer le message" title="Supprimer">✕</button>}
                 </div>
               );
@@ -228,6 +374,15 @@ export default function Salons({ go, channelId }) {
           </div>
           {ch && (
             <form className="salon-input" onSubmit={send}>
+              {pic && (
+                <div className="salon-pic">
+                  <img src={pic.url} alt="" />
+                  <button type="button" onClick={clearPic} aria-label="Retirer l'image">✕</button>
+                </div>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickFile} />
+              <button type="button" className="btn icon ghost" onClick={() => fileRef.current?.click()} aria-label="Joindre une image" title="Joindre une image">📎</button>
+              <button type="button" className={`btn sm ${spoil ? "warn-on" : "ghost"}`} onClick={() => setSpoil((v) => !v)} aria-pressed={spoil} title="Cacher le message derrière un avertissement « spoiler »">⚠<span className="hide-xs"> Spoiler</span></button>
               <textarea
                 className="input"
                 rows={1}
@@ -239,9 +394,10 @@ export default function Salons({ go, channelId }) {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) send(e);
                 }}
               />
-              <button className="btn primary" disabled={!text.trim()}>Envoyer</button>
+              <button className="btn primary" disabled={!text.trim() && !pic}>Envoyer</button>
             </form>
           )}
+          {big && <ZoomView src={big} title="Image" onClose={() => setBig(null)} />}
           {err && <div className="err small" style={{ padding: "0 12px 8px" }}>{err}</div>}
         </section>
       </div>

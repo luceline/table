@@ -96,6 +96,8 @@ export default function Legal() {
           <li>
             Les messages des salons de discussion, visibles par tous les joueurs connectés avec votre pseudo, et conservés jusqu'à leur
             suppression (par vous, ou par un administrateur s'ils ne respectent pas les règles : propos injurieux, haineux, publicité, spam).
+            Les images jointes suivent les mêmes règles : pas de contenu choquant, et uniquement des images que vous avez le droit de partager.
+            Les réactions aux messages (émojis) sont visibles par les joueurs connectés.
           </li>
           <li>
             Vos disponibilités (jours et heures de jeu de votre semaine type) : personne ne voit votre agenda ; les autres joueurs voient
