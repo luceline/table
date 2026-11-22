@@ -488,38 +488,72 @@ export default function Table({ go, gameId, side = "" }) {
     track(id, () => pb.collection("marks").delete(id));
   };
 
-  // Unification d'un combattant : 3 jetons à la couleur de sa sous-faction (Yan rouge, Tian bleu, Lin vert), posés sur
-  // ATK (en haut à gauche), Valeur (en haut au milieu) et DEF (en haut à droite), avec les bonus compris.
-  // Les jetons d'une unification précédente sur la même carte sont remplacés ; niveau 0 = tout retirer.
-  const setCardUnif = (iid, lvl) => {
+  // Statistiques d'un combattant : 3 jetons à la couleur de sa sous-faction (Yan rouge, Tian bleu, Lin vert), posés sur
+  // ATK (en haut à gauche), Valeur (en haut au milieu) et DEF (en haut à droite). Valeur affichée = valeur imprimée
+  // + bonus d'unification (niveau 1 à 3) + bonus ou malus venant d'autres cartes (bx = { a, v, d }).
+  // Les jetons existants sont mis à jour sur place ; sans unification ni bonus, ils sont retirés.
+  const STAT_KEYS = [["a", "ATK", -0.26, -0.35], ["v", "Valeur", 0, -0.38], ["d", "DEF", 0.26, -0.35]];
+  const applyStats = (iid, lvl, bx, logText) => {
     const st = mineRef.current;
     const b = st?.board.find((x) => x.iid === iid);
     const c = st?.cards[iid];
     if (!b || !c) return;
-    for (const id of b.ut || []) if (tokRef.current.some((t) => t.id === id)) delMark(id);
-    const bonus = UNIF_STATS[lvl];
+    const extra = { a: bx?.a || 0, v: bx?.v || 0, d: bx?.d || 0 };
+    const hasExtra = extra.a || extra.v || extra.d;
+    const bonus = UNIF_STATS[lvl] || (hasExtra ? { a: 0, v: 0, d: 0 } : null);
+    const keys = bonus ? STAT_KEYS.filter(([k]) => typeof c[k] === "number") : [];
+    const old = (b.ut || []).filter((id) => tokRef.current.some((t) => t.id === id));
+    const reuse = bonus && old.length === keys.length && old.length === (b.ut || []).length;
+    if (!reuse) for (const id of old) delMark(id);
     const ids = [];
     const shown = [];
     if (bonus) {
       const dim = CARD[c.o === "l" ? "l" : "p"];
       const color = KIN_COLOR[c.k] || "gold";
-      [["a", "ATK", -0.26, -0.35], ["v", "Valeur", 0, -0.38], ["d", "DEF", 0.26, -0.35]].forEach(([k, label, fx, fy]) => {
-        if (typeof c[k] !== "number") return;
-        const v = c[k] + bonus[k];
-        const id = rid(15);
-        ids.push(id);
+      keys.forEach(([k, label, fx, fy], n) => {
+        const v = Math.max(0, c[k] + bonus[k] + extra[k]);
         shown.push(`${label} ${v}`);
-        addMark({ id, side: mySide, color, v, on: iid, dx: fx * dim.w, dy: fy * dim.h, x: b.x, y: b.y }); // sur les valeurs imprimées en haut de la carte
+        if (reuse) {
+          ids.push(old[n]);
+          updMark(old[n], { v });
+        } else {
+          const id = rid(15);
+          ids.push(id);
+          addMark({ id, side: mySide, color, v, on: iid, dx: fx * dim.w, dy: fy * dim.h, x: b.x, y: b.y }); // sur les valeurs imprimées en haut de la carte
+        }
       });
     }
-    const missing = bonus ? [["a", "ATK"], ["v", "Valeur"], ["d", "DEF"]].filter(([k]) => typeof c[k] !== "number").map(([, l]) => l) : [];
+    const missing = bonus ? STAT_KEYS.filter(([k]) => typeof c[k] !== "number").map(([, l]) => l) : [];
     if (missing.length) setToast(`${missing.join(", ")} non renseignée${missing.length > 1 ? "s" : ""} sur « ${c.n} » : à compléter dans Mes cartes.`);
     mut((s2) => {
       const bb = s2.board.find((x) => x.iid === iid);
       if (!bb) return false;
-      if (lvl) { bb.u = lvl; bb.ut = ids; } else { delete bb.u; delete bb.ut; }
-      return lvl ? `passe « ${c.n} » en Unification ${lvl}${shown.length ? ` : ${shown.join(" · ")}` : ""}` : `retire l'unification de « ${c.n} »`;
+      if (lvl) bb.u = lvl;
+      else delete bb.u;
+      if (hasExtra) bb.bx = extra;
+      else delete bb.bx;
+      if (ids.length) bb.ut = ids;
+      else delete bb.ut;
+      return logText(shown.length ? ` : ${shown.join(" · ")}` : "");
     });
+  };
+  const setCardUnif = (iid, lvl) => {
+    const b = mineRef.current?.board.find((x) => x.iid === iid);
+    const c = mineRef.current?.cards[iid];
+    if (!b || !c) return;
+    applyStats(iid, lvl, b.bx, (t) => (lvl ? `passe « ${c.n} » en Unification ${lvl}${t}` : `retire l'unification de « ${c.n} »${t}`));
+  };
+  // Bonus (ou malus) venant d'une autre carte, ajouté par-dessus l'unification. k : "a", "v" ou "d" ; delta : +1 / -1 ; null = tout retirer
+  const setCardBonus = (iid, k, delta) => {
+    const b = mineRef.current?.board.find((x) => x.iid === iid);
+    const c = mineRef.current?.cards[iid];
+    if (!b || !c) return;
+    const bx = { a: 0, v: 0, d: 0, ...(b.bx || {}) };
+    if (k) bx[k] = Math.max(-9, Math.min(9, bx[k] + delta));
+    const label = { a: "ATK", v: "Valeur", d: "DEF" }[k];
+    applyStats(iid, b.u || 0, k ? bx : null, (t) =>
+      k ? `${delta > 0 ? "ajoute" : "retire"} 1 ${label} à « ${c.n} » (effet d'une carte)${t}` : `retire les bonus d'autres cartes de « ${c.n} »${t}`,
+    );
   };
 
   // Signal rapide (« Attendez ! »…) : sur mon tapis, chez tous ; rien dans le tchat ni dans le journal
@@ -1503,12 +1537,12 @@ export default function Table({ go, gameId, side = "" }) {
                 <PushToggle compact />
               </div>
             ) : null;
-            // Loupe : sur mon tapis en haut à droite (titre du territoire III) ; pour l'adversaire, dans sa barre PI/PV,
-            // car son coin haut droit est sa zone Commandant
+            // Loupe : sur le bord haut de mon tapis, à droite, à cheval sur l'espace entre les deux tapis (elle ne cache
+            // aucune carte) ; pour l'adversaire, dans sa barre PI/PV, car son coin haut droit est sa zone Commandant
             const loupe = (which, m, inPanel) => (
               <button
-                className={`loupe-btn ${inPanel ? "in-panel" : ""}`}
-                style={inPanel ? null : { left: m.left + MAT_W * s - 40, top: m.top + 6 }}
+                className={`loupe-btn ${inPanel ? "in-panel" : "edge"}`}
+                style={inPanel ? null : { left: m.left + MAT_W * s - 34, top: Math.max(0, m.top - 15) }}
                 onClick={() => (focus ? setFocus(null) : openFocus(which))}
                 aria-label={focus ? "Revenir aux deux tapis" : "Agrandir ce tapis"}
               >
@@ -1838,7 +1872,7 @@ export default function Table({ go, gameId, side = "" }) {
         onResult={recordResult}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, setCardUnif, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
+          startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
         }}
       />
     </div>
@@ -1914,6 +1948,20 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         ))}
         {b.u ? <button className="btn sm ghost" onClick={run(() => A.setCardUnif(iid, 0))}>Retirer</button> : null}
         <span className="muted small unif-legend">3 jetons posés sur ATK · Valeur · DEF, bonus compris, à la couleur de la sous-faction : <i className="dot red" /> Yan · <i className="dot blue" /> Tian · <i className="dot green" /> Lin</span>
+        <div className="bonus-row">
+          <span className="muted small">Bonus d'autres cartes :</span>
+          {[["a", "ATK"], ["v", "VAL"], ["d", "DEF"]].map(([k, l]) => {
+            const n = b.bx?.[k] || 0;
+            return (
+              <span key={k} className="bonus-step">
+                <button className="btn sm" onClick={() => A.setCardBonus(iid, k, -1)} aria-label={`${l} moins 1`}>−</button>
+                <span className={`bonus-val ${n > 0 ? "up" : n < 0 ? "down" : ""}`}>{l} {n > 0 ? `+${n}` : n}</span>
+                <button className="btn sm" onClick={() => A.setCardBonus(iid, k, 1)} aria-label={`${l} plus 1`}>+</button>
+              </span>
+            );
+          })}
+          {b.bx ? <button className="btn sm ghost" onClick={() => A.setCardBonus(iid, null)}>Retirer les bonus</button> : null}
+        </div>
       </div>
     ) : null;
     return (
@@ -1957,6 +2005,20 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           <button className="btn" onClick={A.peekDeck}>Chercher dans le deck</button>
           {TCG !== "fab" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>}
         </div>
+        <p className="muted small deck-top-lbl">Mettre la carte du dessus du deck, face visible, dans :</p>
+        <div className="actions">
+          {(TCG === "fab" ? ["grave", "banish"] : ["d1", "d2", "d3"]).map((pid) => (
+            <button
+              key={pid}
+              className="btn"
+              disabled={!mine.deck.length}
+              onClick={() => A.toPile(mine.deck[mine.deck.length - 1], pid, "deck")}
+            >
+              → {pileName(pid)}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">La fenêtre reste ouverte : touchez plusieurs fois pour défausser plusieurs cartes. Le journal indique chaque carte.</p>
       </Sheet>
     );
   }

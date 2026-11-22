@@ -4,6 +4,21 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 84,
+    date: "22 novembre 2026",
+    items: [
+      { t: "➕ Safir : bonus d'autres cartes. Touchez un combattant posé : sous l'unification, « Bonus d'autres cartes » ajoute ou retire 1 ATK, VAL ou DEF. Les jetons affichent le total (carte + unification + bonus), et la valeur du territoire en tient compte.", tcg: "safir" },
+      { t: "🔍 La loupe de votre tapis ne cache plus le combattant de droite du territoire : elle est sur le bord, entre les deux tapis." },
+    ],
+  },
+  {
+    id: 83,
+    date: "22 novembre 2026",
+    items: [
+      { t: "🂠 Défausser la carte du dessus du deck dans la défausse de votre choix : touchez votre deck, puis « → Défausse I, II ou III » (Flesh and Blood : cimetière ou bannis). Touchez plusieurs fois pour plusieurs cartes ; le journal les indique." },
+    ],
+  },
+  {
     id: 82,
     date: "22 novembre 2026",
     items: [

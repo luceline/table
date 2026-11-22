@@ -256,7 +256,7 @@ export function territoryValues(st) {
     if (b.y < 30 || b.y > 130) continue; // rangée des combattants seulement
     const t = b.x < 201.5 ? 0 : b.x < 398.5 ? 1 : 2;
     out[t].n++;
-    if (typeof c.v === "number") out[t].sum += c.v + (b.u === 3 ? 1 : 0); // unification 3 : +1 Valeur
+    if (typeof c.v === "number") out[t].sum += Math.max(0, c.v + (b.u === 3 ? 1 : 0) + (b.bx?.v || 0)); // unification 3 : +1 Valeur ; bonus d'autres cartes
     else out[t].unknown++;
   }
   return out;

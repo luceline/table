@@ -991,3 +991,15 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
   .salons.m-list .voice-bar.in-nav { display: flex; position: sticky; bottom: 0; margin-top: auto; flex-wrap: nowrap; }
   .salons.m-list .voice-bar.in-nav .voice-bar-name { flex-basis: auto; }
 }
+.deck-top-lbl { margin: 14px 0 6px; }
+.loupe-btn.edge { width: 30px; height: 30px; font-size: 14px; }
+.bonus-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.bonus-step { display: inline-flex; align-items: center; gap: 4px; }
+.bonus-step .btn.sm { min-width: 30px; padding: 4px 0; }
+.bonus-val { min-width: 54px; text-align: center; font-weight: 600; font-size: 13px; }
+.bonus-val.up { color: #8fe3a2; }
+.bonus-val.down { color: #ff9b8f; }
+.bonus-row > .muted { flex-basis: 100%; }
+.bonus-step { gap: 2px; }
+.bonus-step .btn.sm { min-width: 28px; width: 28px; }
+.bonus-val { min-width: 46px; font-size: 12.5px; }
