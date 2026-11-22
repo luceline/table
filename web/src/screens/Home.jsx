@@ -1,4 +1,4 @@
-import { useSalonsSummary } from "../lib/salons.js";
+import { useSalonsSummary, useIsAdmin } from "../lib/salons.js";
 import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
@@ -72,6 +72,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   }, []);
   const agenda = useAgenda(user?.id, tcg); // propositions de partie et parties prévues
   const [newsOpen, setNewsOpen] = useState(false); // relire les nouveautés
+  const isAdmin = useIsAdmin(user?.id);
   const wl = useResults(user?.id, tcg, decks.map((d) => d.id)); // victoires / défaites par deck (privé)
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
@@ -722,7 +723,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
-      <p className="news-link"><button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button></p>
+      <p className="news-link">
+        <button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button>
+        {isAdmin && <button className="btn sm ghost" onClick={() => go("moderation")}>⚑ Signalements</button>}
+      </p>
       <LegalFooter />
       <NewsPopup user={user} tcg={tcg} forceOpen={newsOpen} onClose={() => setNewsOpen(false)} />
     </div>

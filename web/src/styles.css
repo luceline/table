@@ -583,8 +583,12 @@ html { background: var(--bg); }
 .matbg-range { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .matbg-range input { accent-color: var(--gold); }
 /* Dos des cartes personnel (visible du seul joueur) */
-.table.has-back div.back { background: var(--card-back) center / cover; border: 1px solid rgba(212,176,97,.75); }
-.table.has-back .hand-fan .fan i { background: var(--card-back) center / cover; }
+/* chaque zone montre le dos de cartes de son joueur (--cb), le fantôme d'un glissé le mien */
+.has-cb div.back { background: var(--cb) center / cover; border: 1px solid rgba(212,176,97,.75); }
+.hand-fan.has-cb .fan i { background: var(--cb) center / cover; }
+.table.has-back .drag-ghost div.back { background: var(--card-back) center / cover; border: 1px solid rgba(212,176,97,.75); }
+.report-btn { position: absolute; right: 6px; top: 6px; z-index: 6; width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.45); color: #ffb3a8; font-size: 13px; cursor: pointer; opacity: .55; }
+.report-btn:hover { opacity: 1; }
 .back-preview { flex: none; width: 92px; aspect-ratio: 63 / 88; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(212,176,97,.55), 0 4px 12px rgba(0,0,0,.5); }
 .back-preview .back { border-radius: 0; }
 /* Flesh and Blood : couleur de pitch */
@@ -890,3 +894,7 @@ html { background: var(--bg); }
 .news li { margin: 6px 0; line-height: 1.4; }
 .news-block + .news-block { border-top: 1px solid var(--line); padding-top: 10px; }
 .news-link { text-align: center; margin: 14px 0 0; }
+.mod-img { display: block; max-width: 100%; max-height: 340px; border-radius: 8px; border: 1px solid var(--line); margin: 6px 0; }
+.mod-img.back { max-height: 260px; }
+.news-link { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.report-btn.inline { position: static; width: 30px; height: 30px; opacity: .7; flex: none; }

@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 77,
+    date: "22 novembre 2026",
+    items: [
+      { t: "🎨 Votre tapis et votre dos de cartes personnalisés sont maintenant vus par vos adversaires et les spectateurs (réglages en bas de l'accueil)." },
+      { t: "⚑ Une image déplacée ? Le bouton ⚑ en haut à droite du tapis adverse la signale : elle est masquée tout de suite, puis vérifiée par l'administrateur." },
+    ],
+  },
+  {
     id: 76,
     date: "22 novembre 2026",
     items: [

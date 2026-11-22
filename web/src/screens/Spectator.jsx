@@ -7,6 +7,8 @@ import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf } from "../lib/reactions.js";
 import { SignalBadge } from "../components/Signals.jsx";
+import { useLooks } from "../lib/looks.js";
+import ReportSheet, { ReportButton } from "../components/ReportLook.jsx";
 import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
 import { normalize, rid, TCG, PHASE_BY_ID } from "../lib/game.js";
 import { activateTcg, tcgOf } from "../lib/tcg.js";
@@ -31,6 +33,11 @@ export default function Spectator({ code }) {
   const [toast, setToast] = useState("");
   const [phaseFlash, setPhaseFlash] = useState(null); // nouvelle phase d'un joueur, annoncée en grand
   const [reacts, pushReact] = useReactionQueue(); // réactions des joueurs
+  // Tapis et dos de cartes des deux joueurs (signalables par un spectateur connecté)
+  const authed = pb.authStore.isValid;
+  const looks = useLooks(game?.id, authed && !!game && !game.solo);
+  const look1 = looks.look(game?.p1), look2 = looks.look(game?.p2);
+  const [report, setReport] = useState(null); // { uid, name, look }
   const [view, setView] = useState(null); // carte agrandie
   const [pileView, setPileView] = useState(null); // défausse ouverte : { who, pile }
   const [pings, setPings] = useState([]);
@@ -320,18 +327,18 @@ export default function Spectator({ code }) {
         <div className="viewport" ref={vpRef}>
           {game && vp.w > 0 && (
             <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
-              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
-              <Mat side="opp" st={p2} vs={p1} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
+              <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} back={look2.back} extra={authed && (look2.bg || look2.back) && game.p2 !== pb.authStore.record?.id ? <ReportButton inline onClick={() => setReport({ uid: game.p2, name: p2?.name || game.n2, look: look2 })} /> : null} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
+              <Mat side="opp" st={p2} vs={p1} bg={look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               {p2?.filmed && (
                 <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
               {p2?.filmed && <VideoTokens tokens={tokens("p2").filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.opp} s={s} />}
-              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
+              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} bg={look1.bg} back={look1.back} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
               {p1?.filmed && (
                 <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rot={p1.camRot || 0} name={p1.name} side="mine" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
               )}
               {p1?.filmed && <VideoTokens tokens={tokens("p1").filter((t) => t.on === "v")} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.mine} s={s} />}
-              <ScorePanel st={p1 || { name: game.n1 }} mine layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
+              <ScorePanel st={p1 || { name: game.n1 }} mine back={look1.back} extra={authed && (look1.bg || look1.back) && game.p1 !== pb.authStore.record?.id ? <ReportButton inline onClick={() => setReport({ uid: game.p1, name: p1?.name || game.n1, look: look1 })} /> : null} layout={L.mode} box={L.mine.panel} sub={count(p1)} hand={p1 && !p1.filmed ? p1.hand.length : null} />
               <Arrows L={L} s={s} mine={p1} opp={p2} cams={camGeo} flipMine={mirrorP1} />
               <SignalBadge st={p2} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} />
               <SignalBadge st={p1} box={{ left: L.mine.mat.left, top: L.mine.mat.top, w: MAT_W * s, h: MAT_H * s }} />
@@ -345,6 +352,12 @@ export default function Spectator({ code }) {
       <Toast text={toast} onDone={() => setToast("")} ms={3500} className="act" />
       <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
       <ReactionLayer items={reacts} />
+      {report && (
+        <ReportSheet
+          open onClose={() => setReport(null)} me={pb.authStore.record?.id} target={report.uid} name={report.name} look={report.look} game={game?.id}
+          onDone={(kinds) => { kinds.forEach((k) => looks.hide(report.uid, k)); setToast("Merci : l'image est masquée et sera vérifiée par l'administrateur."); }}
+        />
+      )}
       {(() => {
         const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
         const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier

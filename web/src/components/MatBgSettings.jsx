@@ -94,7 +94,8 @@ export default function MatBgSettings() {
     <div className="card-box">
       <h2>Fond de mon tapis</h2>
       <p className="muted small" style={{ marginTop: 0 }}>
-        Une image de votre choix sous votre tapis. Vous seul la voyez ; les emplacements et les territoires restent au premier plan.
+        Une image de votre choix sous votre tapis, vue aussi par vos adversaires et les spectateurs ; les emplacements et les territoires restent au premier plan.
+        {user?.bg_blocked && <span className="warn"> Votre tapis a été signalé : il est masqué pour les autres joueurs jusqu'à la vérification de l'administrateur.</span>}
         Image idéale : <b>2400 x 1200 px</b> (format 2:1, comme le tapis de 60 x 30 cm). Une autre taille est recadrée au centre.
       </p>
       <div className="matbg-preview" style={bg ? { backgroundImage: `url("${bg.url}")` } : null}>
@@ -184,7 +185,8 @@ export function CardBackSettings() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Une image pour le dos des cartes (decks, cartes face cachée, main de l'adversaire). Vous seul la voyez.
+            Une image pour le dos de vos cartes (deck, cartes face cachée, main), vue aussi par vos adversaires et les spectateurs.
+            {user?.back_blocked && <span className="warn"> Votre dos de cartes a été signalé : il est masqué pour les autres joueurs jusqu'à la vérification de l'administrateur.</span>}
             Image idéale : <b>630 x 880 px</b> (format d'une carte, 63 x 88 mm). Une autre taille est recadrée au centre.
           </p>
           <div className="row" style={{ flexWrap: "wrap" }}>
@@ -210,7 +212,7 @@ export function ThemeSettings() {
   return (
     <div className="card-box">
       <h2>Thème de l'appli</h2>
-      <p className="muted small" style={{ marginTop: 0 }}>L'apparence de l'appli et des tapis, pour vous seul. Vos adversaires gardent le leur.</p>
+      <p className="muted small" style={{ marginTop: 0 }}>L'apparence de l'appli, pour vous seul. Vos adversaires gardent la leur.</p>
       <div className="theme-pick">
         {THEMES.map((t) => (
           <button key={t.id} className={cur === t.id ? "on" : ""} onClick={() => pick(t.id)} aria-pressed={cur === t.id}>

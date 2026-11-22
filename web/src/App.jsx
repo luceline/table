@@ -12,6 +12,7 @@ import Spectator from "./screens/Spectator.jsx";
 import Cam from "./screens/Cam.jsx";
 import Legal from "./screens/Legal.jsx";
 import Salons from "./screens/Salons.jsx";
+import Moderation from "./screens/Moderation.jsx";
 import Agenda from "./screens/Agenda.jsx";
 
 function readJoinParam() {
@@ -42,7 +43,9 @@ function readGameParam() {
 export default function App() {
   const [user, setUser] = useState(me());
   const [screen, setScreen] = useState(() =>
-    readGameParam() ? { name: "table", gameId: readGameParam(), side: new URLSearchParams(window.location.search).get("cote") === "b" ? "b" : "" } : { name: "home" },
+    readGameParam()
+      ? { name: "table", gameId: readGameParam(), side: new URLSearchParams(window.location.search).get("cote") === "b" ? "b" : "" }
+      : new URLSearchParams(window.location.search).has("moderation") ? { name: "moderation" } : { name: "home" },
   );
   const [pendingJoin, setPendingJoin] = useState(readJoinParam());
 
@@ -75,6 +78,8 @@ export default function App() {
       return <Library go={go} />;
     case "agenda":
       return <Agenda go={go} />;
+    case "moderation":
+      return <Moderation go={go} />;
     case "salons":
       return <Salons go={go} channelId={screen.channelId} />;
     case "scan":

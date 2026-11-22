@@ -4,6 +4,8 @@ import { ReactionPicker, ReactionLayer, useReactionQueue } from "../components/R
 import { reactionOf, reactionText } from "../lib/reactions.js";
 import { beHere } from "../lib/here.js";
 import { SignalBar, SignalBadge, SignalButton } from "../components/Signals.jsx";
+import { useLooks } from "../lib/looks.js";
+import ReportSheet, { ReportButton } from "../components/ReportLook.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
@@ -78,6 +80,11 @@ export default function Table({ go, gameId, side = "" }) {
   const trIds = useRef(new Set());
   const [banner, setBanner] = useState(""); // « À vous de jouer »
   const [phaseFlash, setPhaseFlash] = useState(null); // phase de l'adversaire annoncée en grand
+  // Tapis et dos de cartes de l'adversaire (signalables)
+  const looks = useLooks(gameId, !!meta && !meta.solo);
+  const oppId = meta && !meta.solo ? (meta.p1 === user.id ? meta.p2 : meta.p1) : "";
+  const oppLook = looks.look(oppId);
+  const [reportOpen, setReportOpen] = useState(false);
   const [reacts, pushReact] = useReactionQueue(); // réactions rapides affichées en grand
   const lastReact = useRef(0);
   const [winner, setWinner] = useState(null);
@@ -1513,8 +1520,8 @@ export default function Table({ go, gameId, side = "" }) {
               <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown} onContextMenu={(e) => e.preventDefault()}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={loupe("opp", L.opp.mat, true)} />
-                    <Mat side="opp" st={opp} vs={mine} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
+                    <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} />
+                    <Mat side="opp" st={opp} vs={mine} bg={oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1533,7 +1540,7 @@ export default function Table({ go, gameId, side = "" }) {
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} back={cardBackOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
                     {mine?.filmed && (
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1549,7 +1556,7 @@ export default function Table({ go, gameId, side = "" }) {
                         geo={camGeo.mine} s={s} dragKey={dragKey} onPress={press} type="token"
                       />
                     )}
-                    <ScorePanel st={mine} mine layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
+                    <ScorePanel st={mine} mine back={cardBackOf(user)} layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {loupe("mine", L.mine.mat)}
                   </>
                 )}
@@ -1806,6 +1813,10 @@ export default function Table({ go, gameId, side = "" }) {
       />
       <PhaseFlash flash={phaseFlash} onDone={() => setPhaseFlash(null)} />
       <ReactionLayer items={reacts} />
+      <ReportSheet
+        open={reportOpen} onClose={() => setReportOpen(false)} me={user.id} target={oppId} name={opp?.name} look={oppLook} game={gameId}
+        onDone={(kinds) => { kinds.forEach((k) => looks.hide(oppId, k)); setToast("Merci : l'image est masquée et sera vérifiée par l'administrateur."); }}
+      />
       {err && (
         <div className="toast" style={{ borderColor: "var(--danger)", pointerEvents: "auto", whiteSpace: "normal", borderRadius: 10 }} onClick={() => setErr("")}>{err}</div>
       )}
@@ -2541,7 +2552,7 @@ function Stat({ label, k, v, cls, onSet }) {
 }
 
 // Compteurs PI / PV bien visibles à côté de chaque tapis (seul le propriétaire peut les modifier)
-export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra, sub, hand }) {
+export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra, sub, hand, back }) {
   const ph = st?.phase ? PHASE_BY_ID[st.phase] : null;
   const unif = st?.unif || 0;
   return (
@@ -2566,7 +2577,7 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
         </button>
       )}
       {hand != null && (
-        <div className="hand-fan" title={`${hand} carte${hand > 1 ? "s" : ""} en main`} aria-label={`${hand} cartes en main`}>
+        <div className={`hand-fan ${back ? "has-cb" : ""}`} style={back ? { "--cb": `url("${back}")` } : undefined} title={`${hand} carte${hand > 1 ? "s" : ""} en main`} aria-label={`${hand} cartes en main`}>
           <div className="fan">
             <i /><i /><i />
           </div>

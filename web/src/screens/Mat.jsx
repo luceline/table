@@ -66,7 +66,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX }) {
   );
 });
 
-export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX }) {
+export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, children }) {
   const mine = side === "mine";
   const flip = !mine;
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
@@ -82,10 +82,10 @@ export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey
   return (
     <div
       ref={matRef}
-      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""}`}
-      style={{ top, left, width: MAT_W * s, height: MAT_H * s }}
+      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""}`}
+      style={{ top, left, width: MAT_W * s, height: MAT_H * s, ...(back ? { "--cb": `url("${back}")` } : null) }}
     >
-      {/* Fond personnel (visible du seul joueur), sous les emplacements du tapis */}
+      {/* Fond personnel du joueur (vu aussi par l'adversaire et les spectateurs), sous les emplacements du tapis */}
       {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
       {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
       <MatBackground flip={flip} flipX={!!flipX} kind={MAT_KIND} />
@@ -254,6 +254,7 @@ export function Mat({ side, st, vs, bg, s, top, left = 0, tokens, hover, dragKey
         })}
 
       {waiting}
+      {children}
     </div>
   );
 }
