@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 82,
+    date: "22 novembre 2026",
+    items: [
+      { t: "🎧 Vocal en partie : la fenêtre 🎧 indique maintenant si la liaison avec l'adversaire est établie (directe ou par le relais), et si le son passe dans chaque sens. Pratique quand on ne s'entend pas." },
+    ],
+  },
+  {
     id: 81,
     date: "22 novembre 2026",
     items: [

@@ -150,13 +150,14 @@ export function useTableRtc({ gameId, userId, meta, mine, opp }) {
     audioOut.mutePeer(oppId, v);
   }
 
+  const linkInfo = () => (meshRef.current && oppId ? meshRef.current.linkInfo(oppId) : Promise.resolve(null));
   const peer = (id) => peers[id] || null;
   const listeners = Object.entries(peers).filter(([id, p]) => id.startsWith("spec-") && p.state === "connected").length;
   const camLink = meta && camKey ? `${window.location.origin}${window.location.pathname}?cam=${meta.code}&p=${userId}&k=${camKey}` : "";
 
   return {
     ok,
-    mic, micOn, micOff,
+    mic, micOn, micOff, linkInfo,
     oppMic, oppMuted, muteOpp,
     specHear, setSpecHear, listeners,
     oppLink: peer(oppId),

@@ -98,7 +98,9 @@ export class Mesh {
 
   async start(targets = []) {
     const { coll, scope } = this;
-    await loadIce(this.opt);
+    // serveurs de mise en relation demandés en parallèle : le ménage et l'abonnement ne doivent pas attendre
+    // (sinon une offre de l'adversaire arrivée entre-temps serait prise pour un vieux message et effacée)
+    const ice = loadIce(this.opt);
     try {
       // anciens messages qui me sont adressés (session précédente) : effacés
       const old = await pb.collection(coll).getFullList({ filter: `${scope}="${this.gameId}" && to="${this.self}"`, fields: "id", ...this.opt });
@@ -116,6 +118,8 @@ export class Mesh {
     } catch (_) {
       return;
     }
+    await ice;
+    if (!this.alive) return;
     this.ready = true;
     [...targets, ...this.pending].forEach((t) => this.touch(t));
     this.pending.clear();
@@ -311,6 +315,27 @@ export class Mesh {
       }
     }
     await Promise.all(all);
+  }
+
+  // Diagnostic d'une liaison : état, type (directe / relais) et son reçu (octets)
+  async linkInfo(peerId) {
+    const p = this.peers.get(peerId);
+    if (!p) return null;
+    const out = { state: p.pc.connectionState, type: "", audioIn: 0, audioOut: 0 };
+    try {
+      const s = await p.pc.getStats();
+      s.forEach((r) => {
+        if (r.type === "inbound-rtp" && r.kind === "audio") out.audioIn += r.bytesReceived || 0;
+        if (r.type === "outbound-rtp" && r.kind === "audio") out.audioOut += r.bytesSent || 0;
+        if (r.type === "transport" && r.selectedCandidatePairId) {
+          const pair = s.get(r.selectedCandidatePairId);
+          const l = pair && s.get(pair.localCandidateId);
+          const rm = pair && s.get(pair.remoteCandidateId);
+          out.type = l?.candidateType === "relay" || rm?.candidateType === "relay" ? "relay" : l?.candidateType || "";
+        }
+      });
+    } catch (_) {}
+    return out;
   }
 
   // Message de contrôle à tous les pairs reliés par un canal (ex. état du micro)

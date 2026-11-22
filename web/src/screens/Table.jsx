@@ -2678,6 +2678,20 @@ function ShowPickSheet({ onClose, userId, onPick }) {
 // Vocal en direct : micro, son de l'adversaire, écoute des spectateurs
 function VoiceSheet({ onClose, rtc, opp, watching, setToast }) {
   const [busy, setBusy] = useState(false);
+  // Diagnostic : liaison directe ou par le relais, son reçu et envoyé (mis à jour chaque seconde)
+  const [diag, setDiag] = useState(null);
+  useEffect(() => {
+    let alive = true, last = null;
+    const tick = async () => {
+      const d = await rtc.linkInfo();
+      if (!alive) return;
+      setDiag(d ? { ...d, hearing: !!last && d.audioIn > last.audioIn, sending: !!last && d.audioOut > last.audioOut } : null);
+      last = d;
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
   const link = rtc.oppLink?.state;
   const oppTxt = !opp
     ? "pas encore d'adversaire"
@@ -2719,6 +2733,16 @@ function VoiceSheet({ onClose, rtc, opp, watching, setToast }) {
         </span>
         <button className="btn sm" onClick={() => rtc.setSpecHear(!rtc.specHear)}>{rtc.specHear ? "Ne plus m'entendre" : "M'entendre"}</button>
       </div>
+      {opp && (
+        <p className="muted small voice-diag">
+          Liaison : <b>{!diag ? "pas encore établie" : diag.state !== "connected" ? (diag.state === "failed" ? "impossible pour l'instant" : "en cours…") : diag.type === "relay" ? "par le relais" : "directe"}</b>
+          {diag?.state === "connected" && (
+            <>
+              {" "}· son reçu : <b>{diag.hearing ? "oui" : "rien"}</b> · son envoyé : <b>{diag.sending ? "oui" : "rien"}</b>
+            </>
+          )}
+        </p>
+      )}
       <p className="muted small">Les messages 🎤 du talkie-walkie restent disponibles.</p>
     </Sheet>
   );
