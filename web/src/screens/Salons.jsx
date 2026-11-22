@@ -31,6 +31,17 @@ async function shrinkImage(file) {
     URL.revokeObjectURL(url);
   }
 }
+const NARROW = "(max-width: 720px)";
+function useNarrow() {
+  const [n, setN] = useState(() => window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW);
+    const f = () => setN(mq.matches);
+    mq.addEventListener("change", f);
+    return () => mq.removeEventListener("change", f);
+  }, []);
+  return n;
+}
 const hhmm = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 function when(s) {
   const d = new Date((s || "").replace(" ", "T"));
@@ -83,6 +94,30 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   const voice = useVoice();
   const { rooms: vrooms, byRoom } = useVoiceRooms(tcg);
   const [vview, setVview] = useState(voiceStart || null); // salon vocal affiché dans la zone principale
+  // Téléphone (comme Discord) : la liste des salons en plein écran, puis la conversation choisie en plein écran
+  const narrow = useNarrow();
+  const [mList, setMList] = useState(() => !(channelId || voiceStart || (dmStart !== undefined && dmStart !== null)));
+  const pushed = useRef(false);
+  function openChat() {
+    setMList(false);
+    if (window.matchMedia(NARROW).matches && !pushed.current) {
+      window.history.pushState({ salonsChat: 1 }, "");
+      pushed.current = true;
+    }
+  }
+  function backToList() {
+    if (pushed.current) window.history.back(); // le retour du téléphone fait la même chose
+    else setMList(true);
+  }
+  useEffect(() => {
+    const onPop = () => {
+      if (!pushed.current) return;
+      pushed.current = false;
+      setMList(true);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const grp = isGroupKey(dm) ? groups.find((g) => g.id === groupId(dm)) : null;
   const dmRef = useRef(dm);
   dmRef.current = dm;
@@ -218,6 +253,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   }, [dm]);
   function openDm(uid, name) {
     setNameMenu(null);
+    openChat();
     setVview(null);
     if (name) setDmName(name);
     setDm(uid);
@@ -326,7 +362,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
     } else {
       await runGroup({ action: "create", members: [...invite.base.map((b) => b.id), ...ids], name: "" }, (r) => {
         setInvite(null);
-        if (r?.id) setDm(gkey(r.id));
+        if (r?.id) { openChat(); setDm(gkey(r.id)); }
       });
     }
   }
@@ -560,22 +596,24 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
     const r = e.currentTarget.getBoundingClientRect();
     setNameMenu({ uid, name, x: r.left, y: r.bottom, grp: inGroup });
   };
-  const pickChannel = (id) => { setDm(null); setVview(null); setCur(id); };
+  const pickChannel = (id) => { setDm(null); setVview(null); setCur(id); openChat(); };
+  const openVoice = (id) => { setDm(null); setVview(id); openChat(); };
   const msgTime = (m) => new Date(m.created.replace(" ", "T"));
 
   return (
-    <div className="salons">
+    <div className={`salons ${mList ? "m-list" : "m-chat"}`}>
       <div className="salons-top">
-        <button className="btn icon ghost" onClick={() => go("home")} aria-label="Retour">←</button>
+        <button className="btn icon ghost" onClick={() => (narrow && !mList ? backToList() : go("home"))} aria-label={narrow && !mList ? "Retour à la liste des salons" : "Retour"}>←</button>
         <h1 className="grow">Salons · {tcgName(tcg)}</h1>
         {admin && <button className="btn sm" onClick={() => setEdit({ name: "", topic: "", kind: "text", max: 6 })}>＋ Salon</button>}
       </div>
       <div className="salons-body">
         <nav className="salons-list">
+          <div className="dm-head">Salons textuels</div>
           {channels === null && <span className="muted small">Chargement…</span>}
           {channels?.length === 0 && <span className="muted small">Aucun salon pour l'instant.</span>}
           {(channels || []).map((c) => (
-            <button key={c.id} className={`salon-chip ${c.id === cur && !dm && !vroom ? "on" : ""}`} onClick={() => pickChannel(c.id)}>
+            <button key={c.id} className={`salon-chip ${c.id === cur && !dm && !vroom ? "on" : ""} ${unread[c.id] > 0 ? "unread" : ""}`} onClick={() => pickChannel(c.id)}>
               <span className="hash">#</span>
               {c.name}
               {unread[c.id] > 0 && (c.id !== cur || dm || vroom) && <span className="salon-n">{unread[c.id] > 99 ? "99+" : unread[c.id]}</span>}
@@ -586,7 +624,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
             const ppl = voice.room?.id === r.id ? voice.here : byRoom[r.id] || [];
             return (
               <div key={r.id} className="vroom-item">
-                <button className={`salon-chip vroom ${vview === r.id ? "on" : ""} ${voice.room?.id === r.id ? "in" : ""}`} onClick={() => { setDm(null); setVview(r.id); }}>
+                <button className={`salon-chip vroom ${vview === r.id ? "on" : ""} ${voice.room?.id === r.id ? "in" : ""}`} onClick={() => openVoice(r.id)}>
                   <span className="hash">🔊</span>
                   {r.name}
                   {ppl.length > 0 && <span className="vroom-n">{ppl.length}</span>}
@@ -608,17 +646,17 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
             <button className="dm-new" onClick={() => openInvite({ base: [] })} title="Nouveau groupe privé" aria-label="Nouveau groupe privé">＋</button>
           </div>
           {convos.map((t) => (
-            <button key={t.key} className={`salon-chip dm ${dm === t.key ? "on" : ""}`} onClick={() => (t.group ? (setNameMenu(null), setDm(t.key)) : openDm(t.key, t.name))}>
+            <button key={t.key} className={`salon-chip dm ${dm === t.key ? "on" : ""} ${t.unread > 0 ? "unread" : ""}`} onClick={() => (t.group ? (setNameMenu(null), openChat(), setDm(t.key)) : openDm(t.key, t.name))}>
               <span className="hash">{t.group ? "👥" : "@"}</span>
               <span className="dm-name">{t.name}</span>
               {t.muted && <span className="muted small" title="Sourdine">🔕</span>}
               {t.unread > 0 && dm !== t.key && <span className="salon-n">{t.unread > 99 ? "99+" : t.unread}</span>}
             </button>
           ))}
-          <VoiceBar className="in-nav" onOpen={() => { setDm(null); setVview(voice.room.id); }} />
+          <VoiceBar className="in-nav" onOpen={() => openVoice(voice.room.id)} />
         </nav>
         <section className="salon-main">
-          {voice.room && vview !== voice.room.id && <VoiceBar className="in-main" onOpen={() => { setDm(null); setVview(voice.room.id); }} />}
+          {voice.room && vview !== voice.room.id && <VoiceBar className="in-main" onOpen={() => openVoice(voice.room.id)} />}
           {vroom && (
             <>
               <div className="salon-head">

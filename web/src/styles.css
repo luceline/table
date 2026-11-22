@@ -972,3 +972,22 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
   .voice-person { padding: 8px 4px; }
   .voice-avatar { width: 42px; height: 42px; font-size: 18px; }
 }
+
+/* Salons sur téléphone, comme Discord : liste verticale en plein écran, puis conversation en plein écran */
+.salon-chip.unread { font-weight: 700; }
+@media (max-width: 720px) {
+  .salons.m-chat .salons-list { display: none; }
+  .salons.m-list .salon-main { display: none; }
+  .salons.m-list .salons-list { flex: 1; width: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border: 0; gap: 2px; padding: 4px 12px calc(12px + env(safe-area-inset-bottom)); }
+  .salons.m-list .salons-list .salon-chip { width: 100%; justify-content: flex-start; border-color: transparent; padding: 11px 12px; font-size: 17px; border-radius: 10px; white-space: nowrap; }
+  .salons.m-list .salons-list .salon-chip .hash { width: 22px; text-align: center; }
+  .salons.m-list .salons-list .salon-chip:not(.unread):not(.on) { color: var(--muted); }
+  .salons.m-list .salons-list .salon-chip.on { background: rgba(255,255,255,.06); }
+  .salons.m-list .dm-head { display: flex; margin: 18px 6px 4px; font-size: 12px; }
+  .salons.m-list .dm-head:first-child { margin-top: 8px; }
+  .salons.m-list .dm-new { width: 30px; height: 30px; font-size: 18px; }
+  .salons.m-list .vroom-item { flex-direction: column; }
+  .salons.m-list .vroom-ppl { display: flex; padding: 0 0 6px 46px; font-size: 15px; gap: 3px; }
+  .salons.m-list .voice-bar.in-nav { display: flex; position: sticky; bottom: 0; margin-top: auto; flex-wrap: nowrap; }
+  .salons.m-list .voice-bar.in-nav .voice-bar-name { flex-basis: auto; }
+}

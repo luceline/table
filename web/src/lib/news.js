@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 80,
+    date: "22 novembre 2026",
+    items: [
+      { t: "📱 Salons sur téléphone, comme sur Discord : la liste complète des salons texte, vocaux et messages privés s'affiche en colonne. Touchez une ligne pour ouvrir la conversation, la flèche ← (ou le retour du téléphone) ramène à la liste." },
+    ],
+  },
+  {
     id: 79,
     date: "22 novembre 2026",
     items: [
