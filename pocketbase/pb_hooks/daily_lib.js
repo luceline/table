@@ -59,16 +59,44 @@ function sameName(guess, answer) {
 const tcgOf = (t) => (t === "fab" ? "fab" : "safir");
 const tcgFilterSql = (t) => (t === "fab" ? "c.tcg = 'fab'" : "(c.tcg = '' OR c.tcg = 'safir')");
 
+// Nom propre d'une carte pour le jeu : sans référence d'impression (« S1 », « S2.5 », « P/100 », numéro final),
+// sans parenthèses ni crochets. Un nom qui contient un identifiant de fichier (longue suite de lettres et de chiffres,
+// ex. import depuis Google Drive) n'est pas une vraie carte : exclu.
+function isJunk(raw) {
+  return /[A-Za-z0-9_-]{18,}/.test(String(raw || "").replace(/\s+/g, " ")) && /\d/.test(String(raw || ""));
+}
+function cleanName(raw) {
+  let n = String(raw || "")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  n = n.replace(/^(P\s*\/\s*\d+|S\d+(\.\d+)?|P)\s*[\/-]?\s+/i, "");
+  n = n.replace(/\s+(P\s*\/\s*)?\d+[a-z]?$/i, "");
+  n = n.replace(/^[-–:·.\s]+|[-–:·.\s]+$/g, "");
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
 // Toutes les cartes possibles : un nom = une carte (scan choisi au hasard parmi ceux des joueurs).
 // On préfère les noms présents chez au moins 2 joueurs (vraies cartes du jeu) quand il y en a assez.
 function pool(tcg) {
-  const rows = arrayOf(new DynamicModel({ k: "", name: "", owners: 0 }));
+  const rows = arrayOf(new DynamicModel({ id: "", name: "", owner: "", tcg: "" }));
   $app.db().newQuery(
-    "SELECT lower(trim(c.name)) AS k, MAX(trim(c.name)) AS name, COUNT(DISTINCT c.owner) AS owners FROM cards c " +
-    "WHERE " + tcgFilterSql(tcg) + " AND COALESCE(c.kind, '') != 'jeton' AND length(trim(c.name)) >= 2 AND c.image != '' " +
-    "GROUP BY lower(trim(c.name))"
+    "SELECT c.id AS id, c.name AS name, c.owner AS owner, c.tcg AS tcg FROM cards c " +
+    "WHERE " + tcgFilterSql(tcg) + " AND COALESCE(c.kind, '') != 'jeton' AND length(trim(c.name)) >= 2 AND c.image != ''"
   ).all(rows);
-  const all = rows.map((r) => ({ k: r.k, name: r.name, owners: r.owners }));
+  const by = {};
+  for (const r of rows) {
+    if (isJunk(r.name)) continue;
+    const name = cleanName(r.name);
+    const k = norm(name);
+    if (k.length < 2) continue;
+    if (!by[k]) by[k] = { k: k, name: name, owners: {}, ids: [] };
+    by[k].owners[r.owner] = 1;
+    by[k].ids.push(r.id);
+  }
+  const all = Object.keys(by).map((k) => ({ k: k, name: by[k].name, owners: Object.keys(by[k].owners).length, ids: by[k].ids }));
   const common = all.filter((r) => r.owners >= 2);
   return { all: all, pick: common.length >= 15 ? common : all };
 }
@@ -77,7 +105,17 @@ function today(tcg) {
   const t = tcgOf(tcg);
   const p = paris();
   try {
-    return $app.findFirstRecordByFilter("daily", "day = {:d} && tcg = {:t}", { d: p.day, t: t });
+    const cur = $app.findFirstRecordByFilter("daily", "day = {:d} && tcg = {:t}", { d: p.day, t: t });
+    const raw = cur.getString("name");
+    if (!isJunk(raw) && cleanName(raw) === raw) return cur;
+    if (!isJunk(raw) && cleanName(raw).length >= 2) {
+      cur.set("name", cleanName(raw)); // nom avec référence d'impression : nettoyé, la partie continue
+      $app.save(cur);
+      return cur;
+    }
+    // carte du jour invalide (nom de fichier importé) : remplacée, les essais déjà faits sont annulés
+    try { $app.db().newQuery("DELETE FROM daily_plays WHERE day = {:d} AND tcg = {:t}").bind({ d: p.day, t: t }).execute(); } catch (_) {}
+    $app.delete(cur);
   } catch (_) {}
   const pl = pool(t);
   if (!pl.pick.length) return null;
@@ -89,16 +127,15 @@ function today(tcg) {
   let cand = pl.pick.filter((x) => !recent[norm(x.name)]);
   if (!cand.length) cand = pl.pick;
   const choice = cand[Math.floor(Math.random() * cand.length)];
-  const scans = $app.findRecordsByFilter("cards", "name ~ {:n} && image != ''", "", 50, 0, { n: choice.name });
-  const ok = scans.filter((c) => norm(c.getString("name")) === norm(choice.name) && (t === "fab" ? c.getString("tcg") === "fab" : c.getString("tcg") !== "fab"));
-  const card = (ok.length ? ok : scans)[Math.floor(Math.random() * Math.max(1, (ok.length ? ok : scans).length))];
+  let card = null;
+  try { card = $app.findRecordById("cards", choice.ids[Math.floor(Math.random() * choice.ids.length)]); } catch (_) {}
   if (!card) return null;
   const r = new Record($app.findCollectionByNameOrId("daily"));
   r.set("day", p.day);
   r.set("tcg", t);
   r.set("num", dayDiff(p.day, LAUNCH) + 1);
   r.set("card", card.id);
-  r.set("name", card.getString("name").trim());
+  r.set("name", choice.name);
   r.set("img", `/api/files/cards/${card.id}/${card.getString("image")}`);
   r.set("orient", card.getString("orient") === "l" ? "l" : "p");
   // point de départ du zoom : dans l'illustration, jamais sur le nom (bas de la carte)
@@ -205,7 +242,7 @@ function guess(uid, tcg, text) {
   }
   const tries = triesOf(p);
   if (tries.some((x) => norm(x.g) === norm(g))) throw new BadRequestError("Déjà essayé : tentez un autre nom.");
-  const ok = sameName(g, d.getString("name"));
+  const ok = sameName(g, d.getString("name")) || sameName(cleanName(g), d.getString("name"));
   tries.push({ g: g, ok: ok });
   p.set("tries", tries);
   if (ok || tries.length >= MAX_TRIES) {
@@ -435,4 +472,4 @@ function remindEvening() {
   return sent;
 }
 
-module.exports = { paris, parisOffsetMin, addDays, sameName, norm, state, guess, board, titles, profile, online, remindEvening, streakEnding, MAX_TRIES };
+module.exports = { cleanName, isJunk, paris, parisOffsetMin, addDays, sameName, norm, state, guess, board, titles, profile, online, remindEvening, streakEnding, MAX_TRIES };

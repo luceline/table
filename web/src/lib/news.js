@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 86,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🃏 Carte du jour : les noms proposés sont nettoyés (sans « S1 », numéro ou parenthèses) et les cartes importées d'autres jeux sont exclues. Si la carte d'aujourd'hui était l'une d'elles, elle a été remplacée : vous pouvez rejouer." },
+    ],
+  },
+  {
     id: 85,
     date: "23 novembre 2026",
     items: [
