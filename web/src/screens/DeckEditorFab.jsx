@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FAB_BANS, FAB_BAN_INFO, FAB_HEROES_OUT, FAB_LL_NOTE, fabBanLabel, fabBanWarnings } from "../lib/banlist_fab.js";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { checkFab, fabKey, fabLabel, FAB_RULES, PITCH, fabFormat } from "../lib/deckrules.js";
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
@@ -56,6 +57,9 @@ export default function DeckEditorFab({ go, deckId }) {
   const tokens = cards.filter((c) => c.kind === "jeton");
   const entries = Object.entries(qty).map(([card, n]) => ({ card, qty: n }));
   const chk = checkFab({ format, entries, commander: hero, initiation: init }, byId);
+  // cartes bannies / héros hors format (liste officielle) : avertissement seulement, pas pour un deck initiation
+  const banWarn = init ? [] : fabBanWarnings({ entries, commander: hero }, byId, format);
+  const outHeroes = FAB_HEROES_OUT[format];
   const nTok = tokens.filter((c) => qty[c.id]).length;
   // exemplaires déjà pris pour cette carte unique (même nom et même couleur, scans différents)
   const same = (c) => cards.filter((x) => x.id !== c.id && x.kind !== "jeton" && fabKey(x) === fabKey(c)).reduce((n, x) => n + (qty[x.id] || 0), 0);
@@ -190,6 +194,25 @@ export default function DeckEditorFab({ go, deckId }) {
           <p className={`small ${chk.ok ? "muted" : "warn"}`}>
             {chk.ok && init ? `Deck initiation (${R.name}) : ${chk.total} cartes, ${chk.arena} arme(s) et équipement(s). Règles de construction ignorées.` : chk.ok ? `Deck conforme (${R.name}) : ${chk.total} cartes, ${chk.arena} arme(s) et équipement(s).` : `Deck non conforme, il ne pourra pas être joué : ${chk.problems.join(" ")}`}
           </p>
+          {banWarn.length > 0 && (
+            <div className="ban-warn">
+              <b>⚠ Liste officielle des cartes bannies ({R.name})</b>
+              {banWarn.map((w, i) => <span key={i}>⛔ {w.text}</span>)}
+              <small>Le deck reste jouable entre amis ; pour un tournoi officiel, il faut le corriger.</small>
+            </div>
+          )}
+          <details className="ban-list">
+            <summary>📋 Cartes bannies en {R.name} (tournois officiels)</summary>
+            <p className="muted small">
+              D'après la politique de légalité des cartes de Legend Story Studios, à jour au {FAB_BAN_INFO.date} (prochaine annonce : {FAB_BAN_INFO.next}).
+              Les noms sont comparés en anglais. Liste complète et à jour : <a href={FAB_BAN_INFO.url} target="_blank" rel="noreferrer">fabtcg.com</a>.
+            </p>
+            <ul>
+              {FAB_BANS[format].map((b) => <li key={b.name}>{fabBanLabel(b)} : <b className="ban">bannie</b></li>)}
+            </ul>
+            {outHeroes && <p className="small" style={{ margin: "8px 0 0" }}>Héros {outHeroes.why} : {outHeroes.list.join(", ")}.</p>}
+            {format === "cc" && <p className="muted small" style={{ margin: "8px 0 0" }}>{FAB_LL_NOTE}</p>}
+          </details>
 
           <div className="cmd-box">
             <div className="grow">

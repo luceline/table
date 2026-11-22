@@ -2,6 +2,8 @@
 // Résumé non officiel : en cas de doute, les règles complètes et le texte des cartes font foi.
 // items : { k: titre court, t: texte } ou { k, table: { head: [...], rows: [[...]] } }
 
+import { FAB_BANS, FAB_BAN_INFO, FAB_HEROES_OUT, FAB_LL_NOTE, fabBanLabel } from "./banlist_fab.js";
+
 export const RULES_FAB = [
   {
     id: "bases",
@@ -33,7 +35,17 @@ export const RULES_FAB = [
       { k: "Silver Age et Blitz", t: "Silver Age est le format rapide joué en tournoi depuis fin 2025 : il a remplacé Blitz, qui reste jouable entre amis. Les jeunes héros des anciens decks Blitz ne sont légaux en Silver Age que s'ils existent en rareté commune ou rare." },
       { k: "Carte unique", t: "Une carte est identifiée par son nom ET sa couleur de pitch : une version rouge et une version bleue du même nom sont deux cartes différentes." },
       { k: "Armes et équipements", t: "Ils ne sont pas dans le deck. Avant la partie, on choisit au plus une carte par zone (tête, torse, bras, jambes, armes). Dans l'appli, ils sont dans l'onglet « Inventaire » : faites-les glisser dans leurs zones." },
-      { k: "Cartes restreintes", t: "Certaines cartes sont limitées ou interdites selon le format (liste officielle de légalité). L'appli ne le vérifie pas." },
+      { k: "Cartes bannies", t: `Certaines cartes sont interdites en tournoi officiel selon le format (liste ci-dessous, à jour au ${FAB_BAN_INFO.date}). L'éditeur de deck prévient, sans bloquer le deck.` },
+    ],
+  },
+  {
+    id: "bannies",
+    title: "Cartes bannies",
+    items: [
+      { k: "Source", t: `Politique de légalité des cartes de Legend Story Studios (fabtcg.com), annonces jusqu'au ${FAB_BAN_INFO.date} ; prochaine annonce le ${FAB_BAN_INFO.next}.` },
+      { k: "Classic Constructed", t: FAB_BANS.cc.map(fabBanLabel).join(", ") + ". " + FAB_LL_NOTE },
+      { k: "Silver Age", t: FAB_BANS.sage.map(fabBanLabel).join(", ") + `. Héros ${FAB_HEROES_OUT.sage.why} : ${FAB_HEROES_OUT.sage.list.join(", ")}.` },
+      { k: "Blitz", t: FAB_BANS.blitz.map(fabBanLabel).join(", ") + `. Héros ${FAB_HEROES_OUT.blitz.why} : ${FAB_HEROES_OUT.blitz.list.join(", ")}.` },
     ],
   },
   {

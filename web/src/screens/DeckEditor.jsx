@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BANLIST, BANLIST_NOTE, banText, banWarnings } from "../lib/banlist.js";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrules.js";
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
@@ -66,6 +67,8 @@ export default function DeckEditor({ go, deckId }) {
 
   const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
   const chk = checkDeck(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId, commander);
+  // liste officielle des cartes limitées / bannies : avertissement seulement, le deck n'est pas bloqué
+  const banWarn = banWarnings(Object.entries(qty).map(([card, n]) => ({ card, qty: n })), byId, commander);
   // Exemplaires déjà pris pour ce nom (deux scans du même nom comptent ensemble)
   const sameName = (c) => normal.filter((x) => x.id !== c.id && nameKey(x.name) === nameKey(c.name)).reduce((n, x) => n + (qty[x.id] || 0), 0);
   const maxFor = (c) => Math.max(0, Math.min(COPY_MAX - sameName(c), (qty[c.id] || 0) + DECK_MAX - total));
@@ -177,6 +180,24 @@ export default function DeckEditor({ go, deckId }) {
               ? `Deck conforme : ${total} cartes, ${COPY_MAX} exemplaires au plus par carte.`
               : `Deck non conforme, il ne pourra pas être joué : ${chk.problems.join(" ")}`}
           </p>
+          {banWarn.length > 0 && (
+            <div className="ban-warn">
+              <b>⚠ Liste des cartes limitées et bannies</b>
+              {banWarn.map((w, i) => <span key={i}>{w.ban ? "⛔" : "1️⃣"} {w.text}</span>)}
+              <small>Le deck reste jouable entre amis ; pour un événement officiel, il faut le corriger.</small>
+            </div>
+          )}
+          <details className="ban-list">
+            <summary>📋 Cartes limitées et bannies (événements officiels)</summary>
+            <p className="muted small">{BANLIST_NOTE}</p>
+            <ul>
+              {BANLIST.map((b) => (
+                <li key={b.season + b.n + b.name}>
+                  <span className="muted small">{b.season} · {b.n}</span> {b.name} : <b className={b.max === 0 ? "ban" : "lim"}>{banText(b)}</b>
+                </li>
+              ))}
+            </ul>
+          </details>
           <CommanderBox
             card={cmdCard}
             factions={cmdF}

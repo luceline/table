@@ -851,3 +851,13 @@ html { background: var(--bg); }
 .sig-pop { position: fixed; z-index: 95; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 14px; background: rgba(18,16,14,.97); border: 1px solid var(--gold2); box-shadow: 0 12px 36px rgba(0,0,0,.65); animation: fade .12s; }
 .sig-pop .sig-btn { font-size: 15px; padding: 8px 14px; text-align: left; }
 @media (max-width: 600px) { .signals { display: none; } .phases .ph.sig-one { display: inline-flex; align-items: center; justify-content: center; } }
+
+/* Liste officielle des cartes limitées / bannies (éditeur de deck Safir) */
+.ban-warn { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e0a040; background: rgba(224,160,64,.12); font-size: 14px; }
+.ban-warn small { color: var(--muted); }
+.ban-list { margin: 0 0 12px; font-size: 14px; }
+.ban-list summary { cursor: pointer; color: var(--muted); }
+.ban-list ul { margin: 6px 0 0; padding-left: 18px; columns: 2 260px; }
+.ban-list li { margin: 2px 0; break-inside: avoid; }
+.ban-list b.ban { color: #ff7b72; } .ban-list b.lim { color: #e0b050; }
+.ban-list a { color: var(--gold, #e0c072); text-decoration: underline; }

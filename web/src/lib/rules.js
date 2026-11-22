@@ -2,6 +2,8 @@
 // Résumé non officiel : en cas de doute, les règles officielles et le texte des cartes font foi.
 // items : { k: titre court, t: texte } ou { k, table: { head: [...], rows: [[...]] } }
 
+import { BANLIST, BANLIST_NOTE, banText } from "./banlist.js";
+
 export const RULES = [
   {
     id: "bases",
@@ -147,6 +149,14 @@ export const RULES = [
       { k: "Main", t: "Pas de limite de cartes en main." },
       { k: "Carte adverse contrôlée", t: "Si elle doit quitter votre territoire, elle retourne dans la défausse ou la main de son propriétaire (ou dans son territoire s'il en reprend le contrôle)." },
       { k: "Factions", t: "Aqua, Chaos, Ciel, Nature, Ange, Cosmic, Démon, Dragon, Forêt, Glace, Humain, Orc, Vampire, Kin." },
+    ],
+  },
+  {
+    id: "banlist",
+    title: "Cartes limitées et bannies",
+    items: [
+      { k: "Événements officiels", t: BANLIST_NOTE },
+      { k: "Liste", table: { head: ["Saison", "N°", "Carte", "Règle"], rows: BANLIST.map((b) => [b.season.replace("Saison ", "S"), b.n, b.name, banText(b)]) } },
     ],
   },
   {
