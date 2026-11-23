@@ -4,11 +4,19 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 95,
+    date: "23 novembre 2026",
+    tcg: "safir",
+    items: [
+      { t: "✨ Effets d'arrivée : la limite est de 2 cartes différentes par effet (et non 2 en tout). Un deck peut donc avoir 2 cartes 💥, 2 cartes 🔥, 2 cartes 🍃 et 2 cartes ❄." },
+    ],
+  },
+  {
     id: 94,
     date: "23 novembre 2026",
     tcg: "safir",
     items: [
-      { t: "✨ Effets d'arrivée : dans l'éditeur de deck, touchez ✨ sous une carte pour lui donner une entrée spectaculaire sur le terrain (2 cartes différentes au plus par deck). Au choix : 💥 aura de puissance (onde de choc, le terrain se fissure), 🔥 vague de flammes (Yan), 🍃 volée de feuilles (Lin), ❄ arrivée enneigée (Tian). Vus aussi par l'adversaire et les spectateurs." },
+      { t: "✨ Effets d'arrivée : dans l'éditeur de deck, touchez ✨ sous une carte pour lui donner une entrée spectaculaire sur le terrain (2 cartes différentes au plus pour chaque effet). Au choix : 💥 aura de puissance (onde de choc, le terrain se fissure), 🔥 vague de flammes (Yan), 🍃 volée de feuilles (Lin), ❄ arrivée enneigée (Tian). Vus aussi par l'adversaire et les spectateurs." },
       { t: "🧊 Marqueur Gel : des stalactites se forment en haut de l'écran, tombent et se brisent sur le territoire gelé." },
       { t: "Personnalisation › Effets spéciaux : pour les revoir, ou les couper sur un téléphone peu puissant. Correction : un deck prêté garde maintenant l'ATK, la DEF et la faction de ses cartes." },
     ],

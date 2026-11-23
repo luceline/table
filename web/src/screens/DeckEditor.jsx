@@ -44,7 +44,7 @@ export default function DeckEditor({ go, deckId }) {
         for (const e of d.entries || []) {
           if (!c.some((x) => x.id === e.card)) continue;
           (e.tok ? t : q)[e.card] = e.tok ? 1 : e.qty;
-          if (!e.tok && arrivalOf(e.fx) && Object.keys(f).length < ARRIVAL_MAX) f[e.card] = e.fx;
+          if (!e.tok && arrivalOf(e.fx) && Object.values(f).filter((k) => k === e.fx).length < ARRIVAL_MAX) f[e.card] = e.fx;
         }
         setQty(q);
         setTq(t);
@@ -98,7 +98,8 @@ export default function DeckEditor({ go, deckId }) {
     setDirty(true);
   }
 
-  const fxCount = Object.keys(fx).filter((id) => qty[id]).length;
+  // 2 cartes différentes au plus par effet
+  const fxCount = (kind) => Object.entries(fx).filter(([id, k]) => k === kind && qty[id]).length;
   function chooseFx(id, kind) {
     setFx((f) => {
       const r = { ...f };
@@ -269,7 +270,10 @@ export default function DeckEditor({ go, deckId }) {
           <h2 style={{ fontSize: 17, marginBottom: 4 }}>Cartes du deck</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
             ✨ Effet d'arrivée : touchez ✨ sous une carte du deck pour lui donner une entrée spectaculaire sur le terrain
-            (vue aussi par l'adversaire et les spectateurs). {ARRIVAL_MAX} cartes différentes au plus : <b>{fxCount} / {ARRIVAL_MAX}</b>.
+            (vue aussi par l'adversaire et les spectateurs). {ARRIVAL_MAX} cartes différentes au plus par effet :{" "}
+            {ARRIVALS.map((a, i) => (
+              <span key={a.id} style={{ whiteSpace: "nowrap" }}>{i ? " · " : ""}{a.icon} <b>{fxCount(a.id)}/{ARRIVAL_MAX}</b></span>
+            ))}
           </p>
           {normal.length === 0 && <p className="muted">Aucune carte normale scannée.</p>}
           {normal.length > 0 && shown.length === 0 && <p className="muted small">Aucune carte ne correspond.</p>}
@@ -325,17 +329,18 @@ export default function DeckEditor({ go, deckId }) {
           <>
             <p className="muted small" style={{ marginTop: 0 }}>
               « {fxPick.name} » : effet joué chaque fois que la carte arrive face visible sur le terrain.
-              {!fx[fxPick.id] && fxCount >= ARRIVAL_MAX ? ` Ce deck a déjà ${ARRIVAL_MAX} cartes avec un effet : retirez-en un d'abord.` : ""}
+              {` ${ARRIVAL_MAX} cartes différentes au plus par effet dans un deck.`}
             </p>
             <div className="fx-choices">
               {ARRIVALS.map((a) => (
                 <button
                   key={a.id}
                   className={`btn ${fx[fxPick.id] === a.id ? "primary" : ""}`}
-                  disabled={!fx[fxPick.id] && fxCount >= ARRIVAL_MAX}
+                  disabled={fx[fxPick.id] !== a.id && fxCount(a.id) >= ARRIVAL_MAX}
                   onClick={() => chooseFx(fxPick.id, a.id)}
                 >
-                  <span style={{ fontSize: 20 }}>{a.icon}</span> {a.label}
+                  <span style={{ fontSize: 20 }}>{a.icon}</span> {a.label}{" "}
+                  <span className="muted small">({fxCount(a.id)}/{ARRIVAL_MAX}{fx[fxPick.id] !== a.id && fxCount(a.id) >= ARRIVAL_MAX ? ", complet" : ""})</span>
                   <span className="muted small" style={{ display: "block", fontWeight: 400 }}>{a.desc}</span>
                 </button>
               ))}

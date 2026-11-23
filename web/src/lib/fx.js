@@ -1,5 +1,5 @@
 // Effets spéciaux plein écran (Safir) : un canvas posé sur la page le temps de l'animation, puis retiré.
-// Effets d'arrivée, choisis dans l'éditeur de deck (2 cartes différentes au plus par deck) :
+// Effets d'arrivée, choisis dans l'éditeur de deck (2 cartes différentes au plus par effet et par deck) :
 // - aura : façon DBZ (flash, lignes de vitesse, aura de flammes dorées, éclairs, ondes de choc, débris, « ATK 11 »)
 // - yan  : une vague de flammes balaie l'écran et embrase la carte
 // - lin  : une bourrasque de feuilles traverse l'écran et tourbillonne autour de la carte
@@ -22,7 +22,7 @@ export function setFxSetting(v) {
   try { localStorage.setItem(KEY, v === "off" ? "off" : "full"); } catch (_) {}
 }
 
-export const ARRIVAL_MAX = 2;
+export const ARRIVAL_MAX = 2; // par effet
 export const ARRIVALS = [
   { id: "aura", icon: "💥", label: "Aura de puissance", desc: "Flash, aura de flammes dorées, éclairs, onde de choc, le terrain se fissure" },
   { id: "yan", icon: "🔥", label: "Vague de flammes (Yan)", desc: "Un mur de feu balaie l'écran et embrase la carte" },
