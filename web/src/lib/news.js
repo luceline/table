@@ -4,6 +4,13 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 91,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🗺 Carte des joueurs : indiquez votre ville (facultatif, onglet Personnalisation) pour trouver des joueurs près de chez vous et organiser des parties en vrai. Carte de France, Belgique et Suisse avec les pseudos, liste des plus proches avec la distance, et un bouton ✉ pour leur écrire." },
+    ],
+  },
+  {
     id: 90,
     date: "23 novembre 2026",
     items: [

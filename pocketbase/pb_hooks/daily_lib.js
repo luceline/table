@@ -365,6 +365,8 @@ function profile(uid) {
     id: uid,
     name: u.getString("name") || "Joueur",
     title: titleFor(n30),
+    city: u.getString("city"),
+    city_tag: u.getString("city_tag"),
     games30: n30,
     games: gAll,
     streak: st.current,

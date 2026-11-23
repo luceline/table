@@ -1155,3 +1155,19 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .trade-fair { font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 .trade-fair.eq { color: #8fe3a2; border-color: rgba(80,190,110,.5); }
 .trade-fair.neq { color: #ffd9a8; border-color: rgba(224,160,64,.5); }
+
+/* Carte des joueurs */
+.pmap-box { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0b1622; }
+.pmap-svg { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 930; max-height: 62vh; touch-action: none; cursor: grab; user-select: none; }
+.pmap-sea { fill: #0c1a28; }
+.pmap-near { fill: rgba(255,255,255,.04); stroke: rgba(255,255,255,.14); stroke-width: .8; vector-effect: non-scaling-stroke; }
+.pmap-land { fill: rgba(201,164,92,.14); stroke: rgba(230,194,122,.6); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.pmap-pt { cursor: pointer; }
+.pmap-pt circle { fill: #4cc9f0; stroke: #fff; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(76,201,240,.8)); }
+.pmap-pt.me circle { fill: #ffd166; filter: drop-shadow(0 0 4px rgba(255,209,102,.9)); }
+.pmap-pt.on circle { fill: #ff6b6b; }
+.pmap-pt text { fill: #f1e8d8; paint-order: stroke; stroke: #0b1622; stroke-width: 3px; stroke-linejoin: round; font-weight: 600; pointer-events: none; }
+.pmap-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.pmap-sel { margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.pmap h3 { font-size: 15px; margin: 14px 0 6px; }
+.pmap-credit { margin-top: 10px; font-size: 11px; }

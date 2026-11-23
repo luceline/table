@@ -10,6 +10,7 @@ import ProfileSheet from "../components/Profile.jsx";
 import { loadDaily } from "./Daily.jsx";
 import Salons from "./Salons.jsx";
 import Trades, { useTrades } from "../components/Trades.jsx";
+import { CitySettings, PlayersMap, usePlayersMap, km, cityLabel } from "../components/PlayerMap.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, safeUn } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
@@ -78,6 +79,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     return () => mq.removeEventListener("change", f);
   }, []);
   const [profOpen, setProfOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const { players: mapPlayers, reload: reloadMap } = usePlayersMap();
   // Arrivée depuis une notification « table ouverte » (?tables=jeu) : bon jeu, onglet Tables ouvertes à l'écran
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -476,6 +479,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <DailyCard tcg={tcg} userId={user.id} go={go} />
       {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
+      <MapCard players={mapPlayers} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
 
       <div className="card-box">
         <h2>Jouer</h2>
@@ -788,11 +792,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </div>
         <p className="muted small" style={{ margin: "6px 0 0" }}>Titre, badges, série de la carte du jour, et réglage « Apparaître hors ligne ».</p>
       </div>
+      <CitySettings onOpenMap={() => setMapOpen(true)} onSaved={reloadMap} />
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
       </>)}
       <ProfileSheet uid={profOpen ? user.id : null} onClose={() => setProfOpen(false)} />
+      <Sheet open={mapOpen} onClose={() => setMapOpen(false)} title="🗺 Carte des joueurs">
+        {mapOpen && <PlayersMap go={(...a) => { setMapOpen(false); go(...a); }} players={mapPlayers} />}
+      </Sheet>
       <p className="news-link">
         <button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button>
         {isAdmin && <button className="btn sm ghost" onClick={() => go("moderation")}>⚑ Signalements</button>}
@@ -805,6 +813,28 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <Salons key={tcg} go={go} embedded />
       </aside>
     )}
+    </div>
+  );
+}
+
+// Carte des joueurs : combien ont indiqué leur ville, et le plus proche de moi
+function MapCard({ players, onOpen, onSetCity }) {
+  const u = me();
+  if (!players) return null;
+  const others = players.filter((p) => p.id !== u.id);
+  const mine = u.city ? { lat: u.city_lat, lon: u.city_lon } : null;
+  const nearest = mine && others.length ? others.map((p) => ({ ...p, d: km(mine, p) })).sort((a, b) => a.d - b.d)[0] : null;
+  return (
+    <div className="card-box map-card">
+      <div className="row" style={{ alignItems: "center" }}>
+        <h2 className="grow" style={{ margin: 0 }}>🗺 Joueurs près de chez vous</h2>
+        <button className="btn sm primary" onClick={onOpen}>Voir la carte</button>
+      </div>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>
+        {others.length ? `${others.length} joueur${others.length > 1 ? "s ont indiqué leur" : " a indiqué sa"} ville` : "Aucun joueur n'a encore indiqué sa ville"}
+        {nearest ? <> · le plus proche : <b>{nearest.name}</b>, {cityLabel(nearest.city, nearest.tag)}, à {nearest.d} km</> : null}
+        {!mine && <> · <button className="linkish" onClick={onSetCity}>indiquer ma ville</button> pour trouver des partenaires en vrai</>}
+      </p>
     </div>
   );
 }

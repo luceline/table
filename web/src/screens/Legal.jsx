@@ -108,6 +108,9 @@ export default function Legal() {
             en commun avec vous ce soir. Échanges : vos listes de cartes en double et recherchées (saison, numéro, nom, échange ou
             vente, prix) sont visibles des joueurs connectés avec votre pseudo, pour qu'ils puissent vous écrire. L'appli ne gère
             ni paiement ni envoi : tout se règle entre joueurs.
+            Ville (facultative, onglet Personnalisation) : seule la ville choisie dans la liste est enregistrée (son centre, jamais
+            d'adresse) ; elle apparaît avec votre pseudo sur la carte des joueurs et dans votre profil, visibles des joueurs connectés.
+            Vous pouvez la retirer à tout moment. Villes : GeoNames (CC BY 4.0) ; contours des pays : Natural Earth.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
             qui peut la débloquer ou la supprimer.

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
 import { Sheet } from "./ui.jsx";
 import { loadProfile, WHERE, goOffline, setWhere } from "../lib/presence.js";
+import { cityLabel } from "./PlayerMap.jsx";
 
 export function TitleChip({ t }) {
   if (!t) return null;
@@ -44,6 +45,7 @@ export function ProfileBody({ uid, compact }) {
         </span>
         {p.title && <span className="title-chip">{p.title.icon} {p.title.name}</span>}
       </div>
+      {p.city && <div className="small" style={{ marginBottom: 6 }}>📍 {cityLabel(p.city, p.city_tag)}</div>}
       <div className="profile-stats small">
         <span><b>{p.games30}</b> partie{p.games30 > 1 ? "s" : ""} en 30 jours</span>
         <span><b>{p.games}</b> au total</span>
