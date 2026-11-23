@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 98,
+    date: "23 novembre 2026",
+    tcg: "safir",
+    items: [
+      { t: "🔎 Éditeur de deck : nouveau filtre par type, ⚔ Combattants ou ✦ Magies (une Valeur seule), à combiner avec le filtre par faction (Lin, Yan, Tian…) et la recherche par nom." },
+    ],
+  },
+  {
     id: 97,
     date: "23 novembre 2026",
     tcg: "safir",

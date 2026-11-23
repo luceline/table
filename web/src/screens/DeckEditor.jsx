@@ -26,6 +26,7 @@ export default function DeckEditor({ go, deckId }) {
   const [pickCmd, setPickCmd] = useState(false);
   const [cq, setCq] = useState("");
   const [fac, setFac] = useState(""); // filtre par faction
+  const [kind, setKind] = useState(""); // filtre par type : "" tous, "cbt" combattants, "mag" magies, "none" sans stats
   const [fx, setFx] = useState({}); // cartes à qui le joueur donne l'aura de puissance (2 cartes différentes au plus)
 
   useEffect(() => {
@@ -142,7 +143,11 @@ export default function DeckEditor({ go, deckId }) {
   const fold = (t) => (t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const match = (c) => !q.trim() || fold(c.name).includes(fold(q.trim()));
   const facOk = (c) => !fac || factionsOf(c).includes(fac);
-  const shown = normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c));
+  // Type : magie = une Valeur seule ; combattant = une ATK ou une DEF ; sinon stats non renseignées
+  const kindOf = (c) => (isMagic(c) ? "mag" : c.atk || c.def ? "cbt" : "none");
+  const kindOk = (c) => !kind || kindOf(c) === kind;
+  const shown = normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c) && kindOk(c));
+  const kindN = (k) => normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c) && kindOf(c) === k).length;
   // Nombre de cartes du deck par faction (exemplaires compris)
   const facCount = {};
   let untagged = 0;
@@ -260,8 +265,18 @@ export default function DeckEditor({ go, deckId }) {
               {untagged > 0 && <span className="fac">sans faction {untagged}</span>}
             </div>
           )}
+          <div className="fac-chips" style={{ marginBottom: 6 }}>
+            <span className="muted small">Type :</span>
+            <button className={`fac ${!kind ? "on" : ""}`} onClick={() => setKind("")}>Tous</button>
+            <button className={`fac ${kind === "cbt" ? "on" : ""}`} onClick={() => setKind(kind === "cbt" ? "" : "cbt")}>⚔ Combattants {kindN("cbt")}</button>
+            <button className={`fac ${kind === "mag" ? "on" : ""}`} onClick={() => setKind(kind === "mag" ? "" : "mag")} title="Magie : une Valeur seule, sans ATK ni DEF">✦ Magies {kindN("mag")}</button>
+            {(kind === "none" || kindN("none") > 0) && (
+              <button className={`fac ${kind === "none" ? "on" : ""}`} onClick={() => setKind(kind === "none" ? "" : "none")} title="Ni Valeur, ni ATK, ni DEF : à compléter dans Mes cartes">? Sans stats {kindN("none")}</button>
+            )}
+          </div>
           {facInCollection.length > 0 && (
             <div className="fac-chips" style={{ marginBottom: 10 }}>
+              <span className="muted small">Faction :</span>
               <button className={`fac ${!fac ? "on" : ""}`} onClick={() => setFac("")}>Toutes</button>
               {facInCollection.map((f) => (
                 <button key={f} className={`fac ${fac === f ? "on" : ""}`} onClick={() => setFac(fac === f ? "" : f)}>{f}</button>
