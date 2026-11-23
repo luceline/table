@@ -80,8 +80,11 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     return () => mq.removeEventListener("change", f);
   }, []);
   const [profOpen, setProfOpen] = useState(false);
+  const [notifKey, setNotifKey] = useState(0); // recharge le réglage « partenaire recherché » quand les notifications changent
   const [mapOpen, setMapOpen] = useState(false);
-  const { players: mapPlayers, reload: reloadMap } = usePlayersMap();
+  const { players: mapAll, reload: reloadMap } = usePlayersMap();
+  // seulement les joueurs du jeu choisi
+  const mapPlayers = mapAll && mapAll.filter((p) => (p.games || []).includes(tcg === "fab" ? "fab" : "safir"));
   // Arrivée depuis une notification « table ouverte » (?tables=jeu) : bon jeu, onglet Tables ouvertes à l'écran
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -485,7 +488,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <DailyCard tcg={tcg} userId={user.id} go={go} />
       {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
-      <MapCard players={mapPlayers} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      <MapCard players={mapPlayers} tcg={tcg} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
 
       <div className="card-box">
         <h2>Jouer</h2>
@@ -794,6 +797,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {tab === "echanges" && <Trades tcg={tcg} go={go} admin={isAdmin} data={trades} />}
 
       {tab === "perso" && (<>
+      <h3 className="perso-sec">Pour tous les jeux</h3>
       <div className="card-box">
         <div className="row" style={{ alignItems: "center" }}>
           <h2 className="grow" style={{ margin: 0 }}>🏅 Mon profil</h2>
@@ -801,15 +805,23 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </div>
         <p className="muted small" style={{ margin: "6px 0 0" }}>Titre, badges, série de la carte du jour, et réglage « Apparaître hors ligne ».</p>
       </div>
-      <NotifSettings tcg={tcg} hasDeck={decks.length > 0} />
+      <NotifSettings onChange={() => setNotifKey((x) => x + 1)} />
       <CitySettings onOpenMap={() => setMapOpen(true)} onSaved={reloadMap} />
       <ThemeSettings key={themeKey} />
-      <FxSettings />
       <MatBgSettings />
       <CardBackSettings />
+      <h3 className="perso-sec">Pour {tcgName(tcg)} uniquement</h3>
+      <div className="card-box">
+        <h2 style={{ margin: 0 }}>🔔 Partenaire recherché</h2>
+        <p className="muted small" style={{ margin: "6px 0 0" }}>
+          Être prévenu quand un joueur de {tcgName(tcg)} clique sur « Je cherche un partenaire ».
+        </p>
+        <OpenAlertToggle key={tcg + notifKey} tcg={tcg} hasDeck={decks.length > 0} />
+      </div>
+      {tcg !== "fab" && <FxSettings />}
       </>)}
       <ProfileSheet uid={profOpen ? user.id : null} onClose={() => setProfOpen(false)} />
-      <Sheet open={mapOpen} onClose={() => setMapOpen(false)} title="🗺 Carte des joueurs">
+      <Sheet open={mapOpen} onClose={() => setMapOpen(false)} title={`🗺 Joueurs de ${tcgName(tcg)}`}>
         {mapOpen && <PlayersMap go={(...a) => { setMapOpen(false); go(...a); }} players={mapPlayers} />}
       </Sheet>
       <p className="news-link">
@@ -829,7 +841,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 }
 
 // Carte des joueurs : combien ont indiqué leur ville, et le plus proche de moi
-function MapCard({ players, onOpen, onSetCity }) {
+function MapCard({ players, tcg, onOpen, onSetCity }) {
   const u = me();
   if (!players) return null;
   const others = players.filter((p) => p.id !== u.id);
@@ -838,7 +850,7 @@ function MapCard({ players, onOpen, onSetCity }) {
   return (
     <div className="card-box map-card">
       <div className="row" style={{ alignItems: "center" }}>
-        <h2 className="grow" style={{ margin: 0 }}>🗺 Joueurs près de chez vous</h2>
+        <h2 className="grow" style={{ margin: 0 }}>🗺 Joueurs de {tcgName(tcg)} près de chez vous</h2>
         <button className="btn sm primary" onClick={onOpen}>Voir la carte</button>
       </div>
       <p className="muted small" style={{ margin: "6px 0 0" }}>
@@ -939,17 +951,15 @@ function AgendaCard({ agenda, go }) {
 }
 
 // Personnalisation : notifications de cet appareil (messages privés, groupes, table rejointe, partenaire recherché, échanges)
-function NotifSettings({ tcg, hasDeck }) {
-  const [v, setV] = useState(0);
+function NotifSettings({ onChange }) {
   return (
     <div className="card-box">
       <h2 style={{ margin: 0 }}>🔔 Notifications</h2>
       <p className="muted small" style={{ margin: "6px 0 0" }}>
         Sur cet appareil, même appli fermée : messages privés et de groupe, joueur qui rejoint votre table, carte d'échange qui vous intéresse,
-        et joueur qui cherche un partenaire. Sur iPhone, l'appli doit être ajoutée à l'écran d'accueil.
+        et joueur qui cherche un partenaire (réglable pour chaque jeu, plus bas). Sur iPhone, l'appli doit être ajoutée à l'écran d'accueil.
       </p>
-      <PushToggle onText="Notifications activées sur cet appareil." offText="Notifications désactivées sur cet appareil." onChange={() => setV((x) => x + 1)} />
-      <OpenAlertToggle key={tcg + v} tcg={tcg} hasDeck={hasDeck} onlyWhenOn />
+      <PushToggle onText="Notifications activées sur cet appareil." offText="Notifications désactivées sur cet appareil." onChange={onChange} />
     </div>
   );
 }
@@ -966,8 +976,8 @@ function FxSettings() {
     <div className="card-box">
       <h2 style={{ margin: 0 }}>✨ Effets spéciaux</h2>
       <p className="muted small" style={{ margin: "6px 0 8px" }}>
-        Safir : effets d'arrivée sur le terrain (d'office pour les cartes Yan, Lin et Tian ; aura de puissance pour 2 cartes au choix, bouton 💥 dans l'éditeur de deck)
-        et stalactites de glace quand un territoire est gelé. Ce réglage ne concerne que cet appareil.
+        Effets d'arrivée sur le terrain (d'office pour les cartes Yan, Lin et Tian ; aura de puissance pour 2 cartes au choix, bouton 💥 dans l'éditeur de deck)
+        et stalactites de glace quand un territoire est gelé. Réglage de cet appareil, modifiable aussi en partie (menu ☰).
       </p>
       <div className="hand-tabs">
         <button className={v === "full" ? "on" : ""} onClick={() => pick("full")}>Activés</button>

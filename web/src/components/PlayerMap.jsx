@@ -1,6 +1,7 @@
 // Carte des joueurs (France, Belgique, Suisse, Luxembourg, Monaco) : ville facultative, pour se retrouver en vrai.
 // Villes : GeoNames (CC BY 4.0), plus de 1 000 habitants ; contours : Natural Earth (domaine public).
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TCG_LIST } from "../lib/tcg.js";
 import { pb, me, errMsg } from "../pb.js";
 import { messageTo } from "./Trades.jsx";
 
@@ -34,6 +35,33 @@ export function usePlayersMap() {
 // Réglage « Ma ville » (onglet Personnalisation)
 export function CitySettings({ onOpenMap, onSaved }) {
   const u = me();
+  // Jeux auxquels je joue : mon choix, sinon déduits de mes decks (enregistrés au premier changement)
+  const [games, setGames] = useState(Array.isArray(u?.games) && u.games.length ? u.games : null);
+  const [guessed, setGuessed] = useState(false);
+  useEffect(() => {
+    if (games) return;
+    let alive = true;
+    pb.collection("decks").getFullList({ filter: `owner="${u.id}"`, fields: "tcg", requestKey: null })
+      .then((ds) => {
+        if (!alive) return;
+        setGames(TCG_LIST.map((t) => t.id).filter((id) => ds.some((d) => (d.tcg === "fab" ? "fab" : "safir") === id)));
+        setGuessed(true);
+      })
+      .catch(() => alive && setGames([]));
+    return () => { alive = false; };
+  }, []);
+  async function toggleGame(id) {
+    const next = (games || []).includes(id) ? games.filter((g) => g !== id) : [...(games || []), id];
+    setErr("");
+    try {
+      await pb.collection("users").update(u.id, { games: next });
+      setGames(next);
+      setGuessed(false);
+      onSaved?.();
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  }
   const [cur, setCur] = useState(u?.city ? { city: u.city, tag: u.city_tag } : null);
   const [q, setQ] = useState("");
   const [list, setList] = useState([]);
@@ -95,6 +123,25 @@ export function CitySettings({ onOpenMap, onSaved }) {
           {norm(q).length >= 2 && !list.length && <p className="muted small">Aucune ville trouvée : essayez la ville la plus proche (villes de plus de 1 000 habitants).</p>}
           {onOpenMap && <button className="btn sm linkish" style={{ marginTop: 8 }} onClick={onOpenMap}>🗺 Voir la carte des joueurs</button>}
         </>
+      )}
+      {games && (
+        <div className="fac-chips" style={{ marginTop: 10 }}>
+          <span className="small">Je joue à :</span>
+          {TCG_LIST.map((t) => (
+            <button key={t.id} className={`fac ${games.includes(t.id) ? "on" : ""}`} onClick={() => toggleGame(t.id)}>
+              {games.includes(t.id) ? "✓ " : ""}{t.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {games && (
+        <p className="muted small" style={{ margin: "6px 0 0" }}>
+          {!games.length
+            ? "Choisissez au moins un jeu : sur la carte, chacun ne voit que les joueurs de son jeu."
+            : guessed
+              ? "D'après vos decks. Sur la carte, chacun ne voit que les joueurs de son jeu."
+              : "Sur la carte, chacun ne voit que les joueurs de son jeu."}
+        </p>
       )}
       {err && <p className="err small">{err}</p>}
     </div>

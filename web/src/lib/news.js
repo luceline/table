@@ -4,6 +4,20 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 102,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🗺 Carte des joueurs : chacun ne voit plus que les joueurs de son jeu. Dans Personnalisation › Ma ville, indiquez « Je joue à » Safir Cards, Flesh and Blood ou les deux (par défaut, d'après vos decks)." },
+    ],
+  },
+  {
+    id: 101,
+    date: "23 novembre 2026",
+    items: [
+      { t: "⚙️ Onglet Personnalisation réorganisé : d'abord les réglages pour tous les jeux (profil, notifications, ville, thème, tapis, dos des cartes), puis ceux du jeu choisi seulement (alerte « partenaire recherché », et pour Safir les effets spéciaux)." },
+    ],
+  },
+  {
     id: 100,
     date: "23 novembre 2026",
     tcg: "safir",

@@ -109,7 +109,7 @@ export default function Legal() {
             vente, prix) sont visibles des joueurs connectés avec votre pseudo, pour qu'ils puissent vous écrire. L'appli ne gère
             ni paiement ni envoi : tout se règle entre joueurs.
             Ville (facultative, onglet Personnalisation) : seule la ville choisie dans la liste est enregistrée (son centre, jamais
-            d'adresse) ; elle apparaît avec votre pseudo sur la carte des joueurs et dans votre profil, visibles des joueurs connectés.
+            d'adresse) ; elle apparaît avec votre pseudo sur la carte des joueurs et dans votre profil, visibles des joueurs connectés, avec les jeux auxquels vous jouez (votre choix, sinon déduits de vos decks).
             Vous pouvez la retirer à tout moment. Villes : GeoNames (CC BY 4.0) ; contours des pays : Natural Earth.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
