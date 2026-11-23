@@ -606,6 +606,7 @@ html { background: var(--bg); }
 .auth .players-count { margin: 0 0 14px; }
 /* Tables ouvertes */
 .info-msg { padding: 10px 12px; margin-bottom: 12px; border-radius: 3px; border: 1px solid var(--jade); background: rgba(63,163,127,.12); color: var(--text); font-size: 14px; }
+.partner-row { gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 2px; }
 .open-form { padding: 10px 0 4px; border-top: 1px solid var(--line); margin-bottom: 10px; }
 .open-item { align-items: flex-start; gap: 10px; }
 .open-item .open-now { color: var(--ok); }
@@ -1062,6 +1063,16 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 @keyframes crack-draw { to { stroke-dashoffset: 0; } }
 @keyframes quake-flash { from { opacity: 1; transform-box: fill-box; transform-origin: center; transform: scale(.3); } to { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(1.6); } }
 @keyframes quake-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+.fx-badge { position: absolute; top: 4px; left: 4px; font-size: 15px; line-height: 1; padding: 3px 4px; border-radius: 8px; background: rgba(10,8,30,.78); box-shadow: 0 0 8px rgba(255,210,90,.7); }
+.fx-btn.on { box-shadow: 0 0 0 1px var(--gold), 0 0 8px rgba(255,210,90,.6); }
+.fx-choices { display: grid; gap: 8px; }
+.fx-choices .btn { text-align: left; display: block; padding: 10px 12px; height: auto; white-space: normal; width: 100%; }
+.fx-anchor { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
+.fx-demo-card { position: fixed; z-index: 8999; pointer-events: none; border-radius: 6px; border: 2px solid #d9b46a; display: grid; place-items: center; font-size: 28px;
+  background: linear-gradient(160deg, #2a1f55, #120d2b 60%, #2a1f55); box-shadow: 0 6px 20px rgba(0,0,0,.6); animation: fx-demo 3s ease-out forwards; }
+@keyframes fx-demo { 0% { transform: translateY(-40px) scale(1.15); opacity: 0; } 10% { transform: none; opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+.fx-canvas { position: fixed; left: 0; top: 0; z-index: 9000; pointer-events: none; }
 
 /* Territoire gelé (marqueur Gel) */
 .frozen { position: absolute; pointer-events: none; z-index: 5; border-radius: 6px; overflow: hidden;

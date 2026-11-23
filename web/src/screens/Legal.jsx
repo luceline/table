@@ -133,9 +133,10 @@ export default function Legal() {
             de bout en bout : le relais ne peut ni les écouter ni les voir. Dans un salon vocal, les joueurs connectés voient qui y est.
           </li>
           <li>
-            Si vous activez « 🔔 Me prévenir », l'adresse d'abonnement de votre appareil est enregistrée pour vous envoyer une notification
-            quand quelqu'un rejoint votre table. La notification passe par le service de votre navigateur (Google, Apple, Mozilla…) et contient
-            seulement le pseudo du joueur et le code de la table. Désactivez-la à tout moment au même endroit.
+            Si vous activez les notifications, l'adresse d'abonnement de votre appareil est enregistrée pour vous prévenir : message privé ou de groupe,
+            joueur qui rejoint votre table, carte d'échange qui vous intéresse, et joueur qui cherche un partenaire pour un jeu dont vous avez un deck
+            (coupable à tout moment par « Ne plus prévenir »). La notification passe par le service de votre navigateur (Google, Apple, Mozilla…)
+            et contient seulement le pseudo du joueur et un court texte. Désactivez-les à tout moment dans Personnalisation.
           </li>
           <li>Aucune publicité, aucun outil de mesure d'audience, aucun pistage. Le navigateur garde seulement votre session et vos préférences d'affichage.</li>
         </ul>

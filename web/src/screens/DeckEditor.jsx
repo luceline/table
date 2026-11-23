@@ -5,6 +5,7 @@ import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrul
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { Sheet } from "../components/ui.jsx";
 import { ALL_FACTIONS, KIN_SUB, factionsOf } from "../lib/factions.js";
+import { ARRIVALS, ARRIVAL_MAX, arrivalOf, playArrival } from "../lib/fx.js";
 
 const CMD_MIN = 15; // combattants de la faction du commandant exigés dans le deck
 // Magie = une Valeur sans ATK ni DEF (sinon on la compte comme combattant)
@@ -25,6 +26,8 @@ export default function DeckEditor({ go, deckId }) {
   const [pickCmd, setPickCmd] = useState(false);
   const [cq, setCq] = useState("");
   const [fac, setFac] = useState(""); // filtre par faction
+  const [fx, setFx] = useState({}); // effet d'arrivée choisi par carte (2 cartes différentes au plus)
+  const [fxPick, setFxPick] = useState(null); // carte dont on choisit l'effet
 
   useEffect(() => {
     (async () => {
@@ -37,10 +40,15 @@ export default function DeckEditor({ go, deckId }) {
         setName(d.name);
         setCommander(d.commander && c.some((x) => x.id === d.commander) ? d.commander : "");
         setCards(c);
-        const q = {}, t = {};
-        for (const e of d.entries || []) if (c.some((x) => x.id === e.card)) (e.tok ? t : q)[e.card] = e.tok ? 1 : e.qty;
+        const q = {}, t = {}, f = {};
+        for (const e of d.entries || []) {
+          if (!c.some((x) => x.id === e.card)) continue;
+          (e.tok ? t : q)[e.card] = e.tok ? 1 : e.qty;
+          if (!e.tok && arrivalOf(e.fx) && Object.keys(f).length < ARRIVAL_MAX) f[e.card] = e.fx;
+        }
         setQty(q);
         setTq(t);
+        setFx(f);
       } catch (e) {
         setErr(errMsg(e));
       }
@@ -86,13 +94,27 @@ export default function DeckEditor({ go, deckId }) {
       if (!r[id]) delete r[id];
       return r;
     });
+    if (n <= 0) setFx((f) => { if (!f[id]) return f; const r = { ...f }; delete r[id]; return r; });
     setDirty(true);
+  }
+
+  const fxCount = Object.keys(fx).filter((id) => qty[id]).length;
+  function chooseFx(id, kind) {
+    setFx((f) => {
+      const r = { ...f };
+      if (!kind) delete r[id];
+      else r[id] = kind;
+      return r;
+    });
+    setDirty(true);
+    setFxPick(null);
+    if (kind) playArrival(kind, { cx: window.innerWidth / 2, cy: window.innerHeight / 2, w: 90, h: 125, atk: null, demo: true });
   }
 
   async function save(leave) {
     try {
       const entries = [
-        ...Object.entries(qty).map(([card, n]) => ({ card, qty: n })),
+        ...Object.entries(qty).map(([card, n]) => ({ card, qty: n, ...(fx[card] ? { fx: fx[card] } : null) })),
         ...Object.keys(tq).map((card) => ({ card, qty: 1, tok: true })),
       ];
       await pb.collection("decks").update(deckId, { name: name.trim() || deck.name, entries, commander });
@@ -244,7 +266,11 @@ export default function DeckEditor({ go, deckId }) {
               ))}
             </div>
           )}
-          <h2 style={{ fontSize: 17, marginBottom: 8 }}>Cartes du deck</h2>
+          <h2 style={{ fontSize: 17, marginBottom: 4 }}>Cartes du deck</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            ✨ Effet d'arrivée : touchez ✨ sous une carte du deck pour lui donner une entrée spectaculaire sur le terrain
+            (vue aussi par l'adversaire et les spectateurs). {ARRIVAL_MAX} cartes différentes au plus : <b>{fxCount} / {ARRIVAL_MAX}</b>.
+          </p>
           {normal.length === 0 && <p className="muted">Aucune carte normale scannée.</p>}
           {normal.length > 0 && shown.length === 0 && <p className="muted small">Aucune carte ne correspond.</p>}
           <div className="grid">
@@ -253,11 +279,15 @@ export default function DeckEditor({ go, deckId }) {
                 <div className="thumb" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)} style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null}>
                   {thumb(c)}
                   {qty[c.id] > 0 && <span className="badge">×{qty[c.id]}</span>}
+                  {qty[c.id] > 0 && fx[c.id] && <span className="fx-badge" title={arrivalOf(fx[c.id]).label}>{arrivalOf(fx[c.id]).icon}</span>}
                 </div>
                 <div className="qty">
                   <button className="btn sm icon" onClick={() => setN(c.id, (qty[c.id] || 0) - 1)} disabled={!qty[c.id]}>−</button>
                   <b>{qty[c.id] || 0}</b>
                   <button className="btn sm icon" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)} disabled={(qty[c.id] || 0) >= maxFor(c)}>+</button>
+                  {qty[c.id] > 0 && (
+                    <button className={`btn sm icon fx-btn ${fx[c.id] ? "on" : ""}`} onClick={() => setFxPick(c)} aria-label="Effet d'arrivée" title="Effet d'arrivée sur le terrain">✨</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -290,6 +320,30 @@ export default function DeckEditor({ go, deckId }) {
           </div>
         </>
       )}
+      <Sheet open={!!fxPick} onClose={() => setFxPick(null)} title="Effet d'arrivée">
+        {fxPick && (
+          <>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              « {fxPick.name} » : effet joué chaque fois que la carte arrive face visible sur le terrain.
+              {!fx[fxPick.id] && fxCount >= ARRIVAL_MAX ? ` Ce deck a déjà ${ARRIVAL_MAX} cartes avec un effet : retirez-en un d'abord.` : ""}
+            </p>
+            <div className="fx-choices">
+              {ARRIVALS.map((a) => (
+                <button
+                  key={a.id}
+                  className={`btn ${fx[fxPick.id] === a.id ? "primary" : ""}`}
+                  disabled={!fx[fxPick.id] && fxCount >= ARRIVAL_MAX}
+                  onClick={() => chooseFx(fxPick.id, a.id)}
+                >
+                  <span style={{ fontSize: 20 }}>{a.icon}</span> {a.label}
+                  <span className="muted small" style={{ display: "block", fontWeight: 400 }}>{a.desc}</span>
+                </button>
+              ))}
+              {fx[fxPick.id] && <button className="btn ghost" onClick={() => chooseFx(fxPick.id, null)}>Aucun effet</button>}
+            </div>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }

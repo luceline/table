@@ -4,6 +4,24 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 94,
+    date: "23 novembre 2026",
+    tcg: "safir",
+    items: [
+      { t: "✨ Effets d'arrivée : dans l'éditeur de deck, touchez ✨ sous une carte pour lui donner une entrée spectaculaire sur le terrain (2 cartes différentes au plus par deck). Au choix : 💥 aura de puissance (onde de choc, le terrain se fissure), 🔥 vague de flammes (Yan), 🍃 volée de feuilles (Lin), ❄ arrivée enneigée (Tian). Vus aussi par l'adversaire et les spectateurs." },
+      { t: "🧊 Marqueur Gel : des stalactites se forment en haut de l'écran, tombent et se brisent sur le territoire gelé." },
+      { t: "Personnalisation › Effets spéciaux : pour les revoir, ou les couper sur un téléphone peu puissant. Correction : un deck prêté garde maintenant l'ATK, la DEF et la faction de ses cartes." },
+    ],
+  },
+  {
+    id: 92,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🔔 Nouveau bouton « Je cherche un partenaire » (Jouer › Tables ouvertes) : il ouvre votre table et prévient tous les joueurs qui ont un deck de ce jeu et les notifications activées. Pas plus d'une alerte toutes les 30 minutes, jamais la nuit (23 h - 8 h), ni pendant une partie. Pour les couper : « Ne plus prévenir »." },
+      { t: "⚙️ Nouvelle carte « Notifications » dans Personnalisation : activez-les sur chaque appareil pour être prévenu des messages privés et de groupe, d'un joueur qui rejoint votre table, des échanges et des partenaires recherchés." },
+    ],
+  },
+  {
     id: 91,
     date: "23 novembre 2026",
     items: [

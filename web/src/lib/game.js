@@ -55,9 +55,11 @@ export function buildState({ name, deck, cardsById }) {
       }
       continue;
     }
+    // effet d'arrivée choisi dans l'éditeur de deck (Safir)
+    const card = TCG !== "fab" && typeof e.fx === "string" && /^(aura|yan|lin|tian)$/.test(e.fx) ? { ...base, fx: e.fx } : base;
     for (let i = 0; i < e.qty; i++) {
       const iid = rid(7);
-      cards[iid] = base;
+      cards[iid] = card;
       ids.push(iid);
     }
   }

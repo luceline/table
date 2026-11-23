@@ -4,6 +4,7 @@ import { useVoiceRooms } from "../lib/voicechan.js";
 import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
+import { fxSetting, setFxSetting, playArrival, iceFall, ARRIVALS } from "../lib/fx.js";
 import { LegalFooter } from "./Legal.jsx";
 import NewsPopup from "../components/NewsPopup.jsx";
 import ProfileSheet from "../components/Profile.jsx";
@@ -244,11 +245,16 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   function loanSnapshot(deck) {
     const ents = (deck.entries || []).filter((e) => cardsById[e.card] && e.qty > 0);
     const cmd = deck.commander && cardsById[deck.commander];
-    const snap = (c) => ({ id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind, val: c.val, ...(c.pitch ? { pitch: c.pitch } : null) });
+    const snap = (c) => ({
+      id: c.id, image: c.image, name: c.name, orient: c.orient, kind: c.kind, val: c.val,
+      ...(c.atk ? { atk: c.atk } : null), ...(c.def ? { def: c.def } : null),
+      ...(Array.isArray(c.factions) && c.factions.length ? { factions: c.factions } : null),
+      ...(c.pitch ? { pitch: c.pitch } : null),
+    });
     return {
       name: deck.name,
       by: myName,
-      entries: ents.map((e) => ({ card: e.card, qty: e.qty, ...(e.tok ? { tok: true } : null) })),
+      entries: ents.map((e) => ({ card: e.card, qty: e.qty, ...(e.tok ? { tok: true } : null), ...(e.fx && !e.tok ? { fx: e.fx } : null) })),
       commander: cmd ? cmd.id : "",
       cards: [...ents.map((e) => snap(cardsById[e.card])), ...(cmd ? [snap(cmd)] : [])],
       ...(deck.format ? { format: deck.format } : null),
@@ -620,18 +626,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
         {lobby === "open" && (
         <>
-        <OpenAlertToggle tcg={tcg} />
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 4 }}>
-          {!openForm && (
-            <button className="btn sm" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length && !filmed}>
-              Ouvrir une table
+        {!openForm && (
+          <div className="row partner-row">
+            <button className="btn primary" onClick={() => createGame({ open: true })} disabled={busy || (!decks.length && !filmed) || openTables.some((g) => g.p1 === user.id)}>
+              🔔 Je cherche un partenaire
             </button>
-          )}
-        </div>
+            <button className="btn sm ghost" onClick={() => setOpenForm({ later: false, when: localInput(new Date(Date.now() + 3600000)), note: "" })} disabled={!decks.length && !filmed}>
+              Avec un message ou une heure…
+            </button>
+          </div>
+        )}
         <p className="muted small">
-          Une table visible par tous les joueurs de {tcgName(tcg)} : le premier disponible s'assoit, sans échanger de code.
-          Vous pouvez aussi annoncer une heure : « je joue ce soir à 21 h ».
+          Ouvre une table visible par tous les joueurs de {tcgName(tcg)} : le premier disponible s'assoit, sans échanger de code.
+          Les joueurs qui ont un deck de {tcgName(tcg)} et les notifications activées sont prévenus sur leur téléphone ou leur ordinateur.
         </p>
+        <OpenAlertToggle tcg={tcg} hasDeck={decks.length > 0} />
         {openForm && (
           <div className="open-form">
             <div className="hand-tabs" style={{ marginBottom: 8 }}>
@@ -792,8 +801,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </div>
         <p className="muted small" style={{ margin: "6px 0 0" }}>Titre, badges, série de la carte du jour, et réglage « Apparaître hors ligne ».</p>
       </div>
+      <NotifSettings tcg={tcg} hasDeck={decks.length > 0} />
       <CitySettings onOpenMap={() => setMapOpen(true)} onSaved={reloadMap} />
       <ThemeSettings key={themeKey} />
+      <FxSettings />
       <MatBgSettings />
       <CardBackSettings />
       </>)}
@@ -923,6 +934,53 @@ function AgendaCard({ agenda, go }) {
             ? `${p} joueur${p > 1 ? "s" : ""} disponible${p > 1 ? "s" : ""} en même temps que vous : proposez-leur une partie.`
             : "Indiquez vos jours et heures de jeu : l'appli vous montre les joueurs disponibles en même temps."}
       </p>
+    </div>
+  );
+}
+
+// Personnalisation : notifications de cet appareil (messages privés, groupes, table rejointe, partenaire recherché, échanges)
+function NotifSettings({ tcg, hasDeck }) {
+  const [v, setV] = useState(0);
+  return (
+    <div className="card-box">
+      <h2 style={{ margin: 0 }}>🔔 Notifications</h2>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>
+        Sur cet appareil, même appli fermée : messages privés et de groupe, joueur qui rejoint votre table, carte d'échange qui vous intéresse,
+        et joueur qui cherche un partenaire. Sur iPhone, l'appli doit être ajoutée à l'écran d'accueil.
+      </p>
+      <PushToggle onText="Notifications activées sur cet appareil." offText="Notifications désactivées sur cet appareil." onChange={() => setV((x) => x + 1)} />
+      <OpenAlertToggle key={tcg + v} tcg={tcg} hasDeck={hasDeck} onlyWhenOn />
+    </div>
+  );
+}
+
+// Personnalisation : effets spéciaux de Safir (effets d'arrivée choisis dans les decks, Gel), réglage de cet appareil
+function FxSettings() {
+  const [v, setV] = useState(fxSetting);
+  const demo = (kind) => playArrival(kind, { cx: window.innerWidth / 2, cy: window.innerHeight / 2, w: 90, h: 125, atk: kind === "aura" ? 11 : null, demo: true });
+  function pick(x) {
+    setFxSetting(x);
+    setV(x);
+  }
+  return (
+    <div className="card-box">
+      <h2 style={{ margin: 0 }}>✨ Effets spéciaux</h2>
+      <p className="muted small" style={{ margin: "6px 0 8px" }}>
+        Safir : effets d'arrivée sur le terrain (à choisir pour 2 cartes par deck, bouton ✨ dans l'éditeur de deck)
+        et stalactites de glace quand un territoire est gelé. Ce réglage ne concerne que cet appareil.
+      </p>
+      <div className="hand-tabs">
+        <button className={v === "full" ? "on" : ""} onClick={() => pick("full")}>Activés</button>
+        <button className={v === "off" ? "on" : ""} onClick={() => pick("off")}>Coupés</button>
+      </div>
+      {v === "full" && (
+        <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          {ARRIVALS.map((a) => (
+            <button key={a.id} className="btn sm ghost" onClick={() => demo(a.id)}>{a.icon} {a.label}</button>
+          ))}
+          <button className="btn sm ghost" onClick={() => iceFall({ left: window.innerWidth * 0.3, top: window.innerHeight * 0.45, width: window.innerWidth * 0.4, height: window.innerHeight * 0.4 })}>🧊 Gel</button>
+        </div>
+      )}
     </div>
   );
 }

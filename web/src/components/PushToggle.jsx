@@ -3,7 +3,7 @@ import { pushState, enablePush, disablePush } from "../lib/push.js";
 import { me, errMsg } from "../pb.js";
 
 // « Me prévenir quand quelqu'un rejoint ma table » : notification sur cet appareil, même appli fermée
-export default function PushToggle({ compact, onText, offText }) {
+export default function PushToggle({ compact, onText, offText, onChange }) {
   const [st, setSt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -17,6 +17,7 @@ export default function PushToggle({ compact, onText, offText }) {
     try {
       await enablePush(me().id);
       setSt("on");
+      onChange?.("on");
     } catch (e) {
       const m = e?.message || errMsg(e);
       setErr(/^[A-Z][a-z]+ failed|denied|abort|not supported/i.test(m) && !/réglages/.test(m) ? "Ce navigateur n'a pas pu activer les notifications. Essayez Chrome à jour (Android) ou l'appli ajoutée à l'écran d'accueil (iPhone)." : m);
@@ -30,6 +31,7 @@ export default function PushToggle({ compact, onText, offText }) {
     await disablePush().catch(() => {});
     setSt("off");
     setBusy(false);
+    onChange?.("off");
   }
   return (
     <div className={`push-toggle ${compact ? "compact" : ""}`}>

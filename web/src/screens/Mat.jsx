@@ -4,10 +4,10 @@ import {
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
+import { playArrival, iceFall } from "../lib/fx.js";
 
 // ---------- Effets visuels Safir ----------
-// Attaque de plus de 8 (carte + unification + bonus) : le tapis tremble et se fissure autour de la carte
-export const QUAKE_ATK = 8;
+// Attaque affichée (carte + unification + bonus) ; effet d'arrivée « aura » : le tapis tremble et se fissure autour de la carte
 export const effAtk = (b, c) => (typeof c?.a === "number" ? c.a + (UNIF_STATS[b.u]?.a || 0) + (b.bx?.a || 0) : null);
 const hash = (str) => {
   let h = 2166136261;
@@ -132,7 +132,8 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 
-  // Attaque de plus de 8 qui arrive sur le tapis (posée, retournée, ou montée par unification ou bonus) : séisme
+  // Carte avec un effet d'arrivée (choisi dans l'éditeur de deck) qui arrive face visible sur le terrain
+  // (posée, ou retournée face visible) : effet plein écran ; « aura » fait aussi trembler et fissurer le tapis.
   const bigRef = useRef(null);
   const [quakes, setQuakes] = useState([]); // [{ k, iid, x, y }] en mm
   useEffect(() => {
@@ -141,22 +142,56 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
     const fresh = [];
     for (const b of st.board || []) {
       const c = st.cards?.[b.iid];
-      if (!c || b.down || c.cmd) continue;
-      const a = effAtk(b, c);
-      if (a !== null && a > QUAKE_ATK) {
-        now.add(b.iid);
-        if (bigRef.current && !bigRef.current.has(b.iid)) fresh.push({ k: `${b.iid}-${Date.now()}`, iid: b.iid, x: b.x, y: b.y });
+      if (!c || b.down || c.cmd || !c.fx) continue;
+      now.add(b.iid);
+      if (bigRef.current && !bigRef.current.has(b.iid)) {
+        const dim = c.o === "l" ? CARD.l : CARD.p;
+        const swap = (b.rot || 0) % 180 !== 0;
+        fresh.push({ k: `${b.iid}-${Date.now()}`, iid: b.iid, x: b.x, y: b.y, w: swap ? dim.h : dim.w, h: swap ? dim.w : dim.h, atk: effAtk(b, c), fx: c.fx });
       }
     }
     bigRef.current = now; // premier affichage : on mémorise sans effet
     if (!fresh.length) return;
-    setQuakes((q) => [...q, ...fresh]);
-    try { if (document.visibilityState === "visible") navigator.vibrate?.([60, 40, 120]); } catch (_) {}
-    // retrait après l'animation (minuterie indépendante : l'état change souvent entre-temps)
-    setTimeout(() => aliveRef.current && setQuakes((q) => q.filter((x) => !fresh.includes(x))), 2600);
+    const one = fresh[0]; // une seule à la fois si plusieurs arrivent ensemble
+    if (one.fx === "aura") {
+      setQuakes((q) => [...q, one]);
+      setTimeout(() => aliveRef.current && setQuakes((q) => q.filter((x) => x !== one)), 2600);
+    }
+    const sc = toScreen();
+    if (sc) {
+      const p = pt(one.x, one.y);
+      playArrival(one.fx, { cx: sc.x + p.x * sc.k, cy: sc.y + p.y * sc.k, w: one.w * s * sc.k, h: one.h * s * sc.k, atk: one.atk });
+    }
   }, [st?.board, st?.cards]);
   const aliveRef = useRef(true);
   useEffect(() => () => { aliveRef.current = false; }, []);
+
+  // Position du tapis à l'écran (pour les effets plein écran) : coin haut gauche et échelle réelle
+  const anchorRef = useRef(null);
+  const toScreen = () => {
+    const r = anchorRef.current?.getBoundingClientRect();
+    if (!r || !r.width) return null;
+    return { x: r.left, y: r.top, k: r.width / (MAT_W * s) };
+  };
+
+  // Marqueur Gel posé : stalactites qui tombent sur le territoire nouvellement gelé
+  const frozenKey = TCG === "fab" ? "" : (frozen || []).join(",");
+  const frozenRef = useRef(null);
+  useEffect(() => {
+    const prev = frozenRef.current;
+    frozenRef.current = frozenKey;
+    if (prev === null) return; // premier affichage : rien
+    const before = new Set(prev ? prev.split(",") : []);
+    const added = (frozenKey ? frozenKey.split(",") : []).filter((t) => !before.has(t));
+    const sc = added.length ? toScreen() : null;
+    if (!sc) return;
+    for (const t of added) {
+      const x0 = [3, 201.5, 398.5][+t], x1 = [201.5, 398.5, 597][+t];
+      if (x0 === undefined) continue;
+      const b = box(x0, 3, x1 - x0, MAT_H - 6);
+      iceFall({ left: sc.x + b.left * sc.k, top: sc.y + b.top * sc.k, width: b.width * sc.k, height: b.height * sc.k });
+    }
+  }, [frozenKey]);
 
   return (
     <div
@@ -164,6 +199,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
       className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""} ${quakes.length ? "quake" : ""}`}
       style={{ top, left, width: MAT_W * s, height: MAT_H * s, ...(back ? { "--cb": `url("${back}")` } : null) }}
     >
+      <div ref={anchorRef} className="fx-anchor" />
       {/* Fond personnel du joueur (vu aussi par l'adversaire et les spectateurs), sous les emplacements du tapis */}
       {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
       {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
@@ -280,7 +316,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
           );
         })}
 
-      {/* Séisme : fissures autour d'une carte de plus de 8 d'attaque */}
+      {/* Séisme (effet d'arrivée « aura ») : fissures autour de la carte */}
       {quakes.map((q) => {
         const p = pt(q.x, q.y);
         return (
