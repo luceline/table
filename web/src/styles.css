@@ -1042,3 +1042,116 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .daily-board li.me { background: rgba(201,164,92,.1); border-radius: 8px; }
 .daily-board .rk { width: 26px; text-align: center; }
 .salon-input.daily-only { align-items: center; gap: 10px; }
+
+/* Jeton joué depuis la réserve : bord violet en pointillés et étiquette « JETON » */
+.tok-frame { border: 2.5px dashed #b48cff !important; box-shadow: inset 0 0 0 1px rgba(20,10,40,.6), 0 0 6px rgba(180,140,255,.55); }
+.tok-tag { position: absolute; left: 50%; top: 27%; transform: translateX(-50%); padding: 0 .45em; border-radius: 1em; background: rgba(110,60,200,.92); color: #fff; font-weight: 800; letter-spacing: .06em; line-height: 1.5; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,.6); white-space: nowrap; }
+
+/* Séisme (attaque de plus de 8) : le tapis tremble, se fissure, puis tout s'efface */
+.mat.quake { animation: mat-quake .6s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes mat-quake {
+  10%, 90% { transform: translate(-1px, 1px); }
+  20%, 80% { transform: translate(3px, -2px); }
+  30%, 50%, 70% { transform: translate(-5px, 2px) rotate(-.4deg); }
+  40%, 60% { transform: translate(5px, -1px) rotate(.4deg); }
+}
+.quake-fx { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 6; overflow: hidden; animation: quake-fade 2.6s ease-in forwards; }
+.quake-fx .crack { fill: none; stroke: #ffe9c2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 900; stroke-dashoffset: 900; animation: crack-draw .45s ease-out forwards; filter: drop-shadow(0 0 3px rgba(255,170,80,.9)); }
+.quake-fx .crack-shadow { fill: none; stroke: rgba(20,8,0,.85); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 900; stroke-dashoffset: 900; animation: crack-draw .45s ease-out forwards; }
+.quake-fx .quake-flash { fill: rgba(255,190,110,.55); animation: quake-flash .7s ease-out forwards; }
+@keyframes crack-draw { to { stroke-dashoffset: 0; } }
+@keyframes quake-flash { from { opacity: 1; transform-box: fill-box; transform-origin: center; transform: scale(.3); } to { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(1.6); } }
+@keyframes quake-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Territoire gelé (marqueur Gel) */
+.frozen { position: absolute; pointer-events: none; z-index: 5; border-radius: 6px; overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255,255,255,.22) 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 65%, rgba(255,255,255,.18) 0 1.5px, transparent 2.5px),
+    linear-gradient(160deg, rgba(190,230,255,.20), rgba(120,185,255,.10) 55%, rgba(200,240,255,.18));
+  background-size: 37px 41px, 29px 31px, 100% 100%;
+  border: 1px solid rgba(215,240,255,.75);
+  box-shadow: inset 0 0 22px rgba(205,236,255,.8), inset 0 0 5px #fff, 0 0 10px rgba(150,210,255,.45);
+  animation: freeze-in 1s ease-out both; }
+.frozen::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(255,255,255,.07) 22px 24px); }
+@keyframes freeze-in { 0% { opacity: 0; background-color: rgba(255,255,255,.75); } 35% { opacity: 1; background-color: rgba(230,246,255,.45); } 100% { background-color: transparent; } }
+.fz-flake { position: absolute; color: rgba(235,248,255,.9); text-shadow: 0 0 6px rgba(160,215,255,.9); font-size: 18px; animation: flake 4s ease-in-out infinite; }
+.fz-flake.f1 { left: 6%; top: 8%; }
+.fz-flake.f2 { right: 8%; top: 40%; font-size: 14px; animation-delay: -1.3s; }
+.fz-flake.f3 { left: 30%; bottom: 8%; font-size: 15px; animation-delay: -2.1s; }
+.fz-flake.f4 { right: 22%; bottom: 30%; font-size: 12px; animation-delay: -3s; }
+@keyframes flake { 0%, 100% { transform: translateY(0) rotate(0); opacity: .85; } 50% { transform: translateY(-4px) rotate(30deg); opacity: .5; } }
+@media (prefers-reduced-motion: reduce) {
+  .mat.quake, .fz-flake, .frozen { animation: none; }
+}
+
+/* Salons intégrés à l'accueil (colonne de droite sur grand écran) : mêmes règles que sur téléphone */
+.salons.embed { height: 100%; max-width: none; margin: 0; }
+.salons.embed .salons-body { flex-direction: column; }
+.salons.embed .salons-list { width: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; padding: 8px 10px; }
+.salons.embed .salons-list .salon-chip { border-color: var(--line); }
+.salons.embed .salon-del { opacity: .6; }
+.salons.embed .voice-bar.in-nav { display: none; }
+.salons.embed .voice-bar.in-main { display: flex; }
+.salons.embed .vroom-ppl { display: none; }
+.salons.embed .vroom-item { flex-direction: row; }
+.salons.embed .voice-screens.n2 { grid-template-columns: 1fr; }
+.salons.embed .voice-people { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.salons.embed .voice-person { padding: 8px 4px; }
+.salons.embed .voice-avatar { width: 42px; height: 42px; font-size: 18px; }
+.salons.embed.m-chat .salons-list { display: none; }
+.salons.embed.m-list .salon-main { display: none; }
+.salons.embed.m-list .salons-list { flex: 1; width: auto; flex-direction: column; overflow-y: auto; overflow-x: hidden; border: 0; gap: 2px; padding: 4px 12px calc(12px + env(safe-area-inset-bottom)); }
+.salons.embed.m-list .salons-list .salon-chip { width: 100%; justify-content: flex-start; border-color: transparent; padding: 11px 12px; font-size: 17px; border-radius: 10px; white-space: nowrap; }
+.salons.embed.m-list .salons-list .salon-chip .hash { width: 22px; text-align: center; }
+.salons.embed.m-list .salons-list .salon-chip:not(.unread):not(.on) { color: var(--muted); }
+.salons.embed.m-list .salons-list .salon-chip.on { background: rgba(255,255,255,.06); }
+.salons.embed.m-list .dm-head { display: flex; margin: 18px 6px 4px; font-size: 12px; }
+.salons.embed.m-list .dm-head:first-child { margin-top: 8px; }
+.salons.embed.m-list .dm-new { width: 30px; height: 30px; font-size: 18px; }
+.salons.embed.m-list .vroom-item { flex-direction: column; }
+.salons.embed.m-list .vroom-ppl { display: flex; padding: 0 0 6px 46px; font-size: 15px; gap: 3px; }
+.salons.embed.m-list .voice-bar.in-nav { display: flex; position: sticky; bottom: 0; margin-top: auto; flex-wrap: nowrap; }
+.salons.embed.m-list .voice-bar.in-nav .voice-bar-name { flex-basis: auto; }
+
+/* Accueil : onglets ; grand écran : salons dans une colonne à droite, toujours visibles */
+.home-tabs { display: flex; gap: 6px; margin: 4px 0 14px; overflow-x: auto; scrollbar-width: none; }
+.home-tabs::-webkit-scrollbar { display: none; }
+.home-tabs button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.home-tabs button.on { color: var(--text); border-color: var(--gold2, var(--accent)); background: rgba(255,255,255,.06); }
+.home-wide { display: flex; align-items: flex-start; justify-content: center; gap: 18px; padding: 0 16px; }
+.home-wide .home-main { flex: 1 1 auto; max-width: 760px; margin: 0; height: 100dvh; overflow-y: auto; }
+.home-side { flex: 0 0 440px; height: 100dvh; position: sticky; top: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: rgba(0,0,0,.12); }
+@media (min-width: 1500px) { .home-side { flex-basis: 520px; } }
+
+/* Échanges */
+.trades h3 { font-size: 15px; margin: 12px 0 6px; }
+.trade-form { margin: 10px 0 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.trade-kind { gap: 6px; margin-bottom: 8px; }
+.trade-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.trade-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); min-width: 80px; }
+.trade-fields label .input { height: 38px; }
+.trade-fields label.grow { flex: 1 1 140px; }
+.trade-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .trade-lists { grid-template-columns: 1fr; } }
+.trade-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.trade-row:last-child { border-bottom: 0; }
+.trade-k { width: 22px; text-align: center; }
+.trade-admin { margin-top: 12px; }
+.home-wide + .voice-bar.float { display: none; }
+@media (max-width: 560px) { .home-tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; } .home-tabs button { padding: 8px 6px; font-size: 14px; } }
+.trades .lobby-tabs button { white-space: nowrap; }
+.trades .lbl-short { display: none; }
+@media (max-width: 560px) {
+  .trades .lbl-long { display: none; }
+  .trades .lbl-short { display: inline; }
+  .trades .lobby-tabs button { padding-left: 4px; padding-right: 4px; font-size: 14px; }
+}
+.trade-fields label.qty { min-width: 64px; width: 72px; }
+.trade-cross { margin: 8px 0 12px; padding: 10px; border: 1px solid var(--gold2, var(--accent)); border-radius: 10px; background: rgba(201,164,92,.06); }
+.trade-cross h3 { margin-top: 0; }
+.trade-cross-item { padding: 8px 0; border-top: 1px solid var(--line); }
+.trade-cross-item:first-of-type { border-top: 0; }
+.trade-fair { font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.trade-fair.eq { color: #8fe3a2; border-color: rgba(80,190,110,.5); }
+.trade-fair.neq { color: #ffd9a8; border-color: rgba(224,160,64,.5); }

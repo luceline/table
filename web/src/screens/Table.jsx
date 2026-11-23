@@ -11,7 +11,7 @@ import { pb, me, cardUrl, errMsg, fileUrl, safeUn } from "../pb.js";
 import { startRecording, canRecord, extFor, playVoice, unlockAudio, onVoiceState, MAX_SEC } from "../lib/voice.js";
 import { watchCount, tribuneMuted, setTribuneMuted } from "../lib/tribune.js";
 import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
-import { Mat } from "./Mat.jsx";
+import { Mat, frozenTerritories } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
@@ -1451,6 +1451,7 @@ export default function Table({ go, gameId, side = "" }) {
   const myTokens = tokens.filter((t) => t.side === mySide);
   const nMyTok = myTokens.filter((t) => !t.label).length;
   const oppTokens = tokens.filter((t) => t.side !== mySide);
+  const frozen = frozenTerritories(tokens);
   const ticker = opp?.log?.length ? logLine(opp.name, opp.log[opp.log.length - 1].m) : "";
 
   return (
@@ -1555,7 +1556,7 @@ export default function Table({ go, gameId, side = "" }) {
                 {L.opp && (
                   <>
                     <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} />
-                    <Mat side="opp" st={opp} vs={mine} bg={oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
+                    <Mat side="opp" st={opp} vs={mine} bg={oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1574,7 +1575,7 @@ export default function Table({ go, gameId, side = "" }) {
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} back={cardBackOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} back={cardBackOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
                     {mine?.filmed && (
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}

@@ -134,6 +134,8 @@ export default function DeckEditor({ go, deckId }) {
   // Faction du commandant : sa sous-faction Kin si elle est indiquée (ex. Lin), sinon ses factions
   const cmdAll = factionsOf(cmdCard);
   const cmdF = cmdAll.some((f) => KIN_SUB.includes(f)) ? cmdAll.filter((f) => KIN_SUB.includes(f)) : cmdAll;
+  // Combattants de la faction du commandant : seulement les cartes du deck (une carte « Les deux » mise dans le deck compte ;
+  // les jetons de la réserve ne comptent pas)
   const cmdCount = normal
     .filter((c) => qty[c.id] && !isMagic(c) && factionsOf(c).some((f) => cmdF.includes(f)))
     .reduce((n, c) => n + qty[c.id], 0);

@@ -105,7 +105,9 @@ export default function Legal() {
             calculés à partir du nombre de vos parties, decks, cartes scannées, messages et résultats de la carte du jour.
             La carte du jour montre l'image d'une carte scannée par un joueur, sans dire laquelle ni de qui ; le classement du mois
             affiche les pseudos et les points. Rappel du soir (facultatif) : une notification si des joueurs ont des disponibilités
-            en commun avec vous ce soir.
+            en commun avec vous ce soir. Échanges : vos listes de cartes en double et recherchées (saison, numéro, nom, échange ou
+            vente, prix) sont visibles des joueurs connectés avec votre pseudo, pour qu'ils puissent vous écrire. L'appli ne gère
+            ni paiement ni envoi : tout se règle entre joueurs.
             Votre tapis et votre dos de cartes personnalisés sont vus par vos adversaires et les spectateurs de vos parties.
             Tout joueur peut les signaler : l'image est alors masquée aux autres jusqu'à la vérification de l'administrateur,
             qui peut la débloquer ou la supprimer.

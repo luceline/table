@@ -8,6 +8,8 @@ import { LegalFooter } from "./Legal.jsx";
 import NewsPopup from "../components/NewsPopup.jsx";
 import ProfileSheet from "../components/Profile.jsx";
 import { loadDaily } from "./Daily.jsx";
+import Salons from "./Salons.jsx";
+import Trades, { useTrades } from "../components/Trades.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, safeUn } from "../pb.js";
 import { buildState, genCode } from "../lib/game.js";
@@ -55,6 +57,27 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [filmed, setFilmed] = useState(false);
   const [soloForm, setSoloForm] = useState(null); // partie solo : { a, b } decks choisis pour les deux côtés // je joue avec mes cartes réelles, filmées par un téléphone
   const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
+  // Onglets de l'accueil (mémorisés sur l'appareil) ; grand écran : salons dans une colonne à droite
+  const [tab, setTabState] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.has("echanges")) return "echanges";
+    try { return localStorage.getItem("home_tab") || "jouer"; } catch (_) { return "jouer"; }
+  });
+  const setTab = (t) => {
+    setTabState(t);
+    try { localStorage.setItem("home_tab", t); } catch (_) {}
+  };
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("echanges")) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  const [wideHome, setWideHome] = useState(() => window.matchMedia("(min-width: 1180px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1180px)");
+    const f = () => setWideHome(mq.matches);
+    mq.addEventListener("change", f);
+    return () => mq.removeEventListener("change", f);
+  }, []);
+  const [profOpen, setProfOpen] = useState(false);
   // Arrivée depuis une notification « table ouverte » (?tables=jeu) : bon jeu, onglet Tables ouvertes à l'écran
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -85,6 +108,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const agenda = useAgenda(user?.id, tcg); // propositions de partie et parties prévues
   const [newsOpen, setNewsOpen] = useState(false); // relire les nouveautés
   const isAdmin = useIsAdmin(user?.id);
+  const trades = useTrades(tcg);
   const wl = useResults(user?.id, tcg, decks.map((d) => d.id)); // victoires / défaites par deck (privé)
   const live = useLive(tcg); // parties en cours des autres joueurs, à regarder en spectateur
   // thème enregistré sur le compte (choisi sur un autre appareil) : appliqué ici
@@ -403,8 +427,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     }
   }
 
+  const TABS = [
+    ["jouer", "🎲 Jouer"],
+    ["cartes", "🃏 Mes cartes"],
+    ["echanges", "🤝 Échanges", trades.matches.length],
+    ["perso", "🎨 Personnalisation"],
+  ];
   return (
-    <div className="page">
+    <div className={`home ${wideHome ? "home-wide" : ""}`}>
+    <div className="page home-main">
       <div className="topbar">
         <div className="brand grow">Table de jeu</div>
         <span className="muted small">{user.name || user.email}</span>
@@ -430,11 +461,20 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {err && <div className="err">{err}</div>}
       {info && <div className="info-msg">{info}</div>}
 
+      <div className="home-tabs" role="tablist" aria-label="Accueil">
+        {TABS.map(([id, label, n]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
+            {label}{n ? <span className="lobby-n live">{n}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === "jouer" && (<>
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
 
       <DailyCard tcg={tcg} userId={user.id} go={go} />
-      <SalonsCard tcg={tcg} userId={user.id} go={go} />
+      {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
 
       <div className="card-box">
@@ -641,6 +681,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
+      </>)}
+
       <Sheet open={!!soloForm} onClose={() => setSoloForm(null)} title="Partie solo">
         {soloForm && (
           <>
@@ -688,6 +730,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </Sheet>
 
+      {tab === "cartes" && (<>
       <div className="card-box">
         <h2>Ma collection</h2>
         <p className="muted small" style={{ marginTop: 0 }}>
@@ -733,15 +776,35 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
+      </>)}
+
+      {tab === "echanges" && <Trades tcg={tcg} go={go} admin={isAdmin} data={trades} />}
+
+      {tab === "perso" && (<>
+      <div className="card-box">
+        <div className="row" style={{ alignItems: "center" }}>
+          <h2 className="grow" style={{ margin: 0 }}>🏅 Mon profil</h2>
+          <button className="btn sm" onClick={() => setProfOpen(true)}>Voir mon profil et mes badges</button>
+        </div>
+        <p className="muted small" style={{ margin: "6px 0 0" }}>Titre, badges, série de la carte du jour, et réglage « Apparaître hors ligne ».</p>
+      </div>
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
+      </>)}
+      <ProfileSheet uid={profOpen ? user.id : null} onClose={() => setProfOpen(false)} />
       <p className="news-link">
         <button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button>
         {isAdmin && <button className="btn sm ghost" onClick={() => go("moderation")}>⚑ Signalements</button>}
       </p>
       <LegalFooter />
       <NewsPopup user={user} tcg={tcg} forceOpen={newsOpen} onClose={() => setNewsOpen(false)} />
+    </div>
+    {wideHome && (
+      <aside className="home-side">
+        <Salons key={tcg} go={go} embedded />
+      </aside>
+    )}
     </div>
   );
 }

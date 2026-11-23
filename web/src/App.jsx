@@ -108,7 +108,7 @@ export default function App() {
     case "daily":
       return <Daily go={go} />;
     case "salons":
-      return <Salons go={go} channelId={screen.channelId} dm={screen.dm} voice={screen.voice} />;
+      return <Salons go={go} channelId={screen.channelId} dm={screen.dm} voice={screen.voice} draft={screen.draft} />;
     case "scan":
       return <Scanner go={go} />;
     case "deck":

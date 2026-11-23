@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ZoomPreview } from "../components/ZoomView.jsx";
 import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
-import { Mat } from "./Mat.jsx";
+import { Mat, frozenTerritories } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
@@ -328,12 +328,12 @@ export default function Spectator({ code }) {
           {game && vp.w > 0 && (
             <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} back={look2.back} extra={authed && (look2.bg || look2.back) && game.p2 !== pb.authStore.record?.id ? <ReportButton inline onClick={() => setReport({ uid: game.p2, name: p2?.name || game.n2, look: look2 })} /> : null} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
-              <Mat side="opp" st={p2} vs={p1} bg={look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
+              <Mat side="opp" st={p2} vs={p1} bg={look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
               {p2?.filmed && (
                 <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
               {p2?.filmed && <VideoTokens tokens={tokens("p2").filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.opp} s={s} />}
-              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} bg={look1.bg} back={look1.back} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
+              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} bg={look1.bg} back={look1.back} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
               {p1?.filmed && (
                 <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rot={p1.camRot || 0} name={p1.name} side="mine" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
               )}

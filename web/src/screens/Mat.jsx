@@ -1,9 +1,62 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, mirrorX, mirrorRectX,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
-import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG } from "../lib/game.js";
+import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
+
+// ---------- Effets visuels Safir ----------
+// Attaque de plus de 8 (carte + unification + bonus) : le tapis tremble et se fissure autour de la carte
+export const QUAKE_ATK = 8;
+export const effAtk = (b, c) => (typeof c?.a === "number" ? c.a + (UNIF_STATS[b.u]?.a || 0) + (b.bx?.a || 0) : null);
+const hash = (str) => {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+// Fissures (en px) qui partent du point d'impact : 9 branches irrégulières, toujours les mêmes pour une carte
+function cracks(seed, x, y, len) {
+  let r = seed || 1;
+  const rnd = () => ((r = Math.imul(r ^ (r >>> 15), 2246822507) ^ Math.imul(r ^ (r >>> 13), 3266489909)) >>> 0) / 4294967296;
+  const paths = [];
+  const n = 9;
+  for (let i = 0; i < n; i++) {
+    let a = (i / n) * Math.PI * 2 + rnd() * 0.5;
+    let px = x, py = y, d = `M${x.toFixed(1)} ${y.toFixed(1)}`;
+    const L = len * (0.45 + rnd() * 0.55);
+    const steps = 6 + Math.floor(rnd() * 4);
+    for (let k = 0; k < steps; k++) {
+      a += (rnd() - 0.5) * 0.9;
+      const st = (L / steps) * (0.7 + rnd() * 0.6);
+      px += Math.cos(a) * st;
+      py += Math.sin(a) * st;
+      d += ` L${px.toFixed(1)} ${py.toFixed(1)}`;
+      if (k > 1 && rnd() < 0.3) {
+        // petite branche
+        const b = a + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.6);
+        const bl = st * (0.8 + rnd());
+        paths.push({ d: `M${px.toFixed(1)} ${py.toFixed(1)} L${(px + Math.cos(b) * bl).toFixed(1)} ${(py + Math.sin(b) * bl).toFixed(1)}`, w: 0.6 });
+      }
+    }
+    paths.push({ d, w: 1 });
+  }
+  return paths;
+}
+// Marqueurs « Gel » : territoires gelés (Gel+ : aussi les territoires voisins). Les territoires se font face (I contre I) :
+// un territoire gelé l'est des deux côtés.
+export function frozenTerritories(markers) {
+  const out = new Set();
+  for (const t of markers || []) {
+    if (!t.label || !/^\s*gel/i.test(t.label) || typeof t.x !== "number") continue;
+    const k = t.x < 201.5 ? 0 : t.x < 398.5 ? 1 : 2;
+    out.add(k);
+    if (/^\s*gel\s*\+/i.test(t.label)) {
+      if (k > 0) out.add(k - 1);
+      if (k < 2) out.add(k + 1);
+    }
+  }
+  return [...out].sort();
+}
 
 const GOLD = "rgba(212,176,97,.5)"; // or du thème Jade et laque
 const GOLD_TXT = "rgba(222,190,118,.78)";
@@ -66,7 +119,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX }) {
   );
 });
 
-export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, children }) {
+export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, frozen, children }) {
   const mine = side === "mine";
   const flip = !mine;
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
@@ -79,10 +132,36 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 
+  // Attaque de plus de 8 qui arrive sur le tapis (posée, retournée, ou montée par unification ou bonus) : séisme
+  const bigRef = useRef(null);
+  const [quakes, setQuakes] = useState([]); // [{ k, iid, x, y }] en mm
+  useEffect(() => {
+    if (TCG === "fab" || !st) return;
+    const now = new Set();
+    const fresh = [];
+    for (const b of st.board || []) {
+      const c = st.cards?.[b.iid];
+      if (!c || b.down || c.cmd) continue;
+      const a = effAtk(b, c);
+      if (a !== null && a > QUAKE_ATK) {
+        now.add(b.iid);
+        if (bigRef.current && !bigRef.current.has(b.iid)) fresh.push({ k: `${b.iid}-${Date.now()}`, iid: b.iid, x: b.x, y: b.y });
+      }
+    }
+    bigRef.current = now; // premier affichage : on mémorise sans effet
+    if (!fresh.length) return;
+    setQuakes((q) => [...q, ...fresh]);
+    try { if (document.visibilityState === "visible") navigator.vibrate?.([60, 40, 120]); } catch (_) {}
+    // retrait après l'animation (minuterie indépendante : l'état change souvent entre-temps)
+    setTimeout(() => aliveRef.current && setQuakes((q) => q.filter((x) => !fresh.includes(x))), 2600);
+  }, [st?.board, st?.cards]);
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
+
   return (
     <div
       ref={matRef}
-      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""}`}
+      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""} ${quakes.length ? "quake" : ""}`}
       style={{ top, left, width: MAT_W * s, height: MAT_H * s, ...(back ? { "--cb": `url("${back}")` } : null) }}
     >
       {/* Fond personnel du joueur (vu aussi par l'adversaire et les spectateurs), sous les emplacements du tapis */}
@@ -177,6 +256,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
             >
               {showFace ? <img src={cardUrl(c)} alt="" draggable={false} /> : <div className="back" />}
               {c.tok && <div className="tok-frame" />}
+              {c.tok && <div className="tok-tag" style={{ fontSize: Math.max(7, 3.6 * s) }}>JETON</div>}
               {b.down && mine && !spectator && (
                 <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,20,.55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.max(9, 4 * s), color: "#d6be8c", textAlign: "center", lineHeight: 1.1 }}>
                   face<br />cachée
@@ -185,6 +265,36 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
             </div>
           );
         })}
+
+      {/* Territoires gelés (marqueur Gel) : givre sur tout le territoire, cartes toujours lisibles */}
+      {TCG !== "fab" &&
+        (frozen || []).map((t) => {
+          const x0 = [3, 201.5, 398.5][t], x1 = [201.5, 398.5, 597][t];
+          return (
+            <div key={`fz${t}`} className="frozen" style={box(x0, 3, x1 - x0, MAT_H - 6)}>
+              <span className="fz-flake f1">❄</span>
+              <span className="fz-flake f2">❄</span>
+              <span className="fz-flake f3">❅</span>
+              <span className="fz-flake f4">❆</span>
+            </div>
+          );
+        })}
+
+      {/* Séisme : fissures autour d'une carte de plus de 8 d'attaque */}
+      {quakes.map((q) => {
+        const p = pt(q.x, q.y);
+        return (
+          <svg key={q.k} className="quake-fx" width={MAT_W * s} height={MAT_H * s} viewBox={`0 0 ${MAT_W * s} ${MAT_H * s}`}>
+            <circle className="quake-flash" cx={p.x} cy={p.y} r={CARD.p.h * s * 0.9} />
+            {cracks(hash(q.iid), p.x, p.y, MAT_W * s * 0.42).map((c, i) => (
+              <g key={i}>
+                <path d={c.d} className="crack-shadow" strokeWidth={Math.max(2.2, 3.4 * c.w * Math.min(1.4, s))} />
+                <path d={c.d} className="crack" strokeWidth={Math.max(1, 1.5 * c.w * Math.min(1.4, s))} />
+              </g>
+            ))}
+          </svg>
+        );
+      })}
 
       {/* Jetons */}
       {tokens.map((t) => {

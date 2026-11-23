@@ -55,7 +55,8 @@ function when(s) {
 }
 
 // Salons de discussion du jeu choisi, comme sur Discord : salons à gauche (ou en haut sur téléphone), messages en direct
-export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }) {
+// embedded : salons dans la colonne de droite de l'accueil (grand écran), présentés comme sur téléphone
+export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart, embedded, draft }) {
   const user = me();
   const tcg = currentTcg();
   const admin = useIsAdmin(user.id);
@@ -64,7 +65,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   const [posts, setPosts] = useState([]);
   const [more, setMore] = useState(false);
   const [unread, setUnread] = useState({});
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft || "");
   const [err, setErr] = useState("");
   const [edit, setEdit] = useState(null); // salon créé ou modifié par l'admin : { id?, name, topic }
   const [pic, setPic] = useState(null); // image à envoyer : { file, url }
@@ -97,12 +98,12 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   const { rooms: vrooms, byRoom } = useVoiceRooms(tcg);
   const [vview, setVview] = useState(voiceStart || null); // salon vocal affiché dans la zone principale
   // Téléphone (comme Discord) : la liste des salons en plein écran, puis la conversation choisie en plein écran
-  const narrow = useNarrow();
-  const [mList, setMList] = useState(() => !(channelId || voiceStart || (dmStart !== undefined && dmStart !== null)));
+  const narrow = useNarrow() || !!embedded;
+  const [mList, setMList] = useState(() => !!embedded || !(channelId || voiceStart || (dmStart !== undefined && dmStart !== null)));
   const pushed = useRef(false);
   function openChat() {
     setMList(false);
-    if (window.matchMedia(NARROW).matches && !pushed.current) {
+    if (!embedded && window.matchMedia(NARROW).matches && !pushed.current) {
       window.history.pushState({ salonsChat: 1 }, "");
       pushed.current = true;
     }
@@ -264,6 +265,19 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
     if (name) setDmName(name);
     setDm(uid);
   }
+
+  // Accueil (grand écran) : un bouton « Message privé » ailleurs dans la page ouvre la conversation ici, avec un brouillon
+  useEffect(() => {
+    if (!embedded) return;
+    const f = (e) => {
+      const d = e.detail || {};
+      if (!d.uid) return;
+      openDm(d.uid, d.name);
+      if (d.text) setText(d.text);
+    };
+    window.addEventListener("table-open-dm", f);
+    return () => window.removeEventListener("table-open-dm", f);
+  }, [embedded]);
 
   // Groupes : liste, non-lus, groupe ouvert, direct
   useEffect(() => {
@@ -609,11 +623,14 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart }
   const dot = (uid) => (presence.ids.has(uid) ? <span className="on-dot on" title="En ligne" /> : null);
 
   return (
-    <div className={`salons ${mList ? "m-list" : "m-chat"}`}>
+    <div className={`salons ${mList ? "m-list" : "m-chat"} ${embedded ? "embed" : ""}`}>
       <div className="salons-top">
-        <button className="btn icon ghost" onClick={() => (narrow && !mList ? backToList() : go("home"))} aria-label={narrow && !mList ? "Retour à la liste des salons" : "Retour"}>←</button>
-        <h1 className="grow">Salons · {tcgName(tcg)}</h1>
+        {(!embedded || !mList) && (
+          <button className="btn icon ghost" onClick={() => (narrow && !mList ? backToList() : go("home"))} aria-label={narrow && !mList ? "Retour à la liste des salons" : "Retour"}>←</button>
+        )}
+        <h1 className="grow">{embedded ? "💬 Salons" : `Salons · ${tcgName(tcg)}`}</h1>
         {admin && <button className="btn sm" onClick={() => setEdit({ name: "", topic: "", kind: "text", max: 6 })}>＋ Salon</button>}
+        {embedded && <button className="btn icon ghost" onClick={() => go("salons", mList ? {} : vview ? { voice: vview } : dm ? { dm } : { channelId: cur })} title="Ouvrir en plein écran" aria-label="Ouvrir en plein écran">⤢</button>}
       </div>
       <div className="presence-line small">
         <button className="linkish" onClick={() => setOnlineSheet(true)}><span className="on-dot on" /> {presence.online.length} en ligne</button>

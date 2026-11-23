@@ -4,6 +4,32 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 90,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🤝 Échanges : indiquez le nombre d'exemplaires et la rareté de chaque carte (Safir : commune, rare, ultra rare, SP, secrète, légendaire, gold signée, promo ; Flesh and Blood : de commune à Marvel, et la finition Rainbow ou Cold Foil). Une carte ne correspond qu'à la même rareté." },
+      { t: "🔁 Nouveau : « Échanges croisés possibles » quand un joueur a ce que vous cherchez ET cherche vos doubles, avec un repère « ≈ même rareté » pour un échange de valeur équivalente, et un message d'échange tout prêt." },
+    ],
+  },
+  {
+    id: 89,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🤝 Échanges (nouvel onglet de l'accueil) : notez les cartes que vous avez en double et celles que vous cherchez (saison, numéro, échange et/ou vente, prix). Quand un joueur a ce que vous cherchez, ou cherche vos doubles, il apparaît dans « Correspondances » avec un bouton ✉ pour lui écrire (message déjà préparé). Vous êtes aussi prévenu par notification." },
+      { t: "🃏 Deck : pour les 15 combattants de la faction du commandant, seules les cartes mises dans le deck comptent (une carte « Les deux » placée dans le deck compte) ; les jetons de la réserve ne comptent pas.", tcg: "safir" },
+      { t: "🗂 Accueil réorganisé en onglets : Jouer, Mes cartes, Échanges, Personnalisation (thème, fond du tapis, dos des cartes, profil). Sur grand écran, les salons restent affichés à droite." },
+    ],
+  },
+  {
+    id: 88,
+    date: "23 novembre 2026",
+    items: [
+      { t: "🟣 En partie, un jeton posé depuis la réserve se repère tout de suite : bord violet en pointillés et étiquette « JETON ».", tcg: "safir" },
+      { t: "💥 Un combattant de plus de 8 d'attaque (unification et bonus compris) fait trembler et se fissurer le tapis en arrivant en jeu.", tcg: "safir" },
+      { t: "❄ Un marqueur Gel posé sur un territoire le couvre de givre, des deux côtés (Gel+ : aussi les territoires voisins).", tcg: "safir" },
+    ],
+  },
+  {
     id: 87,
     date: "23 novembre 2026",
     items: [
