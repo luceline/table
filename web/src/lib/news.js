@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 99,
+    date: "23 novembre 2026",
+    tcg: "safir",
+    items: [
+      { t: "📊 Éditeur de deck : courbe de Valeur du deck (nombre de cartes par Valeur, combattants et magies, Valeur moyenne). Touchez une barre pour n'afficher que les cartes de cette Valeur." },
+    ],
+  },
+  {
     id: 98,
     date: "23 novembre 2026",
     tcg: "safir",

@@ -361,6 +361,17 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .cmd-chosen img.l { width: 150px; aspect-ratio: 88 / 63; object-fit: cover; border-radius: 6px; }
 .cmd-chosen img.p { height: 150px; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; }
 .cmd-grid { max-height: 55vh; overflow-y: auto; }
+.vcurve-box { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 6px; margin: 8px 0 10px; }
+.vcurve { display: flex; align-items: stretch; gap: 4px; height: 120px; margin-top: 6px; }
+.vc-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; border-radius: 6px; }
+.vc-col.on { background: rgba(255,255,255,.07); outline: 1px solid var(--gold); }
+.vc-bar { width: 70%; max-width: 34px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; min-height: 0; }
+.vc-bar .cbt, .vc-legend .cbt { background: linear-gradient(180deg, #f2c86b, #c98d2e); }
+.vc-bar .mag, .vc-legend .mag { background: linear-gradient(180deg, #b48cff, #7a52d6); }
+.vc-n { font-size: 12px; font-weight: 700; line-height: 1.4; }
+.vc-v { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); width: 100%; text-align: center; padding-top: 2px; }
+.vc-legend { color: var(--muted); margin-left: auto; }
+.vc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin: 0 3px 0 8px; }
 .fac-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .fac { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 11px; font-size: 13px; cursor: pointer; }
 .fac.on { border-color: var(--gold2); color: #1a160e; background: var(--gold); font-weight: 600; }

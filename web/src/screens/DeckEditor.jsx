@@ -4,6 +4,7 @@ import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrules.js";
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { Sheet } from "../components/ui.jsx";
+import { parseVal } from "../lib/game.js";
 import { ALL_FACTIONS, KIN_SUB, factionsOf } from "../lib/factions.js";
 import { ARRIVAL_MAX, arrivalOf, autoArrival, playArrival } from "../lib/fx.js";
 
@@ -27,6 +28,7 @@ export default function DeckEditor({ go, deckId }) {
   const [cq, setCq] = useState("");
   const [fac, setFac] = useState(""); // filtre par faction
   const [kind, setKind] = useState(""); // filtre par type : "" tous, "cbt" combattants, "mag" magies, "none" sans stats
+  const [valF, setValF] = useState(null); // filtre par Valeur (barre de la courbe touchée)
   const [fx, setFx] = useState({}); // cartes à qui le joueur donne l'aura de puissance (2 cartes différentes au plus)
 
   useEffect(() => {
@@ -146,7 +148,24 @@ export default function DeckEditor({ go, deckId }) {
   // Type : magie = une Valeur seule ; combattant = une ATK ou une DEF ; sinon stats non renseignées
   const kindOf = (c) => (isMagic(c) ? "mag" : c.atk || c.def ? "cbt" : "none");
   const kindOk = (c) => !kind || kindOf(c) === kind;
-  const shown = normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c) && kindOk(c));
+  // Courbe de Valeur (coût) : exemplaires du deck par Valeur, combattants et magies, commandant à part ; 10 et plus regroupés
+  const VMAX = 10;
+  const vBucket = (c) => { const v = parseVal(c.val); return v === null ? null : Math.min(VMAX, Math.max(0, v)); };
+  const curve = Array.from({ length: VMAX + 1 }, () => ({ cbt: 0, mag: 0 }));
+  let noVal = 0, vSum = 0, vN = 0;
+  for (const c of normal) {
+    const n = qty[c.id] || 0;
+    if (!n) continue;
+    const b = vBucket(c);
+    if (b === null) { noVal += n; continue; }
+    curve[b][isMagic(c) ? "mag" : "cbt"] += n;
+    vSum += parseVal(c.val) * n;
+    vN += n;
+  }
+  const vHi = Math.max(5, ...curve.map((x, i) => (x.cbt + x.mag ? i : 0)));
+  const vTop = Math.max(1, ...curve.map((x) => x.cbt + x.mag));
+  const valOk = (c) => valF === null || vBucket(c) === valF;
+  const shown = normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c) && kindOk(c) && valOk(c));
   const kindN = (k) => normal.filter((c) => (!onlyIn || qty[c.id]) && match(c) && facOk(c) && kindOf(c) === k).length;
   // Nombre de cartes du deck par faction (exemplaires compris)
   const facCount = {};
@@ -263,6 +282,44 @@ export default function DeckEditor({ go, deckId }) {
                 <span key={f} className="fac on">{f} {facCount[f]}</span>
               ))}
               {untagged > 0 && <span className="fac">sans faction {untagged}</span>}
+            </div>
+          )}
+          {vN + noVal > 0 && (
+            <div className="vcurve-box">
+              <div className="row" style={{ alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                <b className="small">📊 Courbe de Valeur</b>
+                <span className="muted small">
+                  moyenne {vN ? (vSum / vN).toFixed(1).replace(".", ",") : "?"}
+                  {noVal ? ` · ${noVal} carte${noVal > 1 ? "s" : ""} sans Valeur` : ""}
+                </span>
+                <span className="vc-legend small"><i className="cbt" /> combattants <i className="mag" /> magies</span>
+              </div>
+              <div className="vcurve">
+                {curve.slice(0, vHi + 1).map((x, i) => {
+                  const n = x.cbt + x.mag;
+                  return (
+                    <button
+                      key={i}
+                      className={`vc-col ${valF === i ? "on" : ""}`}
+                      onClick={() => setValF(valF === i ? null : i)}
+                      title={`Valeur ${i === VMAX ? VMAX + " et plus" : i} : ${x.cbt} combattant${x.cbt > 1 ? "s" : ""}, ${x.mag} magie${x.mag > 1 ? "s" : ""}. Touchez pour filtrer.`}
+                    >
+                      <span className="vc-n">{n || ""}</span>
+                      <span className="vc-bar" style={{ height: `${(n / vTop) * 72}%` }}>
+                        {x.mag > 0 && <span className="mag" style={{ flexGrow: x.mag }} />}
+                        {x.cbt > 0 && <span className="cbt" style={{ flexGrow: x.cbt }} />}
+                      </span>
+                      <span className="vc-v">{i === VMAX ? `${VMAX}+` : i}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {valF !== null && (
+                <div className="small" style={{ marginTop: 4 }}>
+                  Cartes de Valeur {valF === VMAX ? `${VMAX} et plus` : valF} affichées{" "}
+                  <button className="linkish" onClick={() => setValF(null)}>✕ tout afficher</button>
+                </div>
+              )}
             </div>
           )}
           <div className="fac-chips" style={{ marginBottom: 6 }}>
