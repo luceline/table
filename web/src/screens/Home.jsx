@@ -966,7 +966,7 @@ function FxSettings() {
     <div className="card-box">
       <h2 style={{ margin: 0 }}>✨ Effets spéciaux</h2>
       <p className="muted small" style={{ margin: "6px 0 8px" }}>
-        Safir : effets d'arrivée sur le terrain (2 cartes différentes au plus par effet dans un deck, bouton ✨ dans l'éditeur de deck)
+        Safir : effets d'arrivée sur le terrain (d'office pour les cartes Yan, Lin et Tian ; aura de puissance pour 2 cartes au choix, bouton 💥 dans l'éditeur de deck)
         et stalactites de glace quand un territoire est gelé. Ce réglage ne concerne que cet appareil.
       </p>
       <div className="hand-tabs">

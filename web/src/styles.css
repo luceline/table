@@ -1065,6 +1065,7 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 @keyframes quake-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 
 .fx-badge { position: absolute; top: 4px; left: 4px; font-size: 15px; line-height: 1; padding: 3px 4px; border-radius: 8px; background: rgba(10,8,30,.78); box-shadow: 0 0 8px rgba(255,210,90,.7); }
+.fx-badge.auto { opacity: .8; box-shadow: none; }
 .fx-btn.on { box-shadow: 0 0 0 1px var(--gold), 0 0 8px rgba(255,210,90,.6); }
 .fx-choices { display: grid; gap: 8px; }
 .fx-choices .btn { text-align: left; display: block; padding: 10px 12px; height: auto; white-space: normal; width: 100%; }

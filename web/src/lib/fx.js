@@ -1,7 +1,7 @@
 // Effets spéciaux plein écran (Safir) : un canvas posé sur la page le temps de l'animation, puis retiré.
-// Effets d'arrivée, choisis dans l'éditeur de deck (2 cartes différentes au plus par effet et par deck) :
+// Effets d'arrivée : d'office selon la sous-faction (Yan, Lin, Tian) ; l'aura, choisie dans l'éditeur de deck (2 cartes au plus), les remplace :
 // - aura : façon DBZ (flash, lignes de vitesse, aura de flammes dorées, éclairs, ondes de choc, débris, « ATK 11 »)
-// - yan  : une vague de flammes balaie l'écran et embrase la carte
+// - yan  : un ruban de flammes glisse à hauteur de la carte et l'embrase, des braises montent
 // - lin  : une bourrasque de feuilles traverse l'écran et tourbillonne autour de la carte
 // - tian : tempête de neige, explosion de flocons à l'arrivée, neige déposée sur la carte
 // iceFall : marqueur Gel posé, des stalactites se forment en haut de l'écran, tombent et se brisent sur le territoire
@@ -22,14 +22,27 @@ export function setFxSetting(v) {
   try { localStorage.setItem(KEY, v === "off" ? "off" : "full"); } catch (_) {}
 }
 
-export const ARRIVAL_MAX = 2; // par effet
+export const ARRIVAL_MAX = 2; // cartes avec l'aura de puissance par deck
 export const ARRIVALS = [
   { id: "aura", icon: "💥", label: "Aura de puissance", desc: "Flash, aura de flammes dorées, éclairs, onde de choc, le terrain se fissure" },
-  { id: "yan", icon: "🔥", label: "Vague de flammes (Yan)", desc: "Un mur de feu balaie l'écran et embrase la carte" },
+  { id: "yan", icon: "🔥", label: "Vague de flammes (Yan)", desc: "Un ruban de flammes traverse l'écran et embrase la carte, des braises montent" },
   { id: "lin", icon: "🍃", label: "Volée de feuilles (Lin)", desc: "Une bourrasque de feuilles tourbillonne autour de la carte" },
   { id: "tian", icon: "❄", label: "Arrivée enneigée (Tian)", desc: "Tempête de neige, explosion de flocons, la carte se couvre de neige" },
 ];
 export const arrivalOf = (id) => ARRIVALS.find((a) => a.id === id) || null;
+// Effet d'office selon la sous-faction de la carte (Yan, Lin, Tian) ; l'aura choisie par le joueur le remplace
+const KIN_FX = { Yan: "yan", Lin: "lin", Tian: "tian" };
+export const autoArrival = (factions) => {
+  if (!Array.isArray(factions)) return null;
+  const k = ["Tian", "Yan", "Lin"].find((f) => factions.includes(f));
+  return k ? KIN_FX[k] : null;
+};
+// Effet joué quand une carte de la partie arrive sur le terrain (commandant et jetons de la réserve exclus)
+export function arrivalForCard(c) {
+  if (!c || c.cmd || c.tok) return null;
+  if (c.fx === "aura") return "aura";
+  return KIN_FX[c.k] || null;
+}
 // opts : { cx, cy, w, h } position et taille de la carte à l'écran, atk (aura : affiché si connu)
 export function playArrival(kind, opts) {
   if (opts?.demo && fxOn()) demoCard(opts);
@@ -675,120 +688,86 @@ function runIce(rects) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Yan : vague de flammes qui balaie l'écran de gauche à droite et embrase la carte
+// Yan : un ruban de flammes glisse à hauteur de la carte et l'embrase doucement, des braises montent sur l'écran
 export function flameWave({ cx, cy, w, h }) {
   if (!fxOn()) return;
   const W0 = window.innerWidth, H0 = window.innerHeight;
-  const m = clamp(Math.max(w, h) / 110, 0.6, 1.6);
-  const DUR = 2.6;
-  const SWEEP = 1.0;
-  const front = (t) => -0.3 * W0 + easeInOut(t / SWEEP) * 1.65 * W0;
+  const m = clamp(Math.max(w, h) / 110, 0.6, 1.5);
+  const DUR = 2.7;
+  const SWEEP = 1.1;
+  const band = Math.max(h * 0.75, 50 * m); // demi-hauteur du ruban de flammes
+  const front = (t) => -0.15 * W0 + easeInOut(t / SWEEP) * 1.3 * W0;
   const hitT = (() => { let a = 0, b = SWEEP; for (let i = 0; i < 20; i++) { const c = (a + b) / 2; if (front(c) < cx) a = c; else b = c; } return (a + b) / 2; })();
   const fire = [];
-  const smoke = [];
-  const embers = [];
+  const embers = Array.from({ length: Math.round(clamp((W0 + H0) / 30, 30, 70)) }, () => ({
+    x: rr(0, W0), y: rr(H0 * 0.2, H0 * 1.1), vy: rr(25, 70), sway: rr(10, 30), ph: rr(0, 6), s: rr(4, 9), d: rr(0, 0.8),
+  }));
   let acc = 0, accC = 0, hit = false;
-  const rate = clamp((W0 * H0) / 1500, 400, 1000); // particules par seconde pendant le balayage
   overlay(DUR, (ctx, t, dt, W, H) => {
     const env = t > DUR - 0.6 ? clamp((DUR - t) / 0.6, 0, 1) : 1;
-    const fx0 = front(Math.min(t, SWEEP));
-    // teinte chaude derrière la vague
-    if (t < SWEEP + 0.2) {
-      const g = ctx.createLinearGradient(fx0 - W * 0.6, 0, fx0 + 40, 0);
-      g.addColorStop(0, "rgba(60,10,0,0)");
-      g.addColorStop(0.75, "rgba(120,25,0,.35)");
-      g.addColorStop(0.97, "rgba(255,120,20,.45)");
-      g.addColorStop(1, "rgba(255,160,40,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(Math.max(0, fx0 - W * 0.6), 0, Math.min(W, W * 0.6 + 40), H);
-    }
-    ctx.globalAlpha = 0.35 * env * clamp((t - 0.2) / 0.4, 0, 1);
-    ctx.fillStyle = "#3a0e00";
-    ctx.fillRect(0, 0, Math.max(0, Math.min(W, fx0 - W * 0.2)), H);
+    // lueur chaude autour de la carte (même douceur que Lin et Tian)
+    ctx.globalAlpha = 0.5 * env * clamp(t / 0.3, 0, 1);
+    const vg = ctx.createRadialGradient(cx, cy, Math.max(w, h) * 0.3, cx, cy, Math.hypot(W, H) * 0.7);
+    vg.addColorStop(0, "rgba(255,190,110,.22)");
+    vg.addColorStop(0.4, "rgba(60,20,5,.16)");
+    vg.addColorStop(1, "rgba(30,8,0,.5)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
-    // mur de feu sur le front
+    ctx.globalCompositeOperation = "lighter";
+    // ruban de flammes qui traverse l'écran à hauteur de la carte
+    const fx0 = front(Math.min(t, SWEEP));
     if (t < SWEEP) {
-      acc += dt * rate;
+      acc += dt * 320;
       while (acc >= 1) {
         acc--;
-        const y = rr(-0.05, 1.05) * H;
-        fire.push({ x: fx0 - rr(0, 90), y, vx: rr(500, 1100), vy: -rr(120, 420), life: rr(0.25, 0.55), age: 0, s: rr(70, 170) * clamp(H / 800, 0.7, 1.3) });
-        if (R() < 0.08) smoke.push({ x: fx0 - rr(40, 160), y, vx: rr(60, 200), vy: -rr(40, 140), life: rr(0.8, 1.4), age: 0, s: rr(60, 140) });
+        const off = rr(-1, 1);
+        fire.push({ x: fx0 - rr(0, 40), y: cy + off * band * (0.6 + 0.4 * Math.abs(off)), vx: rr(250, 500), vy: -rr(60, 180), life: rr(0.3, 0.55), age: 0, s: rr(22, 48) * m * (1 - 0.4 * Math.abs(off)) });
       }
     }
-    // la carte s'embrase au passage du front
     if (!hit && t >= hitT) {
       hit = true;
-      shake(10, 500);
-      try { if (document.visibilityState === "visible") navigator.vibrate?.([50, 30, 120]); } catch (_) {}
-      for (let i = 0; i < 70; i++) {
-        const a = rr(0, Math.PI * 2), v = rr(200, 700) * m;
-        fire.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rr(0.3, 0.6), age: 0, s: rr(30, 70) * m });
-      }
+      shake(3, 300);
     }
-    if (hit && t < 2.1) {
-      accC += dt * 160;
+    // la carte s'embrase doucement
+    if (hit && t < 2.0) {
+      accC += dt * 70;
       while (accC >= 1) {
         accC--;
-        const e = R();
-        const x = e < 0.5 ? cx + rr(-0.5, 0.5) * w : cx + (R() < 0.5 ? -0.5 : 0.5) * w;
-        const y = e < 0.5 ? cy + (R() < 0.6 ? -0.5 : 0.5) * h : cy + rr(-0.5, 0.5) * h;
-        fire.push({ x, y, vx: rr(-30, 30), vy: -rr(120, 300) * m, life: rr(0.3, 0.6), age: 0, s: rr(16, 34) * m });
+        const top = R() < 0.6;
+        const x = top ? cx + rr(-0.5, 0.5) * w : cx + (R() < 0.5 ? -0.5 : 0.5) * w;
+        const y = top ? cy - h / 2 : cy + rr(-0.5, 0.5) * h;
+        fire.push({ x, y, vx: rr(-15, 15), vy: -rr(60, 160) * m, life: rr(0.3, 0.55), age: 0, s: rr(10, 22) * m });
       }
-      if (R() < 0.6) embers.push({ x: cx + rr(-w, w), y: cy + rr(-h / 2, h / 2), vx: rr(-40, 40), vy: -rr(80, 240), life: rr(0.8, 1.6), age: 0, ph: rr(0, 6) });
-    }
-    if (t < SWEEP && R() < 0.9) embers.push({ x: fx0 - rr(0, 200), y: rr(0, H), vx: rr(150, 400), vy: -rr(60, 200), life: rr(0.8, 1.5), age: 0, ph: rr(0, 6) });
-
-    for (let i = smoke.length - 1; i >= 0; i--) {
-      const p = smoke[i];
-      p.age += dt;
-      if (p.age > p.life) { smoke.splice(i, 1); continue; }
-      p.x += p.vx * dt; p.y += p.vy * dt;
-      const k = p.age / p.life, s = p.s * (0.7 + k);
-      ctx.globalAlpha = (1 - k) * env;
-      ctx.drawImage(SMOKE(), p.x - s / 2, p.y - s / 2, s, s);
-    }
-    ctx.globalCompositeOperation = "lighter";
-    // bande de feu continue sur le front (comble les trous entre les flammes)
-    if (t < SWEEP) {
-      const band = ctx.createLinearGradient(fx0 - 220, 0, fx0 + 30, 0);
-      band.addColorStop(0, "rgba(255,60,0,0)");
-      band.addColorStop(0.55, "rgba(255,90,10,.45)");
-      band.addColorStop(0.88, "rgba(255,200,90,.75)");
-      band.addColorStop(1, "rgba(255,240,180,0)");
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = band;
-      ctx.fillRect(fx0 - 220, 0, 250, H);
     }
     for (let i = fire.length - 1; i >= 0; i--) {
       const p = fire[i];
       p.age += dt;
       if (p.age > p.life) { fire.splice(i, 1); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.vx *= 0.96; p.vy -= 260 * dt;
-      const k = 1 - p.age / p.life, s = p.s * (0.45 + 0.75 * k);
-      ctx.globalAlpha = k * env;
+      p.vx *= 0.95; p.vy -= 120 * dt;
+      const k = 1 - p.age / p.life, s = p.s * (0.5 + 0.6 * k);
+      ctx.globalAlpha = k * 0.8 * env;
       ctx.drawImage(FIRE(), p.x - s * 0.4, p.y - s, s * 0.8, s * 2);
     }
-    for (let i = embers.length - 1; i >= 0; i--) {
-      const p = embers[i];
-      p.age += dt;
-      if (p.age > p.life) { embers.splice(i, 1); continue; }
-      p.x += (p.vx + Math.sin(t * 5 + p.ph) * 40) * dt; p.y += p.vy * dt;
-      const k = 1 - p.age / p.life;
-      ctx.globalAlpha = k * env * (0.6 + 0.4 * Math.sin(t * 30 + p.ph));
-      ctx.drawImage(FIRE(), p.x - 5, p.y - 5, 10, 10);
+    // braises qui montent doucement sur tout l'écran
+    for (const e of embers) {
+      const tt = t - e.d;
+      if (tt < 0) continue;
+      e.y -= e.vy * dt;
+      const x = e.x + Math.sin(tt * 1.6 + e.ph) * e.sway;
+      ctx.globalAlpha = env * clamp(tt / 0.4, 0, 1) * (0.55 + 0.45 * Math.sin(t * 7 + e.ph));
+      ctx.drawImage(FIRE(), x - e.s / 2, e.y - e.s / 2, e.s, e.s);
     }
-    // liseré incandescent autour de la carte
+    // liseré chaud autour de la carte
     if (hit) {
-      ctx.globalAlpha = env * (0.6 + 0.4 * Math.sin(t * 25));
-      ctx.strokeStyle = "rgba(255,140,30,1)";
-      ctx.lineWidth = 5 * m;
+      ctx.globalAlpha = env * (0.45 + 0.25 * Math.sin(t * 9));
+      ctx.strokeStyle = "rgba(255,150,50,1)";
+      ctx.lineWidth = 3 * m;
       ctx.strokeRect(cx - w / 2 - 1, cy - h / 2 - 1, w + 2, h + 2);
-      // la carte reste lisible
       ctx.globalCompositeOperation = "destination-out";
-      ctx.globalAlpha = 0.85;
-      ctx.fillRect(cx - w / 2 + 3, cy - h / 2 + 3, w - 6, h - 6);
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(cx - w / 2 + 2, cy - h / 2 + 2, w - 4, h - 4);
     }
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;

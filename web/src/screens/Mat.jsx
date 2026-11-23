@@ -4,7 +4,7 @@ import {
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
-import { playArrival, iceFall } from "../lib/fx.js";
+import { playArrival, iceFall, arrivalForCard } from "../lib/fx.js";
 
 // ---------- Effets visuels Safir ----------
 // Attaque affichée (carte + unification + bonus) ; effet d'arrivée « aura » : le tapis tremble et se fissure autour de la carte
@@ -132,7 +132,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 
-  // Carte avec un effet d'arrivée (choisi dans l'éditeur de deck) qui arrive face visible sur le terrain
+  // Carte avec un effet d'arrivée (Yan, Lin, Tian d'office ; aura choisie dans l'éditeur de deck) qui arrive face visible sur le terrain
   // (posée, ou retournée face visible) : effet plein écran ; « aura » fait aussi trembler et fissurer le tapis.
   const bigRef = useRef(null);
   const [quakes, setQuakes] = useState([]); // [{ k, iid, x, y }] en mm
@@ -142,12 +142,13 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
     const fresh = [];
     for (const b of st.board || []) {
       const c = st.cards?.[b.iid];
-      if (!c || b.down || c.cmd || !c.fx) continue;
+      const kind = b.down ? null : arrivalForCard(c);
+      if (!kind) continue;
       now.add(b.iid);
       if (bigRef.current && !bigRef.current.has(b.iid)) {
         const dim = c.o === "l" ? CARD.l : CARD.p;
         const swap = (b.rot || 0) % 180 !== 0;
-        fresh.push({ k: `${b.iid}-${Date.now()}`, iid: b.iid, x: b.x, y: b.y, w: swap ? dim.h : dim.w, h: swap ? dim.w : dim.h, atk: effAtk(b, c), fx: c.fx });
+        fresh.push({ k: `${b.iid}-${Date.now()}`, iid: b.iid, x: b.x, y: b.y, w: swap ? dim.h : dim.w, h: swap ? dim.w : dim.h, atk: effAtk(b, c), fx: kind });
       }
     }
     bigRef.current = now; // premier affichage : on mémorise sans effet

@@ -56,7 +56,8 @@ export function buildState({ name, deck, cardsById }) {
       continue;
     }
     // effet d'arrivée choisi dans l'éditeur de deck (Safir)
-    const card = TCG !== "fab" && typeof e.fx === "string" && /^(aura|yan|lin|tian)$/.test(e.fx) ? { ...base, fx: e.fx } : base;
+    // aura de puissance choisie dans l'éditeur de deck (les effets Yan, Lin, Tian viennent d'office de la sous-faction)
+    const card = TCG !== "fab" && e.fx === "aura" ? { ...base, fx: "aura" } : base;
     for (let i = 0; i < e.qty; i++) {
       const iid = rid(7);
       cards[iid] = card;
