@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 100,
+    date: "23 novembre 2026",
+    tcg: "safir",
+    items: [
+      { t: "✨ Les effets spéciaux (arrivée des cartes, Gel) se coupent aussi en pleine partie : menu ☰ › Effets spéciaux › Coupés. En spectateur : bouton ✨ Effets en haut. Le réglage vaut pour cet appareil." },
+    ],
+  },
+  {
     id: 99,
     date: "23 novembre 2026",
     tcg: "safir",

@@ -4,6 +4,7 @@ import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat, frozenTerritories } from "./Mat.jsx";
 import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
+import FxToggle from "../components/FxToggle.jsx";
 import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf } from "../lib/reactions.js";
 import { SignalBadge } from "../components/Signals.jsx";
@@ -322,6 +323,7 @@ export default function Spectator({ code }) {
         {watching > 0 && <span className="watch-chip" title="Spectateurs connectés">👁 {watching}</span>}
         <div className="ticker" style={{ flex: 1 }}>{lastLog ? logLine(lastLog.st.name, lastLog.l.m) : game ? `${game.n1 || "Joueur 1"} contre ${game.n2 || "…"}` : "Chargement…"}</div>
         {!sound && <button className="btn sm" onClick={enableSound} title="Entendre les joueurs">🔊 Son</button>}
+        {TCG !== "fab" && <FxToggle compact />}
       </div>
       <div className="spec-main">
         <div className="viewport" ref={vpRef}>

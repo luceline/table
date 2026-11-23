@@ -4,7 +4,7 @@ import {
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
-import { playArrival, iceFall, arrivalForCard } from "../lib/fx.js";
+import { playArrival, iceFall, arrivalForCard, fxOn } from "../lib/fx.js";
 
 // ---------- Effets visuels Safir ----------
 // Attaque affichée (carte + unification + bonus) ; effet d'arrivée « aura » : le tapis tremble et se fissure autour de la carte
@@ -154,7 +154,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
     bigRef.current = now; // premier affichage : on mémorise sans effet
     if (!fresh.length) return;
     const one = fresh[0]; // une seule à la fois si plusieurs arrivent ensemble
-    if (one.fx === "aura") {
+    if (one.fx === "aura" && fxOn()) {
       setQuakes((q) => [...q, one]);
       setTimeout(() => aliveRef.current && setQuakes((q) => q.filter((x) => x !== one)), 2600);
     }

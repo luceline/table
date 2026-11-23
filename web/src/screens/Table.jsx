@@ -1,4 +1,5 @@
 import PushToggle from "../components/PushToggle.jsx";
+import FxToggle from "../components/FxToggle.jsx";
 import ZoomView, { ZoomPreview } from "../components/ZoomView.jsx";
 import { ReactionPicker, ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
 import { reactionOf, reactionText } from "../lib/reactions.js";
@@ -2145,6 +2146,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             <button className="btn sm" onClick={A.shareWatch}>📺 Lien spectateur</button>
           </div>
         )}
+        {TCG !== "fab" && <FxToggle />}
         <div className="actions" style={{ marginBottom: 14 }}>
           <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
           {mine?.filmed ? (
