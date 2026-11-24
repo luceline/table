@@ -12,7 +12,7 @@ export const RULES_FAB = [
       { k: "But", t: "Faire tomber la vie du héros adverse à 0. Le héros qui arrive à 0 point de vie perd la partie." },
       { k: "Héros", t: "Chaque joueur joue un héros : sa vie de départ et son intellect (nombre de cartes en main en fin de tour) sont indiqués sur la carte. Il détermine aussi les classes de cartes autorisées dans le deck." },
       { k: "Vie dans l'appli", t: "Le compteur VIE part de 40 (Classic Constructed) ou 20 (Silver Age et Blitz). Ajustez-le avec + et − selon la vie imprimée sur votre héros." },
-      { k: "Ressources", t: "Le compteur RES sert à suivre les ressources gagnées en pitchant. Il revient à 0 quand vous touchez « Tour fini »." },
+      { k: "Ressources", t: "Le compteur RES suit les ressources gagnées en pitchant : une carte posée dans la zone de pitch ajoute d'office sa valeur (rouge 1, jaune 2, bleu 3, d'après la couleur renseignée au scan). Reprise en main, elle est retirée. Le compteur se corrige à la main avec − et +, et revient à 0 quand vous touchez « Tour fini »." },
     ],
   },
   {

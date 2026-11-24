@@ -37,7 +37,7 @@ export function KindPicker({ value, onChange }) {
 export function PitchPicker({ value, onChange }) {
   return (
     <div className="field">
-      <label>Couleur de pitch <span className="muted">(la même carte en rouge et en bleu = deux cartes différentes)</span></label>
+      <label>Couleur de pitch <span className="muted">(rouge 1, jaune 2, bleu 3 ressources, ajoutées d'office en jeu ; la même carte en rouge et en bleu = deux cartes différentes)</span></label>
       <div className="fac-chips">
         {PITCHES.map((p) => (
           <button

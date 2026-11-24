@@ -32,6 +32,8 @@ export function shuffle(arr) {
   return a;
 }
 
+export const FAB_PITCH_VAL = { r: 1, y: 2, b: 3 };
+
 export function buildState({ name, deck, cardsById }) {
   const cards = {};
   const ids = [];
@@ -41,6 +43,8 @@ export function buildState({ name, deck, cardsById }) {
     const rec = cardsById[e.card];
     if (!rec || !(e.qty > 0)) continue;
     const base = { c: rec.id, f: rec.image, n: rec.name || "Carte", o: rec.orient || "p", v: parseVal(rec.val), a: parseVal(rec.atk), d: parseVal(rec.def), k: kinSub(rec.factions) };
+    // Flesh and Blood : valeur de pitch déduite de la couleur (rouge 1, jaune 2, bleu 3), ajoutée aux RES quand la carte est pitchée
+    if (TCG === "fab" && FAB_PITCH_VAL[rec.pitch]) base.p = FAB_PITCH_VAL[rec.pitch];
     // Cartes jetons : modèles en réserve, copies illimitées, jamais dans le deck
     // (tok : carte normale choisie aussi comme jeton, son entrée de réserve est distincte de celle du deck)
     if (rec.kind === "jeton" || e.tok) {

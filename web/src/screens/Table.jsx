@@ -739,6 +739,14 @@ export default function Table({ go, gameId, side = "" }) {
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       detach(st, iid);
       st.hand.push(iid);
+      // Flesh and Blood : carte reprise de la zone de pitch (erreur), ses ressources sont retirées
+      let res = "";
+      if (TCG === "fab" && from === "pitch" && c.p) {
+        const before = st.pi ?? 0;
+        st.pi = clamp(before - c.p, 0, 99);
+        if (st.pi !== before) res = ` (−${before - st.pi} RES, ${st.pi} en tout)`;
+      }
+      if (res) return `reprend « ${c.n} » ${deSa(from)} en main${res}`;
       if (from === "deck") return searched ? `⚠ cherche dans son deck et prend « ${c.n} » en main` : "pioche 1 carte (dessus du deck)";
       if (from === "board") return prev?.down ? "reprend une carte face cachée en main" : `reprend « ${c.n} » en main`;
       return `reprend « ${c.n} » ${deSa(from)} en main`;
@@ -760,8 +768,15 @@ export default function Table({ go, gameId, side = "" }) {
       }
       st.piles[pid].push(iid);
       if (TCG === "fab") {
-        if (from === "deck") return `${searched ? "⚠ cherche dans son deck et met" : "met la carte du dessus de son deck,"} « ${c.n} » ${dansSa(pid)}`;
-        return `met « ${c.n} »${from === "hand" ? " de sa main" : from === "inv" ? " de son inventaire" : ""} ${dansSa(pid)}`;
+        // carte pitchée : sa valeur de pitch (couleur) s'ajoute aux ressources ; reprise du pitch : retirée
+        let res = "";
+        if (c.p && (pid === "pitch") !== (from === "pitch")) {
+          const before = st.pi ?? 0;
+          st.pi = clamp(before + (pid === "pitch" ? c.p : -c.p), 0, 99);
+          if (st.pi !== before) res = ` (${pid === "pitch" ? "+" : "−"}${Math.abs(st.pi - before)} RES, ${st.pi} en tout)`;
+        }
+        if (from === "deck") return `${searched ? "⚠ cherche dans son deck et met" : "met la carte du dessus de son deck,"} « ${c.n} » ${dansSa(pid)}${res}`;
+        return `met « ${c.n} »${from === "hand" ? " de sa main" : from === "inv" ? " de son inventaire" : ""} ${dansSa(pid)}${res}`;
       }
       if (from === "deck") return `${searched ? "⚠ cherche dans son deck et défausse" : "défausse la carte du dessus de son deck,"} « ${c.n} » dans sa ${PILE_NAMES[pid]}`;
       return `défausse « ${c.n} »${from === "hand" ? " de sa main" : ""} dans sa ${PILE_NAMES[pid]}`;

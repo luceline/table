@@ -4,6 +4,14 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 103,
+    date: "24 novembre 2026",
+    tcg: "fab",
+    items: [
+      { t: "💎 Ressources automatiques : poser une carte dans la zone de pitch ajoute d'office sa valeur au compteur RES (rouge 1, jaune 2, bleu 3, d'après la couleur renseignée au scan). Reprise en main par erreur, elle est retirée. Le journal l'indique, et − / + restent là pour corriger. Valable pour les nouvelles parties." },
+    ],
+  },
+  {
     id: 102,
     date: "23 novembre 2026",
     items: [
