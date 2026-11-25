@@ -106,6 +106,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .02em;
 .mat { position: absolute; left: 0; border-radius: 6px; overflow: visible; box-shadow: 0 0 0 1px rgba(214,190,140,.18), 0 6px 24px rgba(0,0,0,.45); }
 .mat.mine { background: radial-gradient(ellipse at 50% 40%, #233049 0%, var(--mine) 70%); }
 .mat.opp { background: radial-gradient(ellipse at 50% 60%, #35252f 0%, var(--opp) 70%); }
+.mat.layer-top { background: none !important; box-shadow: none !important; pointer-events: none; }
+.mat.layer-top .bcard, .mat.layer-top .pile, .mat.layer-top .token, .mat.layer-top .tmarker { pointer-events: auto; }
 .mat svg.bg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .bcard { position: absolute; border-radius: 3px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.6); touch-action: none; transition: transform .15s; background: #0a0b0e; }
 .bcard img, .hcard img, .drag-ghost img, .pile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; -webkit-user-drag: none; }
@@ -363,6 +365,36 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .cmd-grid { max-height: 55vh; overflow-y: auto; }
 .perso-sec { margin: 18px 4px 8px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .perso-sec:first-child { margin-top: 6px; }
+.sorc-els { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; padding: 2px 4px; border-radius: 8px; background: rgba(10,8,30,.75); font-size: 13px; line-height: 1; }
+.sorc-els i { font-style: normal; }
+.sorc-aff { white-space: nowrap; }
+.page.page-deck { max-width: 760px; padding-bottom: calc(84px + var(--safe-b)); }
+.sheet .deck-list > h2 { display: none; }
+.deck-split { display: block; }
+.deck-side { display: none; }
+.deck-list-fab { position: fixed; right: 14px; bottom: calc(14px + var(--safe-b)); z-index: 30; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+@media (min-width: 1000px) {
+  .page.page-deck { max-width: 1400px; padding-bottom: calc(24px + var(--safe-b)); }
+  .deck-split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 22px; align-items: start; }
+  .deck-side { display: block; position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 14px; background: rgba(255,255,255,.03); }
+  .deck-list-fab { display: none; }
+}
+.deck-list h2 { font-size: 17px; margin: 0 0 6px; }
+.dl-group { margin-top: 10px; }
+.dl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 3px; margin-bottom: 3px; }
+.dl-empty { margin: 4px 0; }
+.dl-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.dl-row .btn.icon { width: 30px; height: 30px; min-width: 30px; padding: 0; }
+.dl-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; background: none; border: 0; color: inherit; text-align: left; padding: 5px 4px; border-radius: 6px; cursor: pointer; font: inherit; }
+.dl-name:hover { background: rgba(255,255,255,.06); }
+.dl-n { min-width: 26px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.dl-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-pitch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: 0; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.dl-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.deck-zoom { display: flex; justify-content: center; }
+.deck-zoom .preview { margin-bottom: 4px; }
+.deck-zoom .preview img { max-height: 58vh; max-height: 58dvh; }
+.deck-zoom-qty { justify-content: center; gap: 14px; margin-top: 12px; }
 .vcurve-box { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 6px; margin: 8px 0 10px; }
 .vcurve { display: flex; align-items: stretch; gap: 4px; height: 120px; margin-top: 6px; }
 .vc-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; border-radius: 6px; }
@@ -613,6 +645,8 @@ html { background: var(--bg); }
 .tcg-pick { display: flex; gap: 6px; margin: 0 0 12px; }
 .tcg-pick button { flex: 1; padding: 10px 12px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-family: var(--serif); font-size: 15px; letter-spacing: .04em; cursor: pointer; }
 .tcg-pick button:hover { border-color: var(--gold2); }
+.tcg-pick .tp-short { display: none; }
+@media (max-width: 720px) { .tcg-pick .tp-long { display: none; } .tcg-pick .tp-short { display: inline; } .tcg-pick button { padding: 10px 6px; font-size: 14px; } }
 .tcg-pick button.on { background: var(--lacquer); border-color: var(--lacquer); color: #fff3e2; box-shadow: inset 0 0 0 2px var(--lacquer-dark), inset 0 0 0 4px rgba(255,220,180,.35); }
 /* Nombre de joueurs inscrits */
 .players-count { margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
@@ -1191,6 +1225,8 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .pmap-pt circle { fill: #4cc9f0; stroke: #fff; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(76,201,240,.8)); }
 .pmap-pt.me circle { fill: #ffd166; filter: drop-shadow(0 0 4px rgba(255,209,102,.9)); }
 .pmap-pt.on circle { fill: #ff6b6b; }
+.pmap-pt circle.live { fill: #3ddc84; stroke: #0b1622; stroke-width: 1.5; filter: drop-shadow(0 0 3px rgba(61,220,132,.9)); }
+.dot-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 5px rgba(61,220,132,.9); margin-right: 5px; vertical-align: 1px; }
 .pmap-pt text { fill: #f1e8d8; paint-order: stroke; stroke: #0b1622; stroke-width: 3px; stroke-linejoin: round; font-weight: 600; pointer-events: none; }
 .pmap-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
 .pmap-sel { margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }

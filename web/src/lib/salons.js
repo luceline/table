@@ -1,10 +1,11 @@
+import { normTcg, tcgFilter } from "./tcg.js";
 // Salons de discussion par jeu : salons, non-lus (mémorisés sur l'appareil), statut d'administrateur
 import { useEffect, useState } from "react";
 import { pb } from "../pb.js";
 
-const tcgCh = (tcg) => (tcg === "fab" ? 'tcg = "fab"' : '(tcg = "" || tcg = "safir")');
+const tcgCh = (tcg) => tcgFilter(normTcg(tcg));
 // mêmes conditions vues depuis un message (son salon)
-export const postsOfTcg = (tcg) => (tcg === "fab" ? 'channel.tcg = "fab"' : '(channel.tcg = "" || channel.tcg = "safir")');
+export const postsOfTcg = (tcg) => (normTcg(tcg) === "safir" ? '(channel.tcg = "" || channel.tcg = "safir")' : `channel.tcg = "${normTcg(tcg)}"`);
 
 export const loadChannels = (tcg) => pb.collection("channels").getFullList({ filter: tcgCh(tcg), sort: "sort,created", requestKey: null });
 

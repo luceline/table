@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DeckLayout, DeckList, CardZoom } from "../components/DeckBuild.jsx";
 import { FAB_BANS, FAB_BAN_INFO, FAB_HEROES_OUT, FAB_LL_NOTE, fabBanLabel, fabBanWarnings } from "../lib/banlist_fab.js";
 import { pb, me, fileUrl, errMsg } from "../pb.js";
 import { checkFab, fabKey, fabLabel, FAB_RULES, PITCH, fabFormat } from "../lib/deckrules.js";
@@ -26,6 +27,7 @@ export default function DeckEditorFab({ go, deckId }) {
   const [onlyIn, setOnlyIn] = useState(false);
   const [q, setQ] = useState("");
   const [cls, setCls] = useState(""); // filtre par classe / talent
+  const [zoom, setZoom] = useState(null); // carte ouverte en grand (toucher une carte ne l'ajoute plus)
 
   useEffect(() => {
     (async () => {
@@ -135,7 +137,7 @@ export default function DeckEditorFab({ go, deckId }) {
       <div className="grid">
         {list.map((c) => (
           <div key={c.id}>
-            <div className="thumb" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)} style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null}>
+            <div className="thumb" onClick={() => setZoom(c.id)} title="Voir la carte en grand" style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null}>
               {thumb(c)}
               {qty[c.id] > 0 && <span className="badge">×{qty[c.id]}</span>}
             </div>
@@ -150,8 +152,28 @@ export default function DeckEditorFab({ go, deckId }) {
     </>
   );
 
+  // Liste du deck (colonne de droite sur grand écran, panneau sur téléphone) : par couleur de pitch puis par nom
+  const PORD = { r: 0, y: 1, b: 2 };
+  const byPitch = (a, b) => (PORD[a.pitch] ?? 3) - (PORD[b.pitch] ?? 3) || (a.name || "").localeCompare(b.name || "", "fr");
+  const dot = (c) => (c.pitch ? <i className="dl-pitch" style={{ background: PITCH_HEX[c.pitch] }} title={PITCH[c.pitch]} /> : null);
+  const rowsOf = (list) => list.filter((c) => qty[c.id]).sort(byPitch).map((c) => ({ c, n: qty[c.id], max: maxFor(c), meta: dot(c) }));
+  const deckList = (
+    <DeckList
+      summary={`${chk.total} carte${chk.total > 1 ? "s" : ""} dans le deck${chk.arena ? `, ${chk.arena} arme${chk.arena > 1 ? "s" : ""} et équipement${chk.arena > 1 ? "s" : ""}` : ""}. Touchez un nom pour voir la carte.`}
+      onOpen={(c) => setZoom(c.id)}
+      onSet={setN}
+      groups={[
+        ...(heroCard ? [{ key: "hero", title: "Héros", rows: [{ c: heroCard, n: 1, fixed: true }] }] : []),
+        { key: "deck", title: "Deck", count: chk.total, empty: "Ajoutez des cartes avec +.", rows: rowsOf(deckCards) },
+        ...(arena.some((c) => qty[c.id]) ? [{ key: "arena", title: "Armes et équipements", count: chk.arena, rows: rowsOf(arena) }] : []),
+        ...(tokens.some((c) => qty[c.id]) ? [{ key: "tok", title: "Jetons (réserve)", rows: tokens.filter((c) => qty[c.id]).map((c) => ({ c, n: 1, toggle: true })) }] : []),
+      ]}
+    />
+  );
+  const zc = zoom && byId[zoom];
+
   return (
-    <div className="page">
+    <div className="page page-deck">
       <div className="topbar">
         <button className="btn icon ghost" onClick={back} aria-label="Retour">←</button>
         <h1>Deck</h1>
@@ -162,7 +184,7 @@ export default function DeckEditorFab({ go, deckId }) {
       </div>
       {err && <div className="err">{err}</div>}
       {deck && (
-        <>
+        <DeckLayout list={deckList} count={chk.total}>
           <div className="field">
             <label>Nom du deck</label>
             <input className="input" value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} maxLength={80} />
@@ -275,7 +297,7 @@ export default function DeckEditorFab({ go, deckId }) {
           <div className="grid">
             {filt(tokens).map((c) => (
               <div key={c.id}>
-                <div className="thumb" onClick={() => setN(c.id, qty[c.id] ? 0 : 1)} style={{ opacity: qty[c.id] ? 1 : 0.45 }}>
+                <div className="thumb" onClick={() => setZoom(c.id)} title="Voir la carte en grand" style={{ opacity: qty[c.id] ? 1 : 0.45 }}>
                   {thumb(c)}
                   {qty[c.id] > 0 && <span className="badge">✓</span>}
                 </div>
@@ -287,7 +309,19 @@ export default function DeckEditorFab({ go, deckId }) {
               </div>
             ))}
           </div>
-        </>
+        </DeckLayout>
+      )}
+      {zc && (
+        <CardZoom
+          card={zc}
+          onClose={() => setZoom(null)}
+          info={[zc.pitch ? `Pitch ${PITCH[zc.pitch]}` : null, zc.val ? `Coût ${zc.val}` : null, zc.atk ? `Attaque ${zc.atk}` : null, zc.def ? `Défense ${zc.def}` : null, factionsOf(zc).join(", ") || null].filter(Boolean).join(" · ")}
+          toggle={zc.kind === "jeton"}
+          fixed={zc.kind === "heros"}
+          n={qty[zc.id] || 0}
+          max={zc.kind === "jeton" ? 1 : maxFor(zc)}
+          onSet={setN}
+        />
       )}
     </div>
   );

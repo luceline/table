@@ -10,10 +10,12 @@ import { factionsOf } from "../lib/factions.js";
 import { TCG } from "../lib/game.js";
 import { fabKey, PITCH } from "../lib/deckrules.js";
 import { KindPicker, PitchPicker, FabStats, FAB_CLASSES, FAB_TALENTS, FAB_KIND_LABEL } from "../components/FabFields.jsx";
+import { SorcKindPicker, RarityPicker, ElementPicker, SorcStats, sorcRarityLabel } from "../components/SorceryFields.jsx";
 
 export default function Library({ go }) {
   const user = me();
   const fab = TCG === "fab"; // Flesh and Blood : type, couleur de pitch, coût / attaque / défense, classes
+  const sorc = TCG === "sorcery"; // Sorcery : type, rareté, éléments, valeurs
   const [cards, setCards] = useState(null);
   const [sel, setSel] = useState(null);
   const [name, setName] = useState("");
@@ -166,7 +168,9 @@ export default function Library({ go }) {
               <img src={fileUrl("cards", c.id, c.image, "0x300")} alt={c.name} loading="lazy" />
               <div className="cap">{c.name || "Sans nom"}</div>
               {c.kind === "jeton" && <span className="badge">JETON</span>}
-              {!fab && c.kind !== "jeton" && c.token_too && <span className="badge">+ JETON</span>}
+              {!fab && !sorc && c.kind !== "jeton" && c.token_too && <span className="badge">+ JETON</span>}
+              {sorc && c.kind === "avatar" && <span className="badge">AVATAR</span>}
+              {sorc && c.kind === "site" && <span className="badge">SITE</span>}
               {fab && c.kind === "heros" && <span className="badge">HÉROS</span>}
               {fab && c.kind === "arene" && <span className="badge">ÉQUIP.</span>}
               {fab && c.pitch && <span className="pitch-tag" style={{ background: { r: "#c83a32", y: "#d6b13b", b: "#3b78c8" }[c.pitch] }} />}
@@ -204,6 +208,13 @@ export default function Library({ go }) {
                 {(sel.kind || "carte") === "carte" && <PitchPicker value={sel.pitch || ""} onChange={(p) => save({ pitch: p })} />}
               </>
             )}
+            {sorc ? (
+              <>
+                <SorcKindPicker value={sel.kind || "sort"} onChange={(k) => save({ kind: k, ...(k === "site" && sel.orient !== "l" ? { orient: "l" } : null) })} />
+                {sel.kind !== "jeton" && <RarityPicker value={sel.rarity || ""} onChange={(r) => save({ rarity: r })} />}
+                <ElementPicker value={factionsOf(sel)} kind={sel.kind || "sort"} onChange={(f) => { setSel({ ...sel, factions: f }); save({ factions: f }); }} />
+              </>
+            ) : (
             <FactionPicker
               value={factionsOf(sel)}
               onChange={(f) => {
@@ -212,7 +223,19 @@ export default function Library({ go }) {
               }}
               {...(fab ? { list: FAB_CLASSES, extra: FAB_TALENTS, label: "Classes et talents" } : null)}
             />
-            {fab ? (
+            )}
+            {sorc ? (
+              <SorcStats
+                kind={sel.kind || "sort"}
+                stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
+                setStats={(st) => {
+                  const patch = { atk: (st.atk || "").slice(0, 6), val: (st.val || "").slice(0, 6), def: (st.def || "").slice(0, 6) };
+                  setSel({ ...sel, ...patch });
+                  clearTimeout(window.__statT);
+                  window.__statT = setTimeout(() => save(patch), 600);
+                }}
+              />
+            ) : fab ? (
               <FabStats
                 stats={{ atk: sel.atk || "", val: sel.val || "", def: sel.def || "" }}
                 setStats={(st) => {
@@ -233,7 +256,7 @@ export default function Library({ go }) {
               }}
             />
             )}
-            {!fab && (
+            {!fab && !sorc && (
               <div className="field">
                 <label>Type</label>
                 <div className="hand-tabs type-tabs">

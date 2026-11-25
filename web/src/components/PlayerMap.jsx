@@ -1,7 +1,7 @@
 // Carte des joueurs (France, Belgique, Suisse, Luxembourg, Monaco) : ville facultative, pour se retrouver en vrai.
 // Villes : GeoNames (CC BY 4.0), plus de 1 000 habitants ; contours : Natural Earth (domaine public).
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TCG_LIST } from "../lib/tcg.js";
+import { TCG_LIST, normTcg } from "../lib/tcg.js";
 import { pb, me, errMsg } from "../pb.js";
 import { messageTo } from "./Trades.jsx";
 
@@ -44,7 +44,7 @@ export function CitySettings({ onOpenMap, onSaved }) {
     pb.collection("decks").getFullList({ filter: `owner="${u.id}"`, fields: "tcg", requestKey: null })
       .then((ds) => {
         if (!alive) return;
-        setGames(TCG_LIST.map((t) => t.id).filter((id) => ds.some((d) => (d.tcg === "fab" ? "fab" : "safir") === id)));
+        setGames(TCG_LIST.map((t) => t.id).filter((id) => ds.some((d) => normTcg(d.tcg) === id)));
         setGuessed(true);
       })
       .catch(() => alive && setGames([]));
@@ -100,7 +100,7 @@ export function CitySettings({ onOpenMap, onSaved }) {
       <h2 style={{ marginTop: 0 }}>📍 Ma ville <span className="muted small">(facultatif)</span></h2>
       <p className="muted small" style={{ marginTop: -4 }}>
         Indiquer votre ville peut aider à vous retrouver en vrai pour des parties en physique : elle apparaît sur la carte des joueurs
-        avec votre pseudo, visible seulement des joueurs connectés. Seule la ville est montrée, jamais d'adresse.
+        avec votre pseudo. Elle n'est visible que des joueurs inscrits sur l'appli, pas du public. Seule la ville est montrée, jamais d'adresse.
       </p>
       {cur ? (
         <div className="row" style={{ flexWrap: "wrap", alignItems: "center" }}>
@@ -149,7 +149,8 @@ export function CitySettings({ onOpenMap, onSaved }) {
 }
 
 // Carte : points par ville, noms des joueurs ; toucher une ville pour voir qui y est et lui écrire
-export function PlayersMap({ go, players }) {
+export function PlayersMap({ go, players, onlineIds }) {
+  const on = (p) => p.id !== me()?.id && !!onlineIds?.has(p.id); // en ligne en ce moment
   const [shapes, setShapes] = useState(null);
   const [sel, setSel] = useState(null); // ville touchée
   const [view, setView] = useState({ k: 1, x: 0, y: 0 }); // zoom et décalage (unités de la carte)
@@ -232,9 +233,12 @@ export function PlayersMap({ go, players }) {
           {clusters.map((g) => {
             const me_ = g.list.some((p) => p.id === user?.id);
             const label = g.list.length <= 2 ? g.list.map((p) => (p.id === user?.id ? "Vous" : p.name)).join(", ") : `${g.list.length} joueurs`;
+            const live = g.list.some(on);
+            const r = (4 + Math.min(4, g.list.length)) * u1;
             return (
               <g key={g.k} className={`pmap-pt ${me_ ? "me" : ""} ${sel?.k === g.k ? "on" : ""}`} onClick={() => !drag.current?.moved && setSel(g)}>
-                <circle cx={g.x} cy={g.y} r={(4 + Math.min(4, g.list.length)) * u1} />
+                <circle cx={g.x} cy={g.y} r={r} />
+                {live && <circle className="live" cx={g.x + r * 0.75} cy={g.y - r * 0.75} r={3 * u1} />}
                 <text x={g.x + 9 * u1} y={g.y + 4 * u1} fontSize={fs}>{label}</text>
               </g>
             );
@@ -251,7 +255,7 @@ export function PlayersMap({ go, players }) {
           <b>📍 {sel.groups.map((g) => cityLabel(g.city, g.tag)).join(" · ")}</b>
           {sel.list.map((p) => (
             <div key={p.id} className="trade-row">
-              <span className="grow">{p.id === user?.id ? "Vous" : p.name}{sel.groups.length > 1 && <span className="muted small"> · {cityLabel(p.city, p.tag)}</span>}</span>
+              <span className="grow">{on(p) && <i className="dot-live" title="En ligne" />}{p.id === user?.id ? "Vous" : p.name}{sel.groups.length > 1 && <span className="muted small"> · {cityLabel(p.city, p.tag)}</span>}</span>
               {p.id !== user?.id && <button className="btn sm ghost" onClick={() => msg(p)}>✉ Message</button>}
             </div>
           ))}
@@ -261,12 +265,12 @@ export function PlayersMap({ go, players }) {
       {!near.length && <p className="muted small">Aucun autre joueur n'a encore indiqué sa ville.</p>}
       {near.slice(0, 30).map((p) => (
         <div key={p.id} className="trade-row">
-          <span className="grow"><b>{p.name}</b> <span className="muted small">· {cityLabel(p.city, p.tag)}{p.d != null ? ` · ${p.d} km` : ""}</span></span>
+          <span className="grow">{on(p) && <i className="dot-live" title="En ligne" />}<b>{p.name}</b> <span className="muted small">· {cityLabel(p.city, p.tag)}{p.d != null ? ` · ${p.d} km` : ""}{on(p) ? " · en ligne" : ""}</span></span>
           <button className="btn sm ghost" onClick={() => msg(p)} title={`Écrire à ${p.name}`}>✉</button>
         </div>
       ))}
       {!mine && <p className="muted small">Indiquez votre ville (onglet Personnalisation) pour voir les joueurs les plus proches de chez vous.</p>}
-      <p className="muted small pmap-credit">Villes : GeoNames (CC BY 4.0) · contours : Natural Earth.</p>
+      <p className="muted small pmap-credit"><i className="dot-live" /> en ligne en ce moment · Villes : GeoNames (CC BY 4.0) · contours : Natural Earth.</p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import {
-  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, mirrorX, mirrorRectX,
+  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, mirrorX, mirrorRectX, SORC,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
@@ -64,7 +64,7 @@ const GOLD_TXT = "rgba(222,190,118,.78)";
 // Fond du tapis en SVG (coordonnées mm). flip = tapis adverse retourné haut/bas seulement (miroir) :
 // ses territoires I, II, III restent face aux miens (I contre I, II contre II, III contre III).
 // flipX = mon tapis inversé gauche/droite (III · II · I), face à un joueur filmé dont l'image est vue « assis en face ».
-export const MatBackground = memo(function MatBackground({ flip, flipX }) {
+export const MatBackground = memo(function MatBackground({ flip, flipX, layer }) {
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
   const fp = (x, y) => (flipX ? mirrorX(x, y) : x);
   const R = (x, y, w, h) => (flip ? { x: fr(x, y, w, h), y: MAT_H - y - h, w, h } : { x: fr(x, y, w, h), y, w, h });
@@ -83,6 +83,25 @@ export const MatBackground = memo(function MatBackground({ flip, flipX }) {
     );
   };
   const els = [];
+  if (MAT_KIND === "sorcery") {
+    // Royaume partagé : la couche du dessous dessine le cadre et la grille ; chaque couche dessine ses propres piles
+    if (layer !== "top") {
+      els.push(<rect key="frame" x={3} y={3} width={594} height={MAT_H - 6} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
+      const { x0, y0, cw, ch, cols, rows } = SORC;
+      els.push(<rect key="realm" x={x0} y={y0} width={cols * cw} height={rows * ch} fill="rgba(0,0,0,.18)" stroke={GOLD} strokeWidth={0.6} />);
+      for (let c = 1; c < cols; c++) els.push(<line key={`gc${c}`} x1={x0 + c * cw} y1={y0} x2={x0 + c * cw} y2={y0 + rows * ch} stroke={GOLD} strokeWidth={0.4} />);
+      for (let r = 1; r < rows; r++) els.push(<line key={`gr${r}`} x1={x0} y1={y0 + r * ch} x2={x0 + cols * cw} y2={y0 + r * ch} stroke={GOLD} strokeWidth={r === rows / 2 ? 0.7 : 0.4} strokeDasharray={r === rows / 2 ? "3 2" : undefined} />);
+    }
+    for (const p of PILES) {
+      els.push(rect(R(p.x, p.y, p.w, p.h), `p${p.id}`));
+      els.push(text(p.x + p.w / 2, p.y + p.h / 2, p.lines[0], 6, `pl${p.id}`, { fontWeight: 600 }));
+    }
+    return (
+      <svg className="bg" viewBox={`0 0 ${MAT_W} ${MAT_H}`} preserveAspectRatio="none">
+        {els}
+      </svg>
+    );
+  }
   els.push(<rect key="frame" x={3} y={3} width={594} height={MAT_KIND === "fab" ? MAT_H - 6 : 294} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
   if (MAT_KIND === "fab") {
     // Flesh and Blood : filet sous la chaîne de combat, avec son titre
@@ -119,7 +138,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX }) {
   );
 });
 
-export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, frozen, children }) {
+export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, frozen, layer, children }) {
   const mine = side === "mine";
   const flip = !mine;
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
@@ -137,7 +156,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
   const bigRef = useRef(null);
   const [quakes, setQuakes] = useState([]); // [{ k, iid, x, y }] en mm
   useEffect(() => {
-    if (TCG === "fab" || !st) return;
+    if (TCG !== "safir" || !st) return;
     const now = new Set();
     const fresh = [];
     for (const b of st.board || []) {
@@ -176,7 +195,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
   };
 
   // Marqueur Gel posé : stalactites qui tombent sur le territoire nouvellement gelé
-  const frozenKey = TCG === "fab" ? "" : (frozen || []).join(",");
+  const frozenKey = TCG !== "safir" ? "" : (frozen || []).join(",");
   const frozenRef = useRef(null);
   useEffect(() => {
     const prev = frozenRef.current;
@@ -197,17 +216,17 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
   return (
     <div
       ref={matRef}
-      className={`mat ${mine ? "mine" : "opp"} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""} ${quakes.length ? "quake" : ""}`}
+      className={`mat ${mine ? "mine" : "opp"} ${layer ? `layer-${layer}` : ""} ${aiming ? "aiming" : ""} ${bg ? "has-bg" : ""} ${back ? "has-cb" : ""} ${quakes.length ? "quake" : ""}`}
       style={{ top, left, width: MAT_W * s, height: MAT_H * s, ...(back ? { "--cb": `url("${back}")` } : null) }}
     >
       <div ref={anchorRef} className="fx-anchor" />
       {/* Fond personnel du joueur (vu aussi par l'adversaire et les spectateurs), sous les emplacements du tapis */}
       {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
       {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
-      <MatBackground flip={flip} flipX={!!flipX} kind={MAT_KIND} />
+      <MatBackground flip={flip} flipX={!!flipX} kind={MAT_KIND} layer={layer} />
 
       {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}
-      {st && TCG !== "fab" && (() => {
+      {st && TCG === "safir" && (() => {
         const me = territoryValues(st), other = territoryValues(vs);
         // ancré au bord gauche du territoire, loin du titre
         return (flipX ? [192.5, 389.5, 591] : [10.5, 207.5, 404.5]).map((x, t) => {
@@ -236,11 +255,11 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
           const arr = p.id === "deck" ? st.deck : st.piles[p.id] || [];
           const topId = arr[arr.length - 1];
           const c = topId ? st.cards[topId] : null;
-          const showBack = p.id === "deck";
+          const showBack = p.id === "deck" || p.id === "atlas";
           const dragging = dragKey === `pile:${side}:${p.id}`;
           const cw = (c?.o === "l" ? CARD.l : CARD.p);
           // Carte portrait couchée pour tenir dans la zone paysage (zones portrait de Flesh and Blood : à l'endroit)
-          const rot = TCG === "fab" ? ((cw.h > cw.w) !== (p.h > p.w) ? 90 : 0) : cw.h > cw.w ? 90 : 0;
+          const rot = TCG !== "safir" ? ((cw.h > cw.w) !== (p.h > p.w) ? 90 : 0) : cw.h > cw.w ? 90 : 0;
           return (
             <div
               key={p.id}
@@ -304,7 +323,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
         })}
 
       {/* Territoires gelés (marqueur Gel) : givre sur tout le territoire, cartes toujours lisibles */}
-      {TCG !== "fab" &&
+      {TCG === "safir" &&
         (frozen || []).map((t) => {
           const x0 = [3, 201.5, 398.5][t], x1 = [201.5, 398.5, 597][t];
           return (

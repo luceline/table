@@ -3,7 +3,7 @@
 // Réservé aux joueurs connectés. Renvoie seulement le code (déjà suffisant pour regarder), les pseudos,
 // l'heure de la dernière action et le nombre de spectateurs ; jamais l'état de jeu.
 routerAdd("GET", "/api/table/live", (e) => {
-  const tcg = e.request.url.query().get("tcg") === "fab" ? "fab" : "safir";
+  const tcg = require(`${__hooks}/tcg_lib.js`).norm(e.request.url.query().get("tcg"));
   const me = e.auth ? e.auth.id : "";
   const iso = (ms) => new Date(Date.now() - ms).toISOString().replace("T", " ");
   const rows = arrayOf(new DynamicModel({ code: "", n1: "", n2: "", last: "", watching: 0 }));
@@ -12,7 +12,7 @@ routerAdd("GET", "/api/table/live", (e) => {
     "(SELECT COUNT(*) FROM watchers w WHERE w.game = g.id AND w.updated >= {:wsince}) AS watching " +
     "FROM games g JOIN seats s ON s.game = g.id " +
     "WHERE g.status = 'playing' AND COALESCE(g.solo, 0) = 0 AND g.p1 != {:me} AND g.p2 != {:me} AND " +
-    (tcg === "fab" ? "g.tcg = 'fab' " : "(g.tcg = '' OR g.tcg = 'safir') ") +
+    require(`${__hooks}/tcg_lib.js`).sql(tcg, "g.tcg") + " " +
     // au moins un des deux joueurs encore à sa table (présence rafraîchie toutes les 45 s)
     "AND EXISTS (SELECT 1 FROM here h WHERE h.game = g.id AND h.updated >= {:hsince}) " +
     "GROUP BY g.id HAVING last >= {:since} ORDER BY last DESC LIMIT 30"

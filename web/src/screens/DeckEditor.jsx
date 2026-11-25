@@ -5,6 +5,7 @@ import { checkDeck, nameKey, DECK_MIN, DECK_MAX, COPY_MAX } from "../lib/deckrul
 import { currentTcg, tcgFilter } from "../lib/tcg.js";
 import { Sheet } from "../components/ui.jsx";
 import { parseVal } from "../lib/game.js";
+import { DeckLayout, DeckList, CardZoom } from "../components/DeckBuild.jsx";
 import { ALL_FACTIONS, KIN_SUB, factionsOf } from "../lib/factions.js";
 import { ARRIVAL_MAX, arrivalOf, autoArrival, playArrival } from "../lib/fx.js";
 
@@ -29,6 +30,7 @@ export default function DeckEditor({ go, deckId }) {
   const [fac, setFac] = useState(""); // filtre par faction
   const [kind, setKind] = useState(""); // filtre par type : "" tous, "cbt" combattants, "mag" magies, "none" sans stats
   const [valF, setValF] = useState(null); // filtre par Valeur (barre de la courbe touchée)
+  const [zoom, setZoom] = useState(null); // carte ouverte en grand (toucher une carte ne l'ajoute plus)
   const [fx, setFx] = useState({}); // cartes à qui le joueur donne l'aura de puissance (2 cartes différentes au plus)
 
   useEffect(() => {
@@ -195,8 +197,39 @@ export default function DeckEditor({ go, deckId }) {
     </>
   );
 
+  // Liste du deck (colonne de droite sur grand écran, panneau sur téléphone)
+  const byVal = (a, b) => (parseVal(a.val) ?? 99) - (parseVal(b.val) ?? 99) || (a.name || "").localeCompare(b.name || "", "fr");
+  const deckList = (
+    <DeckList
+      summary={`${total} carte${total > 1 ? "s" : ""}${nTok ? `, ${nTok} jeton${nTok > 1 ? "s" : ""} en réserve` : ""}. Touchez un nom pour voir la carte.`}
+      onOpen={(c) => setZoom(c.id)}
+      onSet={setN}
+      groups={[
+        ...(cmdCard ? [{ key: "cmd", title: "Commandant", rows: [{ c: cmdCard, n: 1, fixed: true }] }] : []),
+        {
+          key: "deck",
+          title: "Cartes",
+          count: total - (cmdCard ? 1 : 0),
+          empty: "Ajoutez des cartes avec +.",
+          rows: normal.filter((c) => qty[c.id]).sort(byVal).map((c) => ({
+            c, n: qty[c.id], max: maxFor(c),
+            meta: `${parseVal(c.val) !== null ? `V${parseVal(c.val)}` : ""}${isMagic(c) ? " ✦" : ""}${fx[c.id] ? " 💥" : ""}`,
+          })),
+        },
+        ...(tokens.some(tokOn) ? [{ key: "tok", title: "Jetons (réserve)", rows: tokens.filter(tokOn).map((c) => ({ c, n: 1, toggle: true, set: () => toggleTok(c) })) }] : []),
+      ]}
+    />
+  );
+  const zc = zoom && cards.find((c) => c.id === zoom);
+  const zInfo = zc && [
+    parseVal(zc.val) !== null ? `Valeur ${parseVal(zc.val)}` : null,
+    zc.atk ? `ATK ${zc.atk}` : null,
+    zc.def ? `DEF ${zc.def}` : null,
+    factionsOf(zc).join(", ") || null,
+  ].filter(Boolean).join(" · ");
+
   return (
-    <div className="page">
+    <div className="page page-deck">
       <div className="topbar">
         <button className="btn icon ghost" onClick={back} aria-label="Retour">←</button>
         <h1>Deck</h1>
@@ -205,7 +238,7 @@ export default function DeckEditor({ go, deckId }) {
       </div>
       {err && <div className="err">{err}</div>}
       {deck && (
-        <>
+        <DeckLayout list={deckList} count={total}>
           <div className="field">
             <label>Nom du deck</label>
             <input className="input" value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} maxLength={80} />
@@ -351,7 +384,7 @@ export default function DeckEditor({ go, deckId }) {
           <div className="grid">
             {shown.map((c) => (
               <div key={c.id}>
-                <div className="thumb" onClick={() => setN(c.id, (qty[c.id] || 0) + 1)} style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null}>
+                <div className="thumb" onClick={() => setZoom(c.id)} title="Voir la carte en grand" style={c.orient === "l" ? { aspectRatio: "88 / 63" } : null}>
                   {thumb(c)}
                   {qty[c.id] > 0 && <span className="badge">×{qty[c.id]}</span>}
                   {qty[c.id] > 0 && (fx[c.id] || autoArrival(c.factions)) && (
@@ -390,7 +423,8 @@ export default function DeckEditor({ go, deckId }) {
               <div key={c.id}>
                 <div
                   className="thumb"
-                  onClick={() => toggleTok(c)}
+                  onClick={() => setZoom(c.id)}
+                  title="Voir la carte en grand"
                   style={{ ...(c.orient === "l" ? { aspectRatio: "88 / 63" } : null), opacity: tokOn(c) ? 1 : 0.45 }}
                 >
                   {thumb(c)}
@@ -404,7 +438,25 @@ export default function DeckEditor({ go, deckId }) {
               </div>
             ))}
           </div>
-        </>
+        </DeckLayout>
+      )}
+      {zc && (
+        <CardZoom
+          card={zc}
+          onClose={() => setZoom(null)}
+          info={zInfo}
+          toggle={zc.kind === "jeton"}
+          n={zc.kind === "jeton" ? (tokOn(zc) ? 1 : 0) : qty[zc.id] || 0}
+          max={maxFor(zc)}
+          onSet={(id, n) => (zc.kind === "jeton" ? toggleTok(zc) : setN(id, n))}
+          extra={zc.kind !== "jeton" && qty[zc.id] > 0 && (
+            <div className="row" style={{ justifyContent: "center", marginTop: 10 }}>
+              <button className={`btn sm ${fx[zc.id] ? "primary" : "ghost"}`} onClick={() => toggleAura(zc)}>
+                💥 {fx[zc.id] ? "Aura de puissance : oui" : "Donner l'aura de puissance"} ({auraCount}/{ARRIVAL_MAX})
+              </button>
+            </div>
+          )}
+        />
       )}
     </div>
   );

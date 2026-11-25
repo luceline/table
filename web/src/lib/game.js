@@ -39,6 +39,7 @@ export function buildState({ name, deck, cardsById }) {
   const ids = [];
   const reserve = [];
   const inv = []; // Flesh and Blood : armes et équipements, hors deck
+  const atlas = []; // Sorcery : atlas (deck de sites)
   for (const e of deck.entries || []) {
     const rec = cardsById[e.card];
     if (!rec || !(e.qty > 0)) continue;
@@ -51,6 +52,20 @@ export function buildState({ name, deck, cardsById }) {
       reserve.push({ tid: rec.id, ...base });
       continue;
     }
+    // Sorcery : éléments (seuil des sorts, affinité des sites) ; sites rangés dans l'atlas, à part du grimoire
+    if (TCG === "sorcery") {
+      const el = sorcElements(rec.factions);
+      if (el.length) base.el = el;
+      if (rec.kind === "site") {
+        base.site = true;
+        for (let i = 0; i < e.qty; i++) {
+          const iid = rid(7);
+          cards[iid] = { ...base };
+          atlas.push(iid);
+        }
+        continue;
+      }
+    }
     if (TCG === "fab" && rec.kind === "arene") {
       for (let i = 0; i < e.qty; i++) {
         const iid = rid(7);
@@ -61,7 +76,7 @@ export function buildState({ name, deck, cardsById }) {
     }
     // effet d'arrivée choisi dans l'éditeur de deck (Safir)
     // aura de puissance choisie dans l'éditeur de deck (les effets Yan, Lin, Tian viennent d'office de la sous-faction)
-    const card = TCG !== "fab" && e.fx === "aura" ? { ...base, fx: "aura" } : base;
+    const card = TCG === "safir" && e.fx === "aura" ? { ...base, fx: "aura" } : base;
     for (let i = 0; i < e.qty; i++) {
       const iid = rid(7);
       cards[iid] = card;
@@ -73,7 +88,9 @@ export function buildState({ name, deck, cardsById }) {
   const cmd = deck.commander && cardsById[deck.commander];
   if (cmd) {
     const iid = rid(7);
-    cards[iid] = { c: cmd.id, f: cmd.image, n: cmd.name || (TCG === "fab" ? "Héros" : "Commandant"), o: cmd.orient || (TCG === "fab" ? "p" : "l"), cmd: true };
+    cards[iid] = { c: cmd.id, f: cmd.image, n: cmd.name || (TCG === "fab" ? "Héros" : TCG === "sorcery" ? "Avatar" : "Commandant"), o: cmd.orient || (TCG === "safir" ? "l" : "p"), cmd: true };
+    // Sorcery : la vie de départ est imprimée sur l'avatar (saisie dans « Coût / Vie » au scan), 20 par défaut
+    if (TCG === "sorcery") cards[iid].life = parseVal(cmd.val) || SORC_LIFE;
     board.push(commanderSpot(iid, cards[iid].o));
   }
   return {
@@ -84,13 +101,15 @@ export function buildState({ name, deck, cardsById }) {
     reserve,
     deck: shuffle(ids),
     hand: [],
-    piles: TCG === "fab" ? { ...emptyPiles(), inv } : { d1: [], d2: [], d3: [] },
+    piles: TCG === "fab" ? { ...emptyPiles(), inv } : TCG === "sorcery" ? { ...emptyPiles(), atlas: shuffle(atlas) } : { d1: [], d2: [], d3: [] },
     board,
     pi: START_PI,
-    pv: TCG === "fab" ? fabLife(deck.format) : START_PV,
+    pv: TCG === "fab" ? fabLife(deck.format) : TCG === "sorcery" ? sorcLife(cards) : START_PV,
     ...TURN_RESET,
     ...(TCG === "fab" ? { format: FAB_FORMATS[deck.format] ? deck.format : "cc" } : null),
-    log: [{ t: Date.now(), m: TCG === "fab"
+    log: [{ t: Date.now(), m: TCG === "sorcery"
+      ? `rejoint la table avec le deck « ${deck.name} » (grimoire de ${ids.length} cartes, atlas de ${atlas.length} sites${cmd ? `, avatar « ${cmd.name} »` : ""})`
+      : TCG === "fab"
       ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format] || FAB_FORMATS.cc}${deck.initiation ? " initiation" : ""}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
       : `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""}${cmd ? `, commandant « ${cmd.name} »` : ""})` }],
   };
@@ -98,6 +117,10 @@ export function buildState({ name, deck, cardsById }) {
 
 // Zone Commandant du tapis (x 6.5, y 226, 88 x 63) ; une carte portrait y est couchée
 export function commanderSpot(iid, o) {
+  if (TCG === "sorcery") {
+    // case du milieu de sa rangée (la plus proche de soi)
+    return { iid, x: 300, y: 309, rot: o === "l" ? 90 : 0, down: false };
+  }
   if (TCG === "fab") {
     const h = SLOTS.find((sl) => sl.kind === "hero"); // zone Héros, portrait
     return { iid, x: h.x + h.w / 2, y: h.y + h.h / 2, rot: o === "l" ? 90 : 0, down: false };
@@ -121,6 +144,36 @@ const FAB_PHASES = [
 export const FAB_FORMATS = { cc: "Classic Constructed", sage: "Silver Age", blitz: "Blitz" };
 export const fabLife = (format) => (format === "blitz" || format === "sage" ? 20 : 40); // valeur de départ (jeune héros : 20), à ajuster selon le héros
 
+// Sorcery : début, principale, fin (identifiants repris des couleurs des phases Safir)
+const SORC_PHASES = [
+  { id: "lan", label: "Début", short: "Début" },
+  { id: "com", label: "Principale", short: "Princ." },
+  { id: "cal", label: "Fin", short: "Fin" },
+];
+export const SORC_LIFE = 20;
+// Vie de départ : celle de l'avatar
+export const sorcLife = (cards) => Object.values(cards || {}).find((c) => c.cmd)?.life || SORC_LIFE;
+// Les quatre éléments (seuils et affinité), tels que saisis au scan
+export const SORC_ELEMENTS = [
+  { id: "Air", label: "Air", icon: "💨", hex: "#a9c7e8" },
+  { id: "Terre", label: "Terre", icon: "⛰️", hex: "#b59a6a" },
+  { id: "Feu", label: "Feu", icon: "🔥", hex: "#e0643c" },
+  { id: "Eau", label: "Eau", icon: "💧", hex: "#3f8fd6" },
+];
+// Éléments d'une carte : une même valeur peut apparaître plusieurs fois (« Feu », « Feu » = seuil de 2 en Feu)
+export const sorcElements = (factions) => (Array.isArray(factions) ? factions.filter((f) => SORC_ELEMENTS.some((e) => e.id === f)) : []);
+// Affinité d'un joueur : éléments de ses sites face visible dans le royaume ; mana : 1 par site
+export function sorcAffinity(st) {
+  const out = { Air: 0, Terre: 0, Feu: 0, Eau: 0, sites: 0 };
+  for (const b of st?.board || []) {
+    const c = st.cards?.[b.iid];
+    if (!c?.site || b.down) continue;
+    out.sites++;
+    for (const e of c.el || []) out[e]++;
+  }
+  return out;
+}
+
 // ---------- Jeu actif (liaisons vivantes) ----------
 export let TCG = "safir";
 export let START_PI = 4;
@@ -132,12 +185,13 @@ export const emptyPiles = () => Object.fromEntries(PILE_IDS.map((k) => [k, []]))
 
 export function setRules(id) {
   const fab = id === "fab";
-  TCG = fab ? "fab" : "safir";
-  START_PI = fab ? 0 : 4;
-  START_PV = fab ? 40 : 0;
-  PHASES = fab ? FAB_PHASES : SAFIR_PHASES;
+  const sorc = id === "sorcery";
+  TCG = fab ? "fab" : sorc ? "sorcery" : "safir";
+  START_PI = fab || sorc ? 0 : 4;
+  START_PV = fab ? 40 : sorc ? SORC_LIFE : 0;
+  PHASES = fab ? FAB_PHASES : sorc ? SORC_PHASES : SAFIR_PHASES;
   PHASE_BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
-  PILE_IDS = fab ? ["pitch", "grave", "banish"] : ["d1", "d2", "d3"];
+  PILE_IDS = fab ? ["pitch", "grave", "banish"] : sorc ? ["atlas", "grave"] : ["d1", "d2", "d3"];
 }
 
 // Bonus rappelés sous le badge d'unification (Saison 3, Kin)
@@ -157,6 +211,22 @@ export function resetState(s) {
   const cards = {};
   for (const [k, v] of Object.entries(s.cards)) if (!v.tok) cards[k] = v;
   const cmd = Object.keys(cards).filter((k) => cards[k].cmd);
+  if (TCG === "sorcery") {
+    // sites dans l'atlas, sorts dans le grimoire, avatar à sa place, vie de l'avatar
+    return {
+      ...s,
+      cards,
+      deck: shuffle(Object.keys(cards).filter((k) => !cards[k].cmd && !cards[k].site)),
+      hand: [],
+      piles: { ...emptyPiles(), atlas: shuffle(Object.keys(cards).filter((k) => cards[k].site)) },
+      board: cmd.map((k) => commanderSpot(k, cards[k].o)),
+      pi: START_PI,
+      pv: sorcLife(cards),
+      ...TURN_RESET,
+      ping: null,
+      reveal: null,
+    };
+  }
   if (TCG === "fab") {
     // armes et équipements reviennent dans l'inventaire, la vie repart de la valeur du format
     return {
@@ -189,6 +259,7 @@ export function resetState(s) {
 }
 
 export function emptyState() {
+  if (TCG === "sorcery") return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: emptyPiles(), board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
   if (TCG === "fab") return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { ...emptyPiles(), inv: [] }, board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
   return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { d1: [], d2: [], d3: [] }, board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
 }
@@ -198,7 +269,7 @@ export function normalize(s) {
   return {
     ...emptyState(),
     ...s,
-    piles: TCG === "fab" ? { ...emptyPiles(), inv: [], ...(s.piles || {}) } : { d1: [], d2: [], d3: [], ...(s.piles || {}) },
+    piles: TCG === "fab" ? { ...emptyPiles(), inv: [], ...(s.piles || {}) } : TCG === "sorcery" ? { ...emptyPiles(), ...(s.piles || {}) } : { d1: [], d2: [], d3: [], ...(s.piles || {}) },
     arrows: Array.isArray(s.arrows) ? s.arrows : [],
   };
 }

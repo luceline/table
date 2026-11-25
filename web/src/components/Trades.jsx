@@ -12,19 +12,23 @@ const priceText = (t) => (t.mode !== "trade" && t.price > 0 ? (t.kind === "want"
 export const RARITIES = {
   safir: ["Commune", "Rare", "Ultra rare", "SP", "Secrète", "Légendaire", "Gold signée", "Promo"],
   fab: ["Token", "Basic", "Commune", "Rare", "Super Rare", "Majestic", "Legendary", "Fabled", "Marvel", "Promo"],
+  sorcery: ["Ordinaire", "Exceptionnelle", "Élite", "Unique", "Promo"],
 };
 const RANK = {
   safir: { Commune: 1, Rare: 2, "Ultra rare": 3, SP: 4, "Secrète": 5, "Légendaire": 6, "Gold signée": 7 },
   fab: { Token: 0, Basic: 0, Commune: 1, Rare: 2, "Super Rare": 3, Majestic: 4, Legendary: 5, Fabled: 6, Marvel: 6 },
+  sorcery: { Ordinaire: 1, Exceptionnelle: 2, "Élite": 3, Unique: 4 },
 };
 export const FINISHES = ["Rainbow Foil", "Cold Foil"]; // Flesh and Blood ; vide = normale
+// Finitions par jeu (Sorcery : version foil)
+const FINISHES_OF = { fab: FINISHES, sorcery: ["Foil"] };
 const extra = (t) => [t.rarity, t.finish].filter(Boolean).join(" ");
 export const cardText = (t) => `${t.series} n°${t.num}${t.name ? ` · ${t.name}` : ""}${extra(t) ? ` · ${extra(t)}` : ""}${t.qty > 1 ? ` ×${t.qty}` : ""}`;
 const cardSay = (t) => `${t.series} n°${t.num}${t.name ? ` (${t.name})` : ""}${extra(t) ? `, ${extra(t)}` : ""}${t.qty > 1 ? `, ${t.qty} exemplaires` : ""}`;
 const fits = (a, b, k) => !a[k] || !b[k] || a[k] === b[k];
 const sameCard = (a, b) => a.series === b.series && String(a.num) === String(b.num) && fits(a, b, "rarity") && fits(a, b, "finish");
 const rankOf = (tcg, t) => (t.rarity && RANK[tcg]?.[t.rarity] != null ? RANK[tcg][t.rarity] : null);
-const tcgId = (t) => (t === "fab" ? "fab" : "safir");
+const tcgId = (t) => (t === "fab" || t === "sorcery" ? t : "safir");
 
 // Ouvre une conversation privée avec un brouillon : dans la colonne Salons de l'accueil si elle est affichée, sinon en plein écran
 export function messageTo(go, uid, name, text) {
@@ -103,7 +107,7 @@ export default function Trades({ tcg, go, admin, data }) {
       await pb.collection("trades").create({
         user: user.id, tcg: t, kind: f.kind, series: f.series, num: f.num.trim(), name: f.name.trim().slice(0, 80),
         mode: f.mode, price: f.mode !== "trade" && f.price !== "" ? Math.max(0, Number(String(f.price).replace(",", "."))) || 0 : 0,
-        qty: Math.max(1, Math.min(99, parseInt(f.qty, 10) || 1)), rarity: f.rarity, finish: t === "fab" ? f.finish : "",
+        qty: Math.max(1, Math.min(99, parseInt(f.qty, 10) || 1)), rarity: f.rarity, finish: FINISHES_OF[t] ? f.finish : "",
       });
       setF((x) => ({ ...x, num: "", name: "", qty: 1 }));
     } catch (e2) {
@@ -190,11 +194,11 @@ export default function Trades({ tcg, go, admin, data }) {
                   {RARITIES[t].map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </label>
-              {t === "fab" && (
+              {FINISHES_OF[t] && (
                 <label>Finition
                   <select className="input" value={f.finish} onChange={(e) => setF({ ...f, finish: e.target.value })}>
                     <option value="">Normale</option>
-                    {FINISHES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    {FINISHES_OF[t].map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
               )}

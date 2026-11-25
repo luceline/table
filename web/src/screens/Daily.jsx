@@ -42,7 +42,7 @@ function Reveal({ img, fx, fy, level, full }) {
 }
 
 export default function Daily({ go }) {
-  const [tcg, setTcg] = useState(currentTcg() === "fab" ? "fab" : "safir");
+  const [tcg, setTcg] = useState(currentTcg());
   const [st, setSt] = useState(null);
   const [board, setBoard] = useState(null);
   const [text, setText] = useState("");

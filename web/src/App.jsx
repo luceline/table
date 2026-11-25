@@ -6,6 +6,7 @@ import Library from "./screens/Library.jsx";
 import Scanner from "./screens/Scanner.jsx";
 import DeckEditor from "./screens/DeckEditor.jsx";
 import DeckEditorFab from "./screens/DeckEditorFab.jsx";
+import DeckEditorSorcery from "./screens/DeckEditorSorcery.jsx";
 import { TCG } from "./lib/game.js";
 import Table from "./screens/Table.jsx";
 import Spectator from "./screens/Spectator.jsx";
@@ -112,7 +113,7 @@ export default function App() {
     case "scan":
       return <Scanner go={go} />;
     case "deck":
-      return TCG === "fab" ? <DeckEditorFab go={go} deckId={screen.deckId} /> : <DeckEditor go={go} deckId={screen.deckId} />;
+      return TCG === "fab" ? <DeckEditorFab go={go} deckId={screen.deckId} /> : TCG === "sorcery" ? <DeckEditorSorcery go={go} deckId={screen.deckId} /> : <DeckEditor go={go} deckId={screen.deckId} />;
     case "table":
       return <Table key={`${screen.gameId}:${screen.side || ""}`} go={go} gameId={screen.gameId} side={screen.side || ""} />;
     default:

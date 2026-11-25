@@ -1,3 +1,4 @@
+import { TCG } from "./game.js";
 // Factions de Safir (« Nos Règles s3 ») et sous-factions Kin (unification)
 export const FACTIONS = ["Aqua", "Chaos", "Ciel", "Nature", "Ange", "Cosmic", "Démon", "Dragon", "Forêt", "Glace", "Humain", "Orc", "Vampire", "Kin"];
 export const KIN_SUB = ["Tian", "Yan", "Lin", "Mercenaire"];
@@ -39,4 +40,8 @@ export function parseFactionLine(s) {
 }
 
 // Liste stockée (JSON) -> tableau propre
-export const factionsOf = (c) => (Array.isArray(c?.factions) ? c.factions.filter((f) => ALL_FACTIONS.includes(f)) : []);
+// Safir : seules les factions connues ; Flesh and Blood (classes, talents) et Sorcery (éléments) : les valeurs choisies au scan
+export const factionsOf = (c) =>
+  Array.isArray(c?.factions)
+    ? c.factions.filter((f) => (TCG === "safir" ? ALL_FACTIONS.includes(f) : typeof f === "string" && f.length > 0 && f.length <= 30))
+    : [];

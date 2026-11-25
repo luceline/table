@@ -4,7 +4,7 @@
 // Créneaux en commun (30 min au moins) entre mon agenda et celui des autres joueurs du jeu choisi.
 // Les agendas restent privés : on ne renvoie que les intersections, en minutes de la semaine UTC (lundi 0 h = 0).
 routerAdd("GET", "/api/table/agenda-matches", (e) => {
-  const tcg = e.request.url.query().get("tcg") === "fab" ? "fab" : "safir";
+  const tcg = require(`${__hooks}/tcg_lib.js`).norm(e.request.url.query().get("tcg"));
   const W = 7 * 1440;
   const now = new Date().toISOString().replace("T", " ");
   const read = (r) => {
@@ -75,10 +75,10 @@ routerAdd("GET", "/api/table/agenda-matches", (e) => {
 onRecordCreateRequest((e) => {
   e.next();
   const r = e.record;
-  const tcg = r.getString("tcg") === "fab" ? "fab" : "safir";
+  const tcg = require(`${__hooks}/tcg_lib.js`).norm(r.getString("tcg"));
   const note = r.getString("note");
   require(`${__hooks}/push_lib.js`).sendTo([r.getString("to")], {
-    title: tcg === "fab" ? "Proposition de partie · Flesh and Blood" : "Proposition de partie · Safir",
+    title: "Proposition de partie · " + require(`${__hooks}/tcg_lib.js`).short(tcg),
     body: `${r.getString("from_name") || "Un joueur"} vous propose une partie ${r.getString("label")}${note ? " : « " + note + " »" : ""}`,
     url: "/?agenda=" + tcg,
     tag: "inv-" + r.id,
@@ -92,7 +92,7 @@ onRecordUpdateRequest((e) => {
   const r = e.record;
   const st = r.getString("status");
   if (st === before) return;
-  const tcg = r.getString("tcg") === "fab" ? "fab" : "safir";
+  const tcg = require(`${__hooks}/tcg_lib.js`).norm(r.getString("tcg"));
   const reply = r.getString("reply");
   const label = r.getString("label");
   let to = "", body = "";
@@ -121,7 +121,7 @@ cronAdd("agenda_reminders", "* * * * *", () => {
   for (const r of list) {
     r.set("reminded", true);
     try { $app.save(r); } catch (_) { continue; }
-    const tcg = r.getString("tcg") === "fab" ? "fab" : "safir";
+    const tcg = require(`${__hooks}/tcg_lib.js`).norm(r.getString("tcg"));
     const lib = require(`${__hooks}/push_lib.js`);
     lib.sendTo([r.getString("from")], { title: "Table de jeu", body: `Votre partie avec ${r.getString("to_name") || "votre adversaire"} commence bientôt (${r.getString("label")}). Ouvrez l'appli pour lancer la table.`, url: "/?agenda=" + tcg, tag: "rem-" + r.id });
     lib.sendTo([r.getString("to")], { title: "Table de jeu", body: `Votre partie avec ${r.getString("from_name") || "votre adversaire"} commence bientôt (${r.getString("label")}). Ouvrez l'appli pour la rejoindre.`, url: "/?agenda=" + tcg, tag: "rem-" + r.id });

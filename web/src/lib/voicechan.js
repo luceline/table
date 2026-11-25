@@ -1,3 +1,4 @@
+import { normTcg, tcgFilter } from "./tcg.js";
 // Salons vocaux : voix, partage d'écran ou caméra, d'appareil à appareil (WebRTC, 6 personnes environ).
 // Un seul salon à la fois, qui reste ouvert quand on change d'écran (sauf à la table de jeu, qui a son propre vocal).
 // État partagé hors de React : useVoice() pour l'afficher, joinVoice / leaveVoice / setMic / setDeaf / startShare / stopShare.
@@ -311,7 +312,7 @@ export async function stopShare() {
 export const kickVoice = (uid) => pb.send("/api/table/voice/kick", { method: "POST", body: { user: uid }, requestKey: null });
 
 // ---------- Salons vocaux d'un jeu et qui y est (pour la liste à gauche) ----------
-const tcgF = (tcg) => (tcg === "fab" ? 'tcg = "fab"' : '(tcg = "" || tcg = "safir")');
+const tcgF = (tcg) => tcgFilter(normTcg(tcg));
 export function useVoiceRooms(tcg) {
   const [rooms, setRooms] = useState([]);
   const [here, setHere] = useState([]);

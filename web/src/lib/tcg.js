@@ -6,11 +6,15 @@ import { setRules } from "./game.js";
 export const TCG_LIST = [
   { id: "safir", name: "Safir Cards" },
   { id: "fab", name: "Flesh and Blood" },
+  { id: "sorcery", name: "Sorcery: Contested Realm", short: "Sorcery" },
 ];
 export const DEFAULT_TCG = "safir";
 const KEY = "table_tcg";
 
 export const tcgOf = (rec) => rec?.tcg || DEFAULT_TCG;
+// Identifiant de jeu connu (inconnu ou vide = Safir)
+export const normTcg = (t) => (TCG_LIST.some((g) => g.id === t) ? t : DEFAULT_TCG);
+export const tcgShort = (id) => { const g = TCG_LIST.find((x) => x.id === id); return g?.short || g?.name || id; };
 export const tcgName = (id) => TCG_LIST.find((g) => g.id === id)?.name || id;
 
 export function currentTcg() {
@@ -32,7 +36,7 @@ export function tcgFilter(id) {
 
 // Active les règles et le tapis d'un jeu pour tous les écrans (tapis, phases, piles, compteurs)
 export function activateTcg(id) {
-  const v = id === "fab" ? "fab" : DEFAULT_TCG;
+  const v = normTcg(id);
   setGeometry(v);
   setRules(v);
   return v;

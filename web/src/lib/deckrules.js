@@ -75,7 +75,39 @@ export function checkFab(deck, cardsById) {
   return { total, arena, problems, ok: problems.length === 0 };
 }
 
+// ---------- Sorcery: Contested Realm ----------
+// Règles officielles (sorcerytcg.com, format Constructed, livret de règles de décembre 2025) : 1 avatar ;
+// grimoire d'au moins 60 cartes (sbires, magies, auras, artefacts) ; atlas d'au moins 30 sites ;
+// exemplaires selon la rareté : Ordinaire 4, Exceptionnelle 3, Élite 2, Unique 1 (rareté inconnue : comptée Ordinaire).
+// Une carte est unique par son nom. La « collection » de 10 cartes des tournois n'est pas gérée.
+export const SORC_RULES = { spellbook: 60, atlas: 30 };
+const SORC_COPIES = { ordinary: 4, exceptional: 3, elite: 2, unique: 1 };
+export const sorcCopiesOf = (c) => SORC_COPIES[c?.rarity] ?? 4;
+export function checkSorcery(deck, cardsById) {
+  let spellbook = 0, atlas = 0;
+  const byName = {};
+  for (const e of deck?.entries || []) {
+    const c = cardsById[e.card];
+    if (!c || c.kind === "jeton" || c.kind === "avatar" || e.tok || !(e.qty > 0)) continue;
+    if (c.kind === "site") atlas += e.qty;
+    else spellbook += e.qty;
+    const k = nameKey(c.name) || c.id;
+    byName[k] = { name: c.name || "Sans nom", n: (byName[k]?.n || 0) + e.qty, max: Math.min(byName[k]?.max ?? 9, sorcCopiesOf(c)) };
+  }
+  const problems = [];
+  const avatar = deck?.commander && cardsById[deck.commander];
+  if (!avatar) problems.push("Choisissez un avatar.");
+  if (deck?.initiation) return { spellbook, atlas, total: spellbook + atlas, problems, ok: problems.length === 0, initiation: true };
+  if (spellbook < SORC_RULES.spellbook) problems.push(`${spellbook} carte${spellbook > 1 ? "s" : ""} dans le grimoire : il en faut au moins ${SORC_RULES.spellbook}.`);
+  if (atlas < SORC_RULES.atlas) problems.push(`${atlas} site${atlas > 1 ? "s" : ""} dans l'atlas : il en faut au moins ${SORC_RULES.atlas}.`);
+  for (const v of Object.values(byName)) {
+    if (v.n > v.max) problems.push(`« ${v.name} » en ${v.n} exemplaires : ${v.max} au maximum pour sa rareté.`);
+  }
+  return { spellbook, atlas, total: spellbook + atlas, problems, ok: problems.length === 0 };
+}
+
 // Contrôle du deck selon le jeu actif (Safir : règles d'origine, inchangées)
 export function checkDeckFor(deck, cardsById) {
+  if (TCG === "sorcery") return checkSorcery(deck, cardsById);
   return TCG === "fab" ? checkFab(deck, cardsById) : checkDeck(deck?.entries, cardsById, deck?.commander);
 }

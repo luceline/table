@@ -1,3 +1,4 @@
+import { normTcg } from "./tcg.js";
 // Présence (qui est en ligne), titres des joueurs et fiches de profil
 import { useEffect, useState } from "react";
 import { pb, me } from "../pb.js";
@@ -56,7 +57,7 @@ export function useOnline(tcg) {
   useEffect(() => {
     let alive = true;
     const load = () =>
-      pb.send(`/api/table/online?tcg=${tcg === "fab" ? "fab" : "safir"}`, { requestKey: null })
+      pb.send(`/api/table/online?tcg=${normTcg(tcg)}`, { requestKey: null })
         .then((r) => alive && setData({ ...r, ids: new Set((r.online || []).map((x) => x.id)) }))
         .catch(() => {});
     load();

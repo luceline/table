@@ -20,7 +20,7 @@ onRecordUpdateRequest((e) => {
   let g = [];
   try { g = JSON.parse(r.getString("games") || "[]"); } catch (_) {}
   if (!Array.isArray(g)) g = [];
-  r.set("games", ["safir", "fab"].filter((t) => g.indexOf(t) >= 0));
+  r.set("games", require(`${__hooks}/tcg_lib.js`).IDS.filter((t) => g.indexOf(t) >= 0));
   e.next();
 }, "users");
 
@@ -30,13 +30,13 @@ routerAdd("GET", "/api/table/map", (e) => {
   const byDeck = {};
   try {
     const rows = arrayOf(new DynamicModel({ owner: "", t: "" }));
-    $app.db().newQuery("SELECT DISTINCT d.owner AS owner, CASE WHEN d.tcg = 'fab' THEN 'fab' ELSE 'safir' END AS t FROM decks d JOIN users u ON u.id = d.owner WHERE u.city != ''").all(rows);
+    $app.db().newQuery("SELECT DISTINCT d.owner AS owner, CASE WHEN d.tcg = 'fab' THEN 'fab' WHEN d.tcg = 'sorcery' THEN 'sorcery' ELSE 'safir' END AS t FROM decks d JOIN users u ON u.id = d.owner WHERE u.city != ''").all(rows);
     for (const r of rows) (byDeck[r.owner] = byDeck[r.owner] || []).push(r.t);
   } catch (_) {}
   const gamesOf = (u) => {
     let g = [];
     try { g = JSON.parse(u.getString("games") || "[]"); } catch (_) {}
-    g = Array.isArray(g) ? g.filter((t) => t === "safir" || t === "fab") : [];
+    g = Array.isArray(g) ? g.filter((t) => t === "safir" || t === "fab" || t === "sorcery") : [];
     return g.length ? g : byDeck[u.id] || [];
   };
   e.response.header().set("Cache-Control", "no-store");

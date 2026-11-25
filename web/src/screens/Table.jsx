@@ -15,10 +15,11 @@ import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
 import { Mat, frozenTerritories } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
-import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX } from "../lib/mat.js";
+import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX, MAT_KIND } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
   PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, KIN_COLOR, kinSub, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
+  sorcLife, sorcAffinity, SORC_ELEMENTS,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { myResult, saveResult } from "../lib/results.js";
@@ -31,11 +32,11 @@ export const BAR = 48; // bandeau PI/PV en portrait (px écran)
 export const RAIL = 96; // colonne PI/PV en paysage (px écran)
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
 // Noms des piles du jeu actif (Safir : PILE_NAMES ; Flesh and Blood : zones du tapis + inventaire)
-const pileName = (id) => (TCG === "fab" ? (id === "inv" ? "Inventaire" : PILE_BY_ID[id]?.short || id) : PILE_NAMES[id]);
-const deSa = (id) => (TCG === "fab" ? (id === "inv" ? "de son inventaire" : PILE_BY_ID[id]?.de || "") : `de sa ${PILE_NAMES[id]}`);
-const dansSa = (id) => (TCG === "fab" ? (id === "inv" ? "dans son inventaire" : PILE_BY_ID[id]?.dans || "") : `dans sa ${PILE_NAMES[id]}`);
+const pileName = (id) => (TCG !== "safir" ? (id === "inv" ? "Inventaire" : PILE_BY_ID[id]?.short || id) : PILE_NAMES[id]);
+const deSa = (id) => (TCG !== "safir" ? (id === "inv" ? "de son inventaire" : PILE_BY_ID[id]?.de || "") : `de sa ${PILE_NAMES[id]}`);
+const dansSa = (id) => (TCG !== "safir" ? (id === "inv" ? "dans son inventaire" : PILE_BY_ID[id]?.dans || "") : `dans sa ${PILE_NAMES[id]}`);
 // Libellés des compteurs (Safir : PI / PV ; Flesh and Blood : ressources / vie)
-export const counterLabel = (k) => (TCG === "fab" ? (k === "pi" ? "RES" : "VIE") : k === "pi" ? "PI" : "PV");
+export const counterLabel = (k) => (TCG === "fab" ? (k === "pi" ? "RES" : "VIE") : TCG === "sorcery" ? (k === "pi" ? "MANA" : "VIE") : k === "pi" ? "PI" : "PV");
 const PHASE_H = 40; // barre des phases au-dessus de la main (portrait)
 const WIN_PV = 30;
 const QUICK = ["OK", "Attends", "Je réagis", "Riposte ?", "Vol vie ?", "À toi", "Bien joué !"];
@@ -94,7 +95,7 @@ export default function Table({ go, gameId, side = "" }) {
   const [camGeo, setCamGeo] = useState({}); // tapis filmés affichés : { mine|opp: { ar, rot } } (placement des flèches)
   // Face à un joueur filmé (Safir) : son image est vue « assis en face » (retournée) et mes territoires sont inversés
   // (III · II · I) pour rester face aux siens. Le joueur filmé, lui, garde l'affichage habituel.
-  const mirrorMine = TCG !== "fab" && !!opp?.filmed && !mine?.filmed;
+  const mirrorMine = TCG === "safir" && !!opp?.filmed && !mine?.filmed;
   const mirrorRef = useRef(false);
   mirrorRef.current = mirrorMine;
   const [pings, setPings] = useState([]); // [{owner: "mine"|"opp", iid, k}]
@@ -293,7 +294,10 @@ export default function Table({ go, gameId, side = "" }) {
     for (const [k, st] of [["mine", mine], ["opp", opp]]) {
       if (!st) continue;
       const prev = pvPrev.current[k];
-      if (TCG === "fab") {
+      if (TCG === "sorcery") {
+        // Sorcery : à 0, l'avatar est aux portes de la mort (immunisé jusqu'à la fin du tour) ; le coup suivant l'achève
+        if (prev !== undefined && prev > 0 && st.pv <= 0) setToast(`☠ ${k === "mine" ? "Votre avatar est" : `L'avatar de ${st.name || "l'adversaire"} est`} aux portes de la mort : le prochain dégât (pas une perte de vie) achève la partie.`);
+      } else if (TCG === "fab") {
         // Flesh and Blood : le héros qui tombe à 0 point de vie perd la partie
         const other = k === "mine" ? opp : mine;
         if (prev !== undefined && prev > 0 && st.pv <= 0) setWinner({ name: other?.name || (k === "mine" ? "L'adversaire" : "Vous"), mine: k !== "mine", fab: true, loser: st.name || (k === "mine" ? "Vous" : "L'adversaire") });
@@ -665,7 +669,8 @@ export default function Table({ go, gameId, side = "" }) {
     if (!c) return false;
     const dim = CARD[c.o === "l" ? "l" : "p"];
     const prev = st.board.find((b) => b.iid === iid);
-    const slot = slotAt(x, y);
+    // Sorcery : seuls les sites se calent au centre d'une case ; les autres cartes se posent librement (sur un site)
+    const slot = TCG === "sorcery" && !c.site ? null : slotAt(x, y);
     let cx = x, cy = y, rot = prev?.rot || 0;
     if (slot) {
       cx = slot.x + slot.w / 2;
@@ -682,6 +687,14 @@ export default function Table({ go, gameId, side = "" }) {
     detach(st, iid);
     st.board.push({ iid, x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, rot, down });
     const where = placeName(cx, cy);
+    // Sorcery : un site qui entre dans le royaume pendant son tour donne tout de suite 1 mana
+    let mana = "";
+    if (TCG === "sorcery" && c.site && !down && from !== "board" && st.phase) {
+      st.pi = clamp((st.pi ?? 0) + 1, 0, 99);
+      mana = ` (+1 mana, ${st.pi} en tout)`;
+    }
+    if (from === "atlas") return `pose le site « ${c.n} » de son atlas sur ${where}${mana}`;
+    if (mana && from === "hand") return `joue le site « ${c.n} » sur ${where}${mana}`;
     const nm = down ? "une carte face cachée" : `« ${c.n} »`;
     if (from === "board") return prev && Math.hypot(prev.x - cx, prev.y - cy) < 1 ? false : `déplace ${nm} vers ${where}`;
     if (from === "reserve") return `crée le jeton « ${c.n} » sur ${where}`;
@@ -722,6 +735,18 @@ export default function Table({ go, gameId, side = "" }) {
   const placeFree = (iid, from, faceDown) => {
     const st = mineRef.current;
     const taken = (sl) => st.board.some((b) => Math.abs(b.x - (sl.x + sl.w / 2)) < 3 && Math.abs(b.y - (sl.y + sl.h / 2)) < 3);
+    if (TCG === "sorcery") {
+      // site : première case libre en partant de sa rangée ; autre carte : sur la case de son avatar
+      const c = st.cards[iid];
+      const sq = SLOTS.filter((sl) => sl.kind === "realm").sort((a, b) => b.r - a.r || Math.abs(a.c - 2) - Math.abs(b.c - 2));
+      const hasSite = (sl) => st.board.some((b) => st.cards[b.iid]?.site && inRect(b.x, b.y, sl));
+      const av = st.board.find((b) => st.cards[b.iid]?.cmd);
+      if (c?.site) {
+        const f = sq.find((sl) => !hasSite(sl)) || sq[0];
+        return placeOnBoard(iid, f.x + f.w / 2, f.y + f.h / 2, from, faceDown);
+      }
+      return placeOnBoard(iid, av ? av.x + 14 : 300, av ? av.y - 20 : 250, from, faceDown);
+    }
     const free = TCG === "fab"
       ? (faceDown && SLOTS.find((sl) => sl.kind === "arsenal" && !taken(sl))) || SLOTS.find((sl) => sl.kind === "arena" && !taken(sl)) || SLOTS.find((sl) => sl.kind === "chain" && !taken(sl))
       : (faceDown && SLOTS.find((sl) => sl.kind === "magie" && !taken(sl))) ||
@@ -737,6 +762,7 @@ export default function Table({ go, gameId, side = "" }) {
       const c = st.cards[iid];
       const prev = st.board.find((b) => b.iid === iid);
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
+      const searchedA = from === "atlas" && (st.piles.atlas || [])[(st.piles.atlas || []).length - 1] !== iid;
       detach(st, iid);
       st.hand.push(iid);
       // Flesh and Blood : carte reprise de la zone de pitch (erreur), ses ressources sont retirées
@@ -747,6 +773,7 @@ export default function Table({ go, gameId, side = "" }) {
         if (st.pi !== before) res = ` (−${before - st.pi} RES, ${st.pi} en tout)`;
       }
       if (res) return `reprend « ${c.n} » ${deSa(from)} en main${res}`;
+      if (from === "atlas") return searchedA ? `⚠ cherche dans son atlas et prend « ${c.n} » en main` : "pioche 1 site (dessus de son atlas)";
       if (from === "deck") return searched ? `⚠ cherche dans son deck et prend « ${c.n} » en main` : "pioche 1 carte (dessus du deck)";
       if (from === "board") return prev?.down ? "reprend une carte face cachée en main" : `reprend « ${c.n} » en main`;
       return `reprend « ${c.n} » ${deSa(from)} en main`;
@@ -759,14 +786,28 @@ export default function Table({ go, gameId, side = "" }) {
       const c = st.cards[iid];
       const prev = st.board.find((b) => b.iid === iid);
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
+      const atl = st.piles.atlas || [];
+      const searchedA = from === "atlas" && atl[atl.length - 1] !== iid;
       detach(st, iid);
+      const deckW = TCG === "sorcery" ? "grimoire" : "deck";
       if (pid === "deck") {
         bottom ? st.deck.unshift(iid) : st.deck.push(iid);
         const hidden = from === "hand" || from === "deck" || prev?.down;
-        const what = searched ? "⚠ déplace une carte choisie dans son deck" : `place ${hidden ? "une carte" : `« ${c.n} »`}${from === "hand" ? " de sa main" : ""}`;
-        return `${what} ${bottom ? "sous" : "sur"} son deck`;
+        const what = searched ? `⚠ déplace une carte choisie dans son ${deckW}` : `place ${hidden ? "une carte" : `« ${c.n} »`}${from === "hand" ? " de sa main" : ""}`;
+        return `${what} ${bottom ? "sous" : "sur"} son ${deckW}`;
+      }
+      if (TCG === "sorcery" && pid === "atlas") {
+        bottom ? st.piles.atlas.unshift(iid) : st.piles.atlas.push(iid);
+        const hidden = from === "hand" || from === "atlas" || prev?.down;
+        const what = searchedA ? "⚠ déplace un site choisi dans son atlas" : `place ${hidden ? "un site" : `« ${c.n} »`}${from === "hand" ? " de sa main" : ""}`;
+        return `${what} ${bottom ? "sous" : "sur"} son atlas`;
       }
       st.piles[pid].push(iid);
+      if (TCG === "sorcery") {
+        if (from === "deck") return `${searched ? "⚠ cherche dans son grimoire et met" : "met la carte du dessus de son grimoire,"} « ${c.n} » ${dansSa(pid)}`;
+        if (from === "atlas") return `${searchedA ? "⚠ cherche dans son atlas et met" : "met le site du dessus de son atlas,"} « ${c.n} » ${dansSa(pid)}`;
+        return `met « ${c.n} »${from === "hand" ? " de sa main" : ""} ${dansSa(pid)}`;
+      }
       if (TCG === "fab") {
         // carte pitchée : sa valeur de pitch (couleur) s'ajoute aux ressources ; reprise du pitch : retirée
         let res = "";
@@ -791,8 +832,30 @@ export default function Table({ go, gameId, side = "" }) {
         return false;
       }
       for (let i = 0; i < k; i++) st.hand.push(st.deck.pop());
-      return `pioche ${k} carte${k > 1 ? "s" : ""}`;
+      return `pioche ${k} carte${k > 1 ? "s" : ""}${TCG === "sorcery" ? " (grimoire)" : ""}`;
     });
+
+  // Sorcery : piocher dans son atlas (sites)
+  const drawAtlas = (n) =>
+    mut((st) => {
+      const a = st.piles.atlas || [];
+      const k = Math.min(n, a.length);
+      if (!k) {
+        setToast("Votre atlas est vide.");
+        return false;
+      }
+      for (let i = 0; i < k; i++) st.hand.push(a.pop());
+      return `pioche ${k} site${k > 1 ? "s" : ""} (atlas)`;
+    });
+  const shuffleAtlas = () =>
+    mut((st) => {
+      st.piles.atlas = shuffle(st.piles.atlas || []);
+      return "mélange son atlas";
+    });
+  const peekAtlas = () => {
+    mut(() => "⚠ consulte le contenu de son atlas", "peek");
+    setSheet({ kind: "pile", pile: "atlas", side: "mine", open: true });
+  };
 
   // Flesh and Blood : compléter sa main jusqu'à l'intellect du héros
   const drawUpTo = (n) => {
@@ -834,12 +897,12 @@ export default function Table({ go, gameId, side = "" }) {
   };
   const setTrack = (kind, v) =>
     mut((st) => {
-      const max = TCG === "fab" ? 99 : kind === "pi" ? 15 : 99; // PV Safir : la victoire se déclare à 30, mais le compteur peut continuer à monter
+      const max = TCG !== "safir" ? 99 : kind === "pi" ? 15 : 99; // PV Safir : la victoire se déclare à 30, mais le compteur peut continuer à monter
       const nv = clamp(v, 0, max);
       if (st[kind] === nv) return false;
       const from = fromOf(st, kind, st[kind] ?? 0);
       st[kind] = nv;
-      const what = TCG === "fab" ? (kind === "pv" ? "sa vie" : "ses ressources") : `ses ${kind.toUpperCase()}`;
+      const what = TCG === "fab" ? (kind === "pv" ? "sa vie" : "ses ressources") : TCG === "sorcery" ? (kind === "pv" ? "sa vie" : "son mana") : `ses ${kind.toUpperCase()}`;
       return from === nv ? `remet ${what} à ${nv}` : `passe ${what} de ${from} à ${nv}`;
     }, kind);
 
@@ -883,6 +946,8 @@ export default function Table({ go, gameId, side = "" }) {
   const resetMine = () => {
     if (mineRef.current?.filmed) {
       if (!confirm(`Nouvelle partie : revenir à PI ${START_PI} / PV ${START_PV} et retirer vos jetons ?`)) return;
+    } else if (TCG === "sorcery") {
+      if (!confirm(`Remettre vos sites dans l'atlas et vos sorts dans le grimoire, les mélanger, remettre votre avatar à sa place, retirer vos cartes jetons et revenir à ${sorcLife(mineRef.current?.cards)} de vie ?`)) return;
     } else if (TCG === "fab") {
       if (!confirm(`Remettre vos cartes dans le deck (armes et équipements dans l'inventaire), le mélanger, retirer vos cartes jetons et revenir à ${fabLife(mineRef.current?.format)} de vie ?`)) return;
     } else if (!confirm("Remettre toutes vos cartes dans le deck, le mélanger, retirer vos cartes jetons et revenir à PI 4 / PV 0 ?")) return;
@@ -903,6 +968,13 @@ export default function Table({ go, gameId, side = "" }) {
       st.phase = id;
       if (id === "cal") st.arrows = [];
       const lb = PHASE_BY_ID[id].label;
+      // Sorcery : début du tour, on redresse ses cartes et chaque site donne 1 mana
+      if (start && TCG === "sorcery") {
+        let n = 0;
+        for (const b of st.board) if (b.rot) { b.rot = 0; n++; }
+        st.pi = sorcAffinity(st).sites;
+        return `commence son tour ${st.turn} : ${lb}${n ? `, redresse ${n} carte${n > 1 ? "s" : ""}` : ""}, ${st.pi} mana (1 par site)`;
+      }
       return start ? `commence son tour ${st.turn} : ${lb}` : `passe en phase ${lb}`;
     });
 
@@ -911,7 +983,7 @@ export default function Table({ go, gameId, side = "" }) {
       if (!st.phase) return false;
       st.phase = null;
       st.arrows = [];
-      if (TCG === "fab") st.pi = 0; // Flesh and Blood : les ressources inutilisées sont perdues
+      if (TCG !== "safir") st.pi = 0; // Flesh and Blood, Sorcery : ressources ou mana inutilisés perdus
       return `termine son tour ${st.turn}`;
     });
 
@@ -1014,7 +1086,7 @@ export default function Table({ go, gameId, side = "" }) {
       }
     }
     const loc = locate(x, y);
-    if (!loc || (loc.area !== "mine" && loc.area !== "opp") || TCG === "fab" || loc.y > 222) return null;
+    if (!loc || (loc.area !== "mine" && loc.area !== "opp") || TCG !== "safir" || loc.y > 222) return null;
     return { s: loc.area === "mine" ? "me" : "opp", t: terrOf(loc.x) };
   }
   // Le pointeur est-il au-dessus du côté adverse (son tapis, son image filmée ou son compteur) ?
@@ -1050,7 +1122,7 @@ export default function Table({ go, gameId, side = "" }) {
     if (!aim || e.target.closest?.(".loupe-btn, .score")) return;
     const loc = locate(e.clientX, e.clientY);
     if (!loc || (loc.area !== "mine" && loc.area !== "opp")) return;
-    if (TCG === "fab") return setToast("Touchez une carte ou le compteur adverse.");
+    if (TCG !== "safir") return setToast("Touchez une carte ou le compteur adverse.");
     if (loc.y > 222) return setToast("Touchez une carte, un territoire ou le compteur adverse.");
     aimAt({ s: loc.area === "mine" ? "me" : "opp", t: terrOf(loc.x) });
   }
@@ -1198,7 +1270,7 @@ export default function Table({ go, gameId, side = "" }) {
       const c = st.cards[iid];
       const dim = CARD[c?.o === "l" ? "l" : "p"];
       const k = Math.max(sc, 64 / dim.w);
-      g = { src: src.type === "pile" && src.pile === "deck" ? null : cardUrl(c), w: dim.w * k, h: dim.h * k };
+      g = { src: src.type === "pile" && (src.pile === "deck" || src.pile === "atlas") ? null : cardUrl(c), w: dim.w * k, h: dim.h * k };
       setDragKey(src.type === "pile" ? `pile:mine:${src.pile}` : src.type === "board" ? `board:${iid}` : src.type === "inv" ? `inv:${iid}` : `hand:${iid}`);
     }
     setGhost({ ...g, x: e.clientX, y: e.clientY });
@@ -1417,8 +1489,9 @@ export default function Table({ go, gameId, side = "" }) {
         return setSheet({ kind: "view", c: o.cards[src.iid], ping: { owner: "opp", iid: src.iid } });
       }
       case "pile":
-        if (src.side === "mine") return setSheet(src.pile === "deck" ? { kind: "deck" } : { kind: "pile", pile: src.pile, side: "mine" });
-        if (src.pile === "deck") return setToast(`Deck adverse : ${o?.deck.length || 0} carte(s)`);
+        if (src.side === "mine") return setSheet(src.pile === "deck" ? { kind: "deck" } : src.pile === "atlas" ? { kind: "atlas" } : { kind: "pile", pile: src.pile, side: "mine" });
+        if (src.pile === "deck") return setToast(`${TCG === "sorcery" ? "Grimoire" : "Deck"} adverse : ${o?.deck.length || 0} carte(s)`);
+        if (src.pile === "atlas") return setToast(`Atlas adverse : ${o?.piles?.atlas?.length || 0} site(s)`);
         return setSheet({ kind: "pile", pile: src.pile, side: "opp" });
       case "token": {
         const t = tokRef.current.find((x) => x.id === src.id);
@@ -1571,8 +1644,8 @@ export default function Table({ go, gameId, side = "" }) {
               <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown} onContextMenu={(e) => e.preventDefault()}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} />
-                    <Mat side="opp" st={opp} vs={mine} bg={oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} />
+                    <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{!L.shared && loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} sub={L.shared && opp ? <SorcAffinity st={opp} /> : undefined} />
+                    <Mat side="opp" st={opp} vs={mine} bg={L.shared ? matBgOf(user) : oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} flipX={L.shared} layer={L.shared ? "base" : undefined} />
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1591,7 +1664,7 @@ export default function Table({ go, gameId, side = "" }) {
                 )}
                 {L.mine && (
                   <>
-                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={matBgOf(user)} back={cardBackOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} />
+                    <Mat side="mine" flipX={mirrorMine} st={mine} vs={opp} bg={L.shared ? null : matBgOf(user)} back={cardBackOf(user)} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={myTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={myMatRef} pings={pings.filter((x) => x.owner === "mine")} aiming={!!aim} layer={L.shared ? "top" : undefined} />
                     {mine?.filmed && (
                       <CamOverlay
                         left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1607,8 +1680,8 @@ export default function Table({ go, gameId, side = "" }) {
                         geo={camGeo.mine} s={s} dragKey={dragKey} onPress={press} type="token"
                       />
                     )}
-                    <ScorePanel st={mine} mine back={cardBackOf(user)} layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
-                    {loupe("mine", L.mine.mat)}
+                    <ScorePanel st={mine} mine back={cardBackOf(user)} layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} sub={L.shared ? <SorcAffinity st={mine} /> : undefined} />
+                    {!L.shared && loupe("mine", L.mine.mat)}
                   </>
                 )}
                 <Arrows L={L} s={s} mine={mine} opp={opp} aim={aim} cams={camGeo} flipMine={mirrorMine} />
@@ -1631,7 +1704,7 @@ export default function Table({ go, gameId, side = "" }) {
           {mine?.filmed ? (
             <>
             <div className="controls">
-              {TCG !== "fab" && <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>}
+              {TCG === "safir" && <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>}
               <div className="palette" title="Jetons : faites glisser sur l'image de votre tapis">
                 {TOKEN_COLORS.map((c) => (
                   <div
@@ -1643,7 +1716,7 @@ export default function Table({ go, gameId, side = "" }) {
                   />
                 ))}
               </div>
-              {TCG !== "fab" && nMyTok > 0 && (
+              {TCG === "safir" && nMyTok > 0 && (
                 <button className="btn sm ghost clr-tok" onClick={clearMyTokens} title="Retirer tous mes jetons de couleur (les marqueurs restent)">✕ Jetons ({nMyTok})</button>
               )}
             </div>
@@ -1663,7 +1736,7 @@ export default function Table({ go, gameId, side = "" }) {
             <button className="btn sm primary" onClick={() => draw(1)} disabled={!mine}>
               Piocher <span style={{ opacity: 0.7 }}>({mine?.deck.length ?? 0})</span>
             </button>
-            {TCG !== "fab" && <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>}
+            {TCG === "safir" && <button className="btn sm" onClick={() => setSheet({ kind: "marker" })} title="Marqueur de territoire (Gel, Bloqué…)">＋ Marqueur</button>}
             <div className="palette" title="Jetons : faites glisser sur une carte ou un tapis">
               {TOKEN_COLORS.map((c) => (
                 <div
@@ -1675,7 +1748,7 @@ export default function Table({ go, gameId, side = "" }) {
                 />
               ))}
             </div>
-            {TCG !== "fab" && nMyTok > 0 && (
+            {TCG === "safir" && nMyTok > 0 && (
               <button className="btn sm ghost clr-tok" onClick={clearMyTokens} title="Retirer tous mes jetons de couleur (les marqueurs restent)">✕ Jetons ({nMyTok})</button>
             )}
           </div>
@@ -1782,7 +1855,7 @@ export default function Table({ go, gameId, side = "" }) {
 
       {aim && (
         <div className="aim-bar">
-          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} {aim.v ? "depuis votre tapis filmé" : <>avec « {mine?.cards[aim.iid]?.n} »</>} : touchez la cible ({TCG === "fab" ? "carte ou compteur adverse" : "carte, territoire ou compteur adverse"})</span>
+          <span>{aim.k === "atk" ? "⚔ Attaque" : "🎯 Ciblage"} {aim.v ? "depuis votre tapis filmé" : <>avec « {mine?.cards[aim.iid]?.n} »</>} : touchez la cible ({TCG !== "safir" ? "carte ou compteur adverse" : "carte, territoire ou compteur adverse"})</span>
           <button className="btn sm" onClick={() => setAim(null)}>Annuler</button>
         </div>
       )}
@@ -1889,7 +1962,7 @@ export default function Table({ go, gameId, side = "" }) {
         onResult={recordResult}
         actions={{
           draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
-          startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, showScan,
+          startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, drawAtlas, shuffleAtlas, peekAtlas, showScan,
         }}
       />
     </div>
@@ -1949,15 +2022,22 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
     if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
     if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
-    if (TCG === "fab") {
+    if (TCG === "sorcery") {
+      if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
+    } else if (TCG === "fab") {
       for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
       if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
     } else for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
-    btns.push(["Dessus du deck", () => A.toPile(iid, "deck", zone)]);
-    btns.push(["Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
+    if (TCG === "sorcery" && c?.site) {
+      btns.push(["Dessus de l'atlas", () => A.toPile(iid, "atlas", zone)]);
+      btns.push(["Dessous de l'atlas", () => A.toPile(iid, "atlas", zone, true)]);
+    } else {
+      btns.push([TCG === "sorcery" ? "Dessus du grimoire" : "Dessus du deck", () => A.toPile(iid, "deck", zone)]);
+      btns.push([TCG === "sorcery" ? "Dessous du grimoire" : "Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
+    }
     if (c?.tok) btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
     // Unification d'un combattant (Safir) : jetons ATK / Valeur / DEF avec les bonus du niveau
-    const unifBtns = zone === "board" && b && TCG !== "fab" && !c?.tok && !c?.cmd ? (
+    const unifBtns = zone === "board" && b && TCG === "safir" && !c?.tok && !c?.cmd ? (
       <div className="unif-row">
         <span className="muted small">Unification :</span>
         {[1, 2, 3].map((n) => (
@@ -2009,22 +2089,45 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     );
   }
 
+  // Sorcery : atlas (deck de sites), caché comme le grimoire
+  if (sheet.kind === "atlas" && mine) {
+    const run = (f) => () => { f(); close(); };
+    const n = mine.piles.atlas?.length || 0;
+    return (
+      <Sheet open onClose={close} title={`Mon atlas · ${n} site(s)`}>
+        <div className="actions">
+          {[1, 3].map((k) => (
+            <button key={k} className="btn" onClick={run(() => A.drawAtlas(k))} disabled={!n}>Piocher {k} site{k > 1 ? "s" : ""}</button>
+          ))}
+          <button className="btn" onClick={run(A.shuffleAtlas)}>Mélanger</button>
+          <button className="btn" onClick={A.peekAtlas}>Chercher dans l'atlas</button>
+        </div>
+        <p className="muted small deck-top-lbl">Mettre le site du dessus de l'atlas, face visible, dans :</p>
+        <div className="actions">
+          <button className="btn" disabled={!n} onClick={() => A.toPile(mine.piles.atlas[n - 1], "grave", "atlas")}>→ Cimetière</button>
+        </div>
+        <p className="muted small">Pour jouer un site : glissez le dessus de l'atlas sur une case du royaume, ou piochez-le puis posez-le depuis votre main.</p>
+      </Sheet>
+    );
+  }
+
   if (sheet.kind === "deck" && mine) {
     const run = (f) => () => { f(); close(); };
+    const DK = TCG === "sorcery" ? "grimoire" : "deck";
     return (
-      <Sheet open onClose={close} title={`Mon deck · ${mine.deck.length} carte(s)`}>
+      <Sheet open onClose={close} title={`Mon ${DK} · ${mine.deck.length} carte(s)`}>
         <div className="actions">
-          {(TCG === "fab" ? [1, 2, 4] : [1, 3, 5, 7]).map((n) => (
+          {(TCG === "fab" ? [1, 2, 4] : TCG === "sorcery" ? [1, 3] : [1, 3, 5, 7]).map((n) => (
             <button key={n} className="btn" onClick={run(() => A.draw(n))} disabled={!mine.deck.length}>Piocher {n}</button>
           ))}
           {TCG === "fab" && <button className="btn" onClick={run(() => A.drawUpTo(4))} disabled={!mine.deck.length}>Main à 4 cartes</button>}
           <button className="btn" onClick={run(A.shuffleDeck)}>Mélanger</button>
-          <button className="btn" onClick={A.peekDeck}>Chercher dans le deck</button>
-          {TCG !== "fab" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>}
+          <button className="btn" onClick={A.peekDeck}>Chercher dans le {DK}</button>
+          {TCG === "safir" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>}
         </div>
-        <p className="muted small deck-top-lbl">Mettre la carte du dessus du deck, face visible, dans :</p>
+        <p className="muted small deck-top-lbl">Mettre la carte du dessus du {DK}, face visible, dans :</p>
         <div className="actions">
-          {(TCG === "fab" ? ["grave", "banish"] : ["d1", "d2", "d3"]).map((pid) => (
+          {(TCG === "fab" ? ["grave", "banish"] : TCG === "sorcery" ? ["grave"] : ["d1", "d2", "d3"]).map((pid) => (
             <button
               key={pid}
               className="btn"
@@ -2046,13 +2149,13 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     const arr = sheet.pile === "deck" ? st.deck : st.piles[sheet.pile] || [];
     const list = [...arr].reverse(); // dessus en premier
     const owner = sheet.side === "mine" ? "Ma" : `${st.name} :`;
-    const title = TCG === "fab"
-      ? `${sheet.pile === "deck" ? "Mon deck" : `${sheet.side === "mine" ? "Moi" : st.name} : ${pileName(sheet.pile)}`} · ${arr.length}`
+    const title = TCG !== "safir"
+      ? `${sheet.pile === "deck" ? (TCG === "sorcery" ? "Mon grimoire" : "Mon deck") : `${sheet.side === "mine" ? "Moi" : st.name} : ${pileName(sheet.pile)}`} · ${arr.length}`
       : `${sheet.pile === "deck" ? "Mon deck" : `${owner} ${PILE_NAMES[sheet.pile]}`} · ${arr.length}`;
     return (
       <Sheet open onClose={close} title={title}>
         {list.length === 0 && <p className="muted">Vide.</p>}
-        {sheet.pile === "deck" && list.length > 0 && <p className="muted small" style={{ marginTop: 0 }}>Du dessus vers le dessous.</p>}
+        {(sheet.pile === "deck" || sheet.pile === "atlas") && list.length > 0 && <p className="muted small" style={{ marginTop: 0 }}>Du dessus vers le dessous.</p>}
         <div className="pile-grid">
           {list.map((iid) => {
             const c = st.cards[iid];
@@ -2077,6 +2180,12 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           <>
             <div className="spacer" />
             <button className="btn" onClick={() => { A.shuffleDeck(); close(); }}>Mélanger et fermer</button>
+          </>
+        )}
+        {sheet.pile === "atlas" && sheet.side === "mine" && (
+          <>
+            <div className="spacer" />
+            <button className="btn" onClick={() => { A.shuffleAtlas(); close(); }}>Mélanger et fermer</button>
           </>
         )}
         {TCG === "fab" && sheet.pile === "pitch" && sheet.side === "mine" && arr.length > 0 && (
@@ -2161,7 +2270,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             <button className="btn sm" onClick={A.shareWatch}>📺 Lien spectateur</button>
           </div>
         )}
-        {TCG !== "fab" && <FxToggle />}
+        {TCG === "safir" && <FxToggle />}
         <div className="actions" style={{ marginBottom: 14 }}>
           <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
           {mine?.filmed ? (
@@ -2171,19 +2280,19 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
             </>
           ) : (
             <>
-          {TCG !== "fab" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>}
+          {TCG === "safir" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine?.hand.length}>Mulligan{mine?.mull ? " (déjà fait)" : ""}</button>}
           <button className="btn" onClick={() => { A.shuffleDeck(); close(); }}>Mélanger mon deck</button>
             </>
           )}
           <button className="btn" style={{ gridColumn: "1 / -1" }} onClick={() => { close(); A.resetMine(); }}>
-            🔄 {TCG === "fab" ? "Nouvelle partie : tout remettre à zéro" : `Nouvelle partie : tout remettre à zéro (PV ${START_PV} / PI ${START_PI})`}
+            🔄 {TCG !== "safir" ? "Nouvelle partie : tout remettre à zéro" : `Nouvelle partie : tout remettre à zéro (PV ${START_PV} / PI ${START_PI})`}
           </button>
           <button className="btn" onClick={() => A.go("home")}>Quitter la table</button>
         </div>
         {meta && !meta.solo && mine && (
           <>
             <h3>Résultat de la partie</h3>
-            <p className="muted small" style={{ marginTop: 0 }}>Pour votre bilan par deck, visible de vous seul. Compté d'office à {TCG === "fab" ? "0 point de vie" : `${WIN_PV} PV`} ; à corriger ici en cas d'abandon.</p>
+            <p className="muted small" style={{ marginTop: 0 }}>Pour votre bilan par deck, visible de vous seul. {TCG === "sorcery" ? "Le coup fatal n'est pas détecté par l'appli : indiquez ici le résultat." : <>Compté d'office à {TCG === "fab" ? "0 point de vie" : `${WIN_PV} PV`} ; à corriger ici en cas d'abandon.</>}</p>
             <div className="row" style={{ marginBottom: 14, flexWrap: "wrap" }}>
               {[["win", "Victoire"], ["loss", "Défaite"], [null, "Non comptée"]].map(([k, l]) => (
                 <button key={l} className={`btn sm${(result ?? null) === k ? " primary" : ""}`} onClick={() => onResult(k)}>{l}</button>
@@ -2513,13 +2622,25 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear, extra }) {
         </button>
       ))}
       {n > 0 && <button className="ph clr" onClick={onClear} title="Effacer mes flèches">✕ {n}</button>}
-      <button className="ph end" onClick={onEnd} disabled={!st.phase}>{TCG === "fab" ? "Tour fini ⏎" : "Fin ⏎"}</button>
+      <button className="ph end" onClick={onEnd} disabled={!st.phase}>{TCG !== "safir" ? "Tour fini ⏎" : "Fin ⏎"}</button>
       {extra}
     </div>
   );
 }
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
+// Sorcery : affinité (éléments des sites) et nombre de sites, sous les compteurs
+function SorcAffinity({ st }) {
+  const a = sorcAffinity(st);
+  const els = SORC_ELEMENTS.filter((e) => a[e.id]);
+  return (
+    <span className="sorc-aff" title="Affinité : éléments de vos sites dans le royaume (seuil des sorts). 1 mana par site au début du tour.">
+      {a.sites} site{a.sites > 1 ? "s" : ""}
+      {els.map((e) => <b key={e.id} style={{ color: e.hex }}> {e.icon}{a[e.id]}</b>)}
+    </span>
+  );
+}
+
 export function Arrows({ L, s, mine, opp, aim, cams, flipMine }) {
   const pos = (owner, tgt) => {
     const m = L[owner];
@@ -2542,6 +2663,7 @@ export function Arrows({ L, s, mine, opp, aim, cams, flipMine }) {
       y = 125;
     } else return null;
     if (owner === "mine" && flipMine) x = mirrorX(x, y);
+    if (owner !== "mine" && MAT_KIND === "sorcery") x = MAT_W - x; // royaume partagé : l'adversaire est vu retourné de 180°
     return owner === "mine"
       ? { x: m.mat.left + x * s, y: m.mat.top + y * s }
       : { x: m.mat.left + x * s, y: m.mat.top + (MAT_H - y) * s };
@@ -2598,6 +2720,22 @@ export function boardLayout(side, focus, s) {
   const mw = MAT_W * s;
   const mh = MAT_H * s;
   const gap = GAP * s;
+  if (MAT_KIND === "sorcery") {
+    // Royaume partagé : les deux tapis au même endroit (celui de l'adversaire dessous, retourné), compteurs de chaque côté
+    if (side) {
+      const half = mh / 2;
+      return {
+        mode: "side", w: RAIL + mw, h: mh, shared: true,
+        opp: { mat: { left: RAIL, top: 0 }, panel: { left: 0, top: 0, width: RAIL, height: half } },
+        mine: { mat: { left: RAIL, top: 0 }, panel: { left: 0, top: half, width: RAIL, height: half } },
+      };
+    }
+    return {
+      mode: "bar", w: mw, h: 2 * BAR + mh, shared: true,
+      opp: { mat: { left: 0, top: BAR }, panel: { left: 0, top: 0, width: mw, height: BAR } },
+      mine: { mat: { left: 0, top: BAR }, panel: { left: 0, top: BAR + mh, width: mw, height: BAR } },
+    };
+  }
   if (side) {
     const panel = (top) => ({ left: 0, top, width: RAIL, height: mh });
     if (focus === "mine") return { mode: "side", w: RAIL + mw, h: mh, mine: { mat: { left: RAIL, top: 0 }, panel: panel(0) } };
@@ -2650,7 +2788,7 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
           {sub && <span className="ssub">{sub}</span>}
         </span>
       </div>
-      {TCG !== "fab" && (mine || unif > 0) && (
+      {TCG === "safir" && (mine || unif > 0) && (
         <button className={`unif u${unif}`} onClick={(e) => { if (onAim) return; e.stopPropagation(); onUnif?.(); }} title={unif ? UNIF_BONUS[unif] : "Unification"}>
           <small>UNIF</small>
           <b>{unif || "–"}</b>

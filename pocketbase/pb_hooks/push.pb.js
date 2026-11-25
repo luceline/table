@@ -85,7 +85,7 @@ cronAdd("open_tables_alert", "* * * * *", () => {
   for (const g of games) {
     g.set("announced", true);
     try { $app.save(g); } catch (_) { continue; }
-    const tcg = g.getString("tcg") === "fab" ? "fab" : "safir";
+    const tcg = require(`${__hooks}/tcg_lib.js`).norm(g.getString("tcg"));
     const host = g.getString("p1");
     // limite par créateur
     try {
@@ -98,9 +98,7 @@ cronAdd("open_tables_alert", "* * * * *", () => {
     for (const u of ids("SELECT id FROM users WHERE partner_off LIKE {:t}", { t: '%"' + tcg + '"%' })) off[u] = true;
     const withDeck = {};
     if (!quiet) {
-      const sql = tcg === "fab"
-        ? "SELECT DISTINCT owner AS id FROM decks WHERE tcg = 'fab'"
-        : "SELECT DISTINCT owner AS id FROM decks WHERE tcg = '' OR tcg = 'safir' OR tcg IS NULL";
+      const sql = "SELECT DISTINCT owner AS id FROM decks WHERE " + (tcg === "safir" ? "tcg = '' OR tcg = 'safir' OR tcg IS NULL" : require(`${__hooks}/tcg_lib.js`).sql(tcg, "tcg"));
       for (const u of ids(sql)) withDeck[u] = true;
     }
     let subs = [];
@@ -121,7 +119,7 @@ cronAdd("open_tables_alert", "* * * * *", () => {
     if (!subs.length) continue;
     const note = g.getString("note");
     const payload = {
-      title: tcg === "fab" ? "Partenaire recherché · Flesh and Blood" : "Partenaire recherché · Safir",
+      title: "Partenaire recherché · " + require(`${__hooks}/tcg_lib.js`).short(tcg),
       body: `${g.getString("n1") || "Un joueur"} cherche un partenaire${note ? " : « " + note + " »" : ""}. Touchez pour vous asseoir.`,
       url: "/?tables=" + tcg,
       tag: "open-" + g.id,

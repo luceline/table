@@ -56,8 +56,8 @@ function sameName(guess, answer) {
 }
 
 // ---------- Carte du jour ----------
-const tcgOf = (t) => (t === "fab" ? "fab" : "safir");
-const tcgFilterSql = (t) => (t === "fab" ? "c.tcg = 'fab'" : "(c.tcg = '' OR c.tcg = 'safir')");
+const tcgOf = (t) => require(`${__hooks}/tcg_lib.js`).norm(t);
+const tcgFilterSql = (t) => require(`${__hooks}/tcg_lib.js`).sql(t, "c.tcg");
 
 // Nom propre d'une carte pour le jeu : sans référence d'impression (« S1 », « S2.5 », « P/100 », numéro final),
 // sans parenthèses ni crochets. Un nom qui contient un identifiant de fichier (longue suite de lettres et de chiffres,
@@ -389,7 +389,7 @@ function online(tcg) {
   const t = tcgOf(tcg);
   const games = count(
     "SELECT COUNT(*) AS n FROM games g WHERE g.status = 'playing' AND COALESCE(g.solo, 0) = 0 AND " +
-    (t === "fab" ? "g.tcg = 'fab' " : "(g.tcg = '' OR g.tcg = 'safir') ") +
+    require(`${__hooks}/tcg_lib.js`).sql(t, "g.tcg") + " " +
     "AND EXISTS (SELECT 1 FROM here h WHERE h.game = g.id AND h.updated >= {:h})",
     { h: isoAgo(150000) },
   );
@@ -465,7 +465,7 @@ function remindEvening() {
       require(`${__hooks}/push_lib.js`).sendTo([u.id], {
         title: "Ce soir à la Table de jeu",
         body: `${shown} ${verb} en même temps que vous, dès ${hm(first.from + off)}. Proposez une partie !`,
-        url: "/?agenda=" + (first.tcg === "fab" ? "fab" : "safir"),
+        url: "/?agenda=" + require(`${__hooks}/tcg_lib.js`).norm(first.tcg),
         tag: "soir-" + p.day,
       });
       sent++;
@@ -484,7 +484,7 @@ function share(uid, tcg) {
   if (!p || !p.getBool("done")) throw new BadRequestError("Finissez d'abord la carte du jour.");
   let ch;
   try {
-    ch = $app.findFirstRecordByFilter("channels", (t === "fab" ? "tcg = 'fab'" : "(tcg = '' || tcg = 'safir')") + " && name = {:n}", { n: SHARE_CHANNEL });
+    ch = $app.findFirstRecordByFilter("channels", require(`${__hooks}/tcg_lib.js`).pbf(t) + " && name = {:n}", { n: SHARE_CHANNEL });
   } catch (_) {
     throw new BadRequestError("Le salon # carte-du-jour n'existe pas pour ce jeu.");
   }
@@ -496,7 +496,7 @@ function share(uid, tcg) {
   const tries = triesOf(p);
   const n = tries.length;
   const st = streaks(uid);
-  const game = t === "fab" ? "Flesh and Blood" : "Safir Cards";
+  const game = require(`${__hooks}/tcg_lib.js`).full(t);
   const text = `🃏 Carte du jour ${game} ${tag} ${p.getBool("found") ? `trouvée en ${n} essai${n > 1 ? "s" : ""}` : "pas trouvée"} ${tries.map((x) => (x.ok ? "🟩" : "🟥")).join("")} · 🔥 ${st.current} jour${st.current > 1 ? "s" : ""}`;
   const r = new Record($app.findCollectionByNameOrId("posts"));
   r.set("channel", ch.id);

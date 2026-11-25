@@ -10,7 +10,7 @@ import { reactionOf } from "../lib/reactions.js";
 import { SignalBadge } from "../components/Signals.jsx";
 import { useLooks } from "../lib/looks.js";
 import ReportSheet, { ReportButton } from "../components/ReportLook.jsx";
-import { MAT_W, MAT_H, GAP } from "../lib/mat.js";
+import { MAT_W, MAT_H, GAP, BOARD_H } from "../lib/mat.js";
 import { normalize, rid, TCG, PHASE_BY_ID } from "../lib/game.js";
 import { activateTcg, tcgOf } from "../lib/tcg.js";
 import { PILE_BY_ID } from "../lib/mat.js";
@@ -241,7 +241,7 @@ export default function Spectator({ code }) {
   // Toucher une carte visible : agrandissement
   function press(e, src) {
     if (src.type === "pile") {
-      if (src.pile === "deck") return setToast("Le deck est caché");
+      if (src.pile === "deck" || src.pile === "atlas") return setToast(src.pile === "atlas" ? "L'atlas est caché" : "Le deck est caché");
       return setPileView({ who: src.side === "mine" ? "p1" : "p2", pile: src.pile });
     }
     if (src.type !== "board" && src.type !== "oppboard") return;
@@ -266,14 +266,14 @@ export default function Spectator({ code }) {
   const side = wide;
   const avW = Math.max(0, vp.w - 12), avH = Math.max(0, vp.h - 12);
   const s = side
-    ? Math.max(0.2, Math.min((avW - RAIL) / MAT_W, avH / (2 * MAT_H + GAP)))
-    : Math.max(0.2, Math.min(avW / MAT_W, (avH - 2 * BAR) / (2 * MAT_H + GAP)));
+    ? Math.max(0.2, Math.min((avW - RAIL) / MAT_W, avH / BOARD_H))
+    : Math.max(0.2, Math.min(avW / MAT_W, (avH - 2 * BAR) / BOARD_H));
   const L = boardLayout(side, null, s);
   const tokens = (who) => marks.filter((t) => t.side === who);
   // Joueur du haut filmé (Safir) : même présentation que chez son adversaire (image retournée, territoires du bas inversés)
-  const mirrorP1 = TCG !== "fab" && !!p2?.filmed && !p1?.filmed;
+  const mirrorP1 = TCG === "safir" && !!p2?.filmed && !p1?.filmed;
   // mains et decks : dans la barre de chaque joueur (sur le tapis, l'étiquette cachait commandant et défausse)
-  const count = (st) => (st ? (st.filmed ? "cartes réelles, filmées" : `deck ${st.deck.length}`) : "");
+  const count = (st) => (st ? (st.filmed ? "cartes réelles, filmées" : TCG === "sorcery" ? `grim. ${st.deck.length} · atl. ${st.piles?.atlas?.length || 0}` : `deck ${st.deck.length}`) : "");
   const lastLog = [p1, p2]
     .filter(Boolean)
     .map((st) => ({ st, l: st.log?.[st.log.length - 1] }))
@@ -323,19 +323,19 @@ export default function Spectator({ code }) {
         {watching > 0 && <span className="watch-chip" title="Spectateurs connectés">👁 {watching}</span>}
         <div className="ticker" style={{ flex: 1 }}>{lastLog ? logLine(lastLog.st.name, lastLog.l.m) : game ? `${game.n1 || "Joueur 1"} contre ${game.n2 || "…"}` : "Chargement…"}</div>
         {!sound && <button className="btn sm" onClick={enableSound} title="Entendre les joueurs">🔊 Son</button>}
-        {TCG !== "fab" && <FxToggle compact />}
+        {TCG === "safir" && <FxToggle compact />}
       </div>
       <div className="spec-main">
         <div className="viewport" ref={vpRef}>
           {game && vp.w > 0 && (
             <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} back={look2.back} extra={authed && (look2.bg || look2.back) && game.p2 !== pb.authStore.record?.id ? <ReportButton inline onClick={() => setReport({ uid: game.p2, name: p2?.name || game.n2, look: look2 })} /> : null} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
-              <Mat side="opp" st={p2} vs={p1} bg={look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator />
+              <Mat side="opp" st={p2} vs={p1} bg={L.shared ? look1.bg : look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator flipX={L.shared} layer={L.shared ? "base" : undefined} />
               {p2?.filmed && (
                 <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
               {p2?.filmed && <VideoTokens tokens={tokens("p2").filter((t) => t.on === "v")} box={{ left: L.opp.mat.left, top: L.opp.mat.top, w: MAT_W * s, h: MAT_H * s }} geo={camGeo.opp} s={s} />}
-              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} bg={look1.bg} back={look1.back} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator />
+              <Mat side="mine" flipX={mirrorP1} st={p1} vs={p2} bg={L.shared ? null : look1.bg} back={look1.back} s={s} top={L.mine.mat.top} left={L.mine.mat.left} tokens={tokens("p1")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p1")} spectator layer={L.shared ? "top" : undefined} />
               {p1?.filmed && (
                 <CamOverlay left={L.mine.mat.left} top={L.mine.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p1)]?.stream} state={peers[camId(game.p1)]?.state} rot={p1.camRot || 0} name={p1.name} side="mine" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, mine: g }))} />
               )}
@@ -364,7 +364,7 @@ export default function Spectator({ code }) {
         const st = pileView ? (pileView.who === "p1" ? p1 : p2) : null;
         const arr = st ? [...(st.piles?.[pileView.pile] || [])].reverse() : []; // dessus en premier
         return (
-          <Sheet open={!!pileView} onClose={() => setPileView(null)} title={st ? (TCG === "fab" ? `${st.name} : ${PILE_BY_ID[pileView.pile]?.short || ""} · ${arr.length}` : `${st.name} : Défausse ${{ d1: "I", d2: "II", d3: "III" }[pileView.pile]} · ${arr.length}`) : ""}>
+          <Sheet open={!!pileView} onClose={() => setPileView(null)} title={st ? (TCG !== "safir" ? `${st.name} : ${PILE_BY_ID[pileView.pile]?.short || ""} · ${arr.length}` : `${st.name} : Défausse ${{ d1: "I", d2: "II", d3: "III" }[pileView.pile]} · ${arr.length}`) : ""}>
             {arr.length === 0 && <p className="muted">Vide.</p>}
             <div className="pile-grid">
               {arr.map((iid) => {

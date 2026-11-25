@@ -4,6 +4,23 @@
 // tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 105,
+    date: "25 novembre 2026",
+    items: [
+      { t: "📋 Éditeur de deck (les trois jeux) : sur ordinateur, l'écran est partagé, les cartes à gauche et la liste du deck à droite (nom, ×1, ×2, − et +) pour voir d'un coup d'œil ce qu'il contient. Sur téléphone, bouton « 📋 Liste du deck » en bas." },
+      { t: "🔍 Toucher une carte l'ouvre en grand pour lire son effet (et l'agrandir encore) : elle ne s'ajoute plus au deck par erreur. Seuls les boutons − et + ajoutent ou retirent." },
+    ],
+  },
+  {
+    id: 104,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🔮 Nouveau jeu : Sorcery: Contested Realm ! Choisissez « Sorcery » en haut de l'accueil. Scannez avatar, sites et sorts (type, rareté, éléments), construisez votre deck (grimoire de 60, atlas de 30, exemplaires selon la rareté) et jouez sur le royaume de 5 x 4 cases, partagé par les deux joueurs. Règles en français dans « 📖 Règles »." },
+      { t: "⚙️ En partie Sorcery : un site posé pendant votre tour donne 1 mana d'office, « Début » redresse vos cartes et règle le mana sur votre nombre de sites, et vos sites et votre affinité s'affichent sous vos compteurs. Le royaume étant partagé, Sorcery se joue sans cartes filmées." },
+      { t: "🗺 Carte des joueurs : un point vert signale les joueurs en ligne en ce moment, et il est précisé que la carte n'est visible que des joueurs inscrits (pas du public)." },
+    ],
+  },
+  {
     id: 103,
     date: "24 novembre 2026",
     tcg: "fab",

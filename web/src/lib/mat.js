@@ -69,6 +69,30 @@ const FAB_PILES = [
   fp("banish", 8, 3, ["BANNIS"], "Bannis", "de ses cartes bannies", "en bannissement"),
 ];
 
+// ---------- Sorcery: Contested Realm : le royaume, une grille de 5 x 4 cases PARTAGÉE par les deux joueurs ----------
+// Chaque joueur garde ses cartes dans son propre état, dans son propre repère (sa rangée du bas = la plus proche de lui) ;
+// à l'écran, le tapis de l'adversaire est superposé au mien et retourné de 180° : ses cartes tombent sur les mêmes cases.
+// Hors du royaume, sur les côtés : à droite le grimoire (deck) et l'atlas, à gauche le cimetière ; ceux de l'adversaire en face.
+export const SORC = { x0: 75, y0: 8, cw: 90, ch: 86, cols: 5, rows: 4 };
+const SORC_H = 360;
+const SORC_SLOTS = [];
+for (let r = 0; r < SORC.rows; r++)
+  for (let c = 0; c < SORC.cols; c++)
+    SORC_SLOTS.push({ id: `r${r}c${c}`, kind: "realm", r, c, x: SORC.x0 + c * SORC.cw, y: SORC.y0 + r * SORC.ch, w: SORC.cw, h: SORC.ch, label: "" });
+const SORC_PILES = [
+  { id: "deck", x: 531, y: 266, w: 63, h: 88, lines: ["GRIMOIRE"], label: "GRIMOIRE", short: "Grimoire", de: "de son grimoire", dans: "dans son grimoire" },
+  { id: "atlas", x: 531, y: 174, w: 63, h: 88, lines: ["ATLAS"], label: "ATLAS", short: "Atlas", de: "de son atlas", dans: "dans son atlas" },
+  { id: "grave", x: 6, y: 266, w: 63, h: 88, lines: ["CIMETIÈRE"], label: "CIMETIÈRE", short: "Cimetière", de: "de son cimetière", dans: "dans son cimetière" },
+];
+// Case du royaume, décrite du point de vue de celui qui joue (le journal est lu par les deux joueurs : « sa » gauche)
+const SORC_ROW = ["la rangée adverse", "la 3e rangée", "sa 2e rangée", "sa rangée"];
+const SORC_COL = ["tout à sa gauche", "à sa gauche", "au centre", "à sa droite", "tout à sa droite"];
+export const sorcCell = (x, y) => {
+  const c = Math.floor((x - SORC.x0) / SORC.cw), r = Math.floor((y - SORC.y0) / SORC.ch);
+  if (c < 0 || c >= SORC.cols || r < 0 || r >= SORC.rows) return null;
+  return { c, r, name: `${SORC_ROW[r]}, ${SORC_COL[c]}` };
+};
+
 // ---------- Géométrie du jeu actif (liaisons vivantes : les écrans lisent toujours la valeur courante) ----------
 export let SLOTS = SAFIR_SLOTS;
 export let PILES = SAFIR_PILES;
@@ -80,15 +104,17 @@ export let MAT_KIND = "safir";
 
 export function setGeometry(id) {
   const fab = id === "fab";
-  MAT_KIND = fab ? "fab" : "safir";
-  MAT_H = fab ? FAB_H : 300;
-  BOARD_H = MAT_H * 2 + GAP;
-  SLOTS = fab ? FAB_SLOTS : SAFIR_SLOTS;
-  PILES = fab ? FAB_PILES : SAFIR_PILES;
+  const sorc = id === "sorcery";
+  MAT_KIND = fab ? "fab" : sorc ? "sorcery" : "safir";
+  MAT_H = fab ? FAB_H : sorc ? SORC_H : 300;
+  // Sorcery : un seul tapis à l'écran (le royaume partagé), celui de l'adversaire est superposé
+  BOARD_H = sorc ? MAT_H : MAT_H * 2 + GAP;
+  SLOTS = fab ? FAB_SLOTS : sorc ? SORC_SLOTS : SAFIR_SLOTS;
+  PILES = fab ? FAB_PILES : sorc ? SORC_PILES : SAFIR_PILES;
   PILE_BY_ID = Object.fromEntries(PILES.map((p) => [p.id, p]));
-  TITLES = fab ? [] : SAFIR_TITLES;
-  DIVIDERS = fab ? [] : SAFIR_DIVIDERS;
-  ROMAN = fab ? [] : SAFIR_ROMAN;
+  TITLES = fab || sorc ? [] : SAFIR_TITLES;
+  DIVIDERS = fab || sorc ? [] : SAFIR_DIVIDERS;
+  ROMAN = fab || sorc ? [] : SAFIR_ROMAN;
 }
 
 export const TRACK = { x: 295.5, cw: 101 / 15, ch: 11 };
@@ -125,6 +151,10 @@ export function trackAt(x, y) {
 }
 
 export function placeName(x, y) {
+  if (MAT_KIND === "sorcery") {
+    const k = sorcCell(x, y);
+    return k ? k.name : "le bord du royaume";
+  }
   if (MAT_KIND === "fab") {
     const f = slotAt(x, y);
     return f ? f.name : "le plateau";
@@ -154,6 +184,6 @@ export function rotPt(x, y, deg) {
 // Tapis Safir inversé gauche/droite face à un joueur filmé (III · II · I) : les territoires et leurs défausses
 // s'inversent, mais le commandant reste à gauche et le deck à droite, comme d'habitude.
 // Même règle dans les deux sens (affichage et toucher) : x reste x dans ces deux coins, devient MAT_W - x ailleurs.
-const keepCorner = (x, y) => y >= 222 && (x <= 100 || x >= 500);
+const keepCorner = (x, y) => MAT_KIND === "safir" && y >= 222 && (x <= 100 || x >= 500);
 export const mirrorX = (x, y) => (keepCorner(x, y) ? x : MAT_W - x);
 export const mirrorRectX = (x, y, w, h) => (keepCorner(x + w / 2, y + h / 2) ? x : MAT_W - x - w);

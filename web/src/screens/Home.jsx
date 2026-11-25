@@ -4,6 +4,7 @@ import { useVoiceRooms } from "../lib/voicechan.js";
 import { useAgenda, canStart, startFrom, whenText } from "../lib/agenda.js";
 import OpenAlertToggle from "../components/OpenAlertToggle.jsx";
 import PushToggle from "../components/PushToggle.jsx";
+import { useOnline } from "../lib/presence.js";
 import { fxSetting, setFxSetting, playArrival, iceFall, ARRIVALS } from "../lib/fx.js";
 import { LegalFooter } from "./Legal.jsx";
 import NewsPopup from "../components/NewsPopup.jsx";
@@ -23,7 +24,7 @@ import { applyTheme, storedTheme } from "../lib/theme.js";
 import { useLive, ago } from "../lib/live.js";
 import { useResults, ratioText } from "../lib/results.js";
 import { useStats, plural } from "../lib/stats.js";
-import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, activateTcg } from "../lib/tcg.js";
+import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, tcgShort, activateTcg, normTcg } from "../lib/tcg.js";
 
 // Dates PocketBase (« AAAA-MM-JJ HH:MM:SS.sssZ ») et affichage en heure locale
 const pbDate = (v) => String(v || "").replace(" ", "T");
@@ -56,7 +57,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [busy, setBusy] = useState(false);
   const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
   const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
-  const [filmed, setFilmed] = useState(false);
+  const [filmed, setFilmedRaw] = useState(false);
+  const setFilmed = (v) => setFilmedRaw(v && currentTcg() !== "sorcery"); // Sorcery : royaume partagé, jamais filmé
   const [soloForm, setSoloForm] = useState(null); // partie solo : { a, b } decks choisis pour les deux côtés // je joue avec mes cartes réelles, filmées par un téléphone
   const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
   // Onglets de l'accueil (mémorisés sur l'appareil) ; grand écran : salons dans une colonne à droite
@@ -83,13 +85,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [notifKey, setNotifKey] = useState(0); // recharge le réglage « partenaire recherché » quand les notifications changent
   const [mapOpen, setMapOpen] = useState(false);
   const { players: mapAll, reload: reloadMap } = usePlayersMap();
+  const onlineNow = useOnline(tcg); // joueurs en ligne (point vert sur la carte)
   // seulement les joueurs du jeu choisi
-  const mapPlayers = mapAll && mapAll.filter((p) => (p.games || []).includes(tcg === "fab" ? "fab" : "safir"));
+  const mapPlayers = mapAll && mapAll.filter((p) => (p.games || []).includes(normTcg(tcg)));
   // Arrivée depuis une notification « table ouverte » (?tables=jeu) : bon jeu, onglet Tables ouvertes à l'écran
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (!q.has("tables")) return;
-    const t = q.get("tables") === "fab" ? "fab" : "safir";
+    const t = normTcg(q.get("tables"));
     window.history.replaceState(null, "", window.location.pathname);
     if (t !== tcg) pickTcg(t);
     setLobby("open");
@@ -107,7 +110,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (!q.has("agenda")) return;
-    const t = q.get("agenda") === "fab" ? "fab" : "safir";
+    const t = normTcg(q.get("agenda"));
     window.history.replaceState(null, "", window.location.pathname);
     if (t !== tcg) pickTcg(t);
     go("agenda");
@@ -190,6 +193,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     setCurrentTcg(id);
     activateTcg(id);
     setTcg(id);
+    if (id === "sorcery") setFilmedRaw(false);
     setErr("");
     load(id);
     loadOpen(id);
@@ -197,7 +201,19 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
   const cardsById = Object.fromEntries(cards.map((c) => [c.id, c]));
   // Safir : le commandant compte dans les cartes du deck (le héros de Flesh and Blood, non)
-  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0) + (tcg !== "fab" && d.commander && cardsById[d.commander] ? 1 : 0);
+  const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0) + (tcg === "safir" && d.commander && cardsById[d.commander] ? 1 : 0);
+  // Sorcery : grimoire et atlas comptés à part (l'avatar n'est dans aucun des deux)
+  const deckLabel = (d) => {
+    if (tcg !== "sorcery") return `${deckSize(d)} cartes`;
+    let sp = 0, at = 0;
+    for (const e of d.entries || []) {
+      const k = cardsById[e.card]?.kind;
+      if (e.tok || !k || k === "jeton" || k === "avatar") continue;
+      if (k === "site") at += e.qty || 0;
+      else sp += e.qty || 0;
+    }
+    return `grimoire ${sp} · atlas ${at}`;
+  };
 
   const myName = user.name || user.email.split("@")[0];
 
@@ -458,7 +474,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <div className="tcg-pick" role="tablist" aria-label="Jeu">
           {TCG_LIST.map((g) => (
             <button key={g.id} role="tab" aria-selected={tcg === g.id} className={tcg === g.id ? "on" : ""} onClick={() => pickTcg(g.id)}>
-              {g.name}
+              {g.short ? <><span className="tp-long">{g.name}</span><span className="tp-short">{g.short}</span></> : g.name}
             </button>
           ))}
         </div>
@@ -483,15 +499,18 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
       {tab === "jouer" && (<>
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
-      <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />
+      {tcg !== "sorcery" && <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />}
 
       <DailyCard tcg={tcg} userId={user.id} go={go} />
       {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
-      <MapCard players={mapPlayers} tcg={tcg} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
 
       <div className="card-box">
         <h2>Jouer</h2>
+        {tcg === "sorcery" ? (
+          <p className="muted small" style={{ marginTop: 0 }}>Sorcery se joue sur un royaume partagé par les deux joueurs : uniquement avec un deck de l'appli (pas de cartes filmées).</p>
+        ) : (
         <label className="init-toggle filmed-toggle">
           <input type="checkbox" checked={filmed} onChange={(e) => setFilmed(e.target.checked)} />
           <span>
@@ -499,9 +518,12 @@ export default function Home({ go, pendingJoin, clearJoin }) {
             <span className="muted small"> : un téléphone filme mon tapis et mon adversaire le voit en direct. Il me faut un deuxième écran (ordinateur, tablette) pour voir son tapis.</span>
           </span>
         </label>
+        )}
         {filmed ? null : decks.length === 0 ? (
           <p className="muted small">
-            Pas encore de deck ? Cochez « Je joue avec mes cartes réelles » pour jouer avec vos cartes filmées, ou rejoignez une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour jouer avec des cartes numériques, scannez vos cartes puis créez un deck.
+            {tcg === "sorcery"
+              ? "Pas encore de deck ? Scannez vos cartes (avatar, sites, sorts) puis créez un deck, ou rejoignez une partie dont le créateur vous prête un deck : entrez son code ci-dessous."
+              : "Pas encore de deck ? Cochez « Je joue avec mes cartes réelles » pour jouer avec vos cartes filmées, ou rejoignez une partie dont le créateur vous prête un deck : entrez son code ci-dessous. Pour jouer avec des cartes numériques, scannez vos cartes puis créez un deck."}
           </p>
         ) : (
           <>
@@ -509,7 +531,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <label>Mon deck pour cette partie</label>
               <select className="input" value={deckId} onChange={(e) => setDeckId(e.target.value)}>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckLabel(d)}{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -518,7 +540,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
               <select className="input" value={loanId} onChange={(e) => setLoanId(e.target.value)}>
                 <option value="">Aucun prêt</option>
                 {decks.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
+                  <option key={d.id} value={d.id}>{d.name} ({deckLabel(d)}{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
                 ))}
               </select>
             </div>
@@ -711,7 +733,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
                 <label>{label}</label>
                 <select className="input" value={soloForm[k]} onChange={(e) => setSoloForm({ ...soloForm, [k]: e.target.value })}>
                   {decks.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name} ({deckSize(d)} cartes{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
+                    <option key={d.id} value={d.id}>{d.name} ({deckLabel(d)}{checkDeckFor(d, cardsById).ok ? "" : ", non conforme"})</option>
                   ))}
                 </select>
               </div>
@@ -733,12 +755,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
                 Mon deck : « {decks.find((d) => d.id === deckId)?.name} »
               </button>
             )}
-            <button className={`btn ${!joinChoice.loan?.cards?.length && !decks.length ? "primary" : ""}`} onClick={() => chooseJoin("filmed")}>
-              🎥 Mes cartes réelles, filmées par mon téléphone
-            </button>
+            {tcg !== "sorcery" && (
+              <button className={`btn ${!joinChoice.loan?.cards?.length && !decks.length ? "primary" : ""}`} onClick={() => chooseJoin("filmed")}>
+                🎥 Mes cartes réelles, filmées par mon téléphone
+              </button>
+            )}
           </div>
         )}
-        {joinChoice && !decks.length && (
+        {joinChoice && !decks.length && tcg !== "sorcery" && (
           <p className="muted small">
             Vous n'avez pas encore de deck dans l'appli. Avec vos cartes réelles, un téléphone filme votre tapis et votre adversaire le voit en direct ;
             il vous faut un deuxième écran pour voir son tapis.
@@ -772,8 +796,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
                 {wl.byDeck[d.id] && <span className="small deck-ratio" title="Victoires · défaites · taux de victoire (visible de vous seul)">{ratioText(wl.byDeck[d.id])}</span>}
               </span>
               <span className={`small ${checkDeckFor(d, cardsById).ok ? "muted" : "warn"}`}>
-                {deckSize(d)} cartes{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
-                {checkDeckFor(d, cardsById).ok ? (d.initiation && tcg === "fab" ? " · initiation" : "") : " · non conforme"}
+                {deckLabel(d)}{d.commander && cardsById[d.commander] ? ` · ${cardsById[d.commander].name}` : ""}
+                {checkDeckFor(d, cardsById).ok ? (d.initiation && tcg !== "safir" ? " · initiation" : "") : " · non conforme"}
               </span>
               <button className="btn sm" onClick={() => go("deck", { deckId: d.id })}>Modifier</button>
             </div>
@@ -818,11 +842,11 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </p>
         <OpenAlertToggle key={tcg + notifKey} tcg={tcg} hasDeck={decks.length > 0} />
       </div>
-      {tcg !== "fab" && <FxSettings />}
+      {tcg === "safir" && <FxSettings />}
       </>)}
       <ProfileSheet uid={profOpen ? user.id : null} onClose={() => setProfOpen(false)} />
-      <Sheet open={mapOpen} onClose={() => setMapOpen(false)} title={`🗺 Joueurs de ${tcgName(tcg)}`}>
-        {mapOpen && <PlayersMap go={(...a) => { setMapOpen(false); go(...a); }} players={mapPlayers} />}
+      <Sheet open={mapOpen} onClose={() => setMapOpen(false)} title={`🗺 Joueurs de ${tcgShort(tcg)}`}>
+        {mapOpen && <PlayersMap go={(...a) => { setMapOpen(false); go(...a); }} players={mapPlayers} onlineIds={onlineNow.ids} />}
       </Sheet>
       <p className="news-link">
         <button className="btn sm ghost" onClick={() => setNewsOpen(true)}>🎉 Dernières nouveautés</button>
@@ -841,21 +865,23 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 }
 
 // Carte des joueurs : combien ont indiqué leur ville, et le plus proche de moi
-function MapCard({ players, tcg, onOpen, onSetCity }) {
+function MapCard({ players, tcg, onlineIds, onOpen, onSetCity }) {
   const u = me();
   if (!players) return null;
   const others = players.filter((p) => p.id !== u.id);
+  const live = others.filter((p) => onlineIds?.has(p.id)).length;
   const mine = u.city ? { lat: u.city_lat, lon: u.city_lon } : null;
   const nearest = mine && others.length ? others.map((p) => ({ ...p, d: km(mine, p) })).sort((a, b) => a.d - b.d)[0] : null;
   return (
     <div className="card-box map-card">
       <div className="row" style={{ alignItems: "center" }}>
-        <h2 className="grow" style={{ margin: 0 }}>🗺 Joueurs de {tcgName(tcg)} près de chez vous</h2>
+        <h2 className="grow" style={{ margin: 0 }}>🗺 Joueurs de {tcgShort(tcg)} près de chez vous</h2>
         <button className="btn sm primary" onClick={onOpen}>Voir la carte</button>
       </div>
       <p className="muted small" style={{ margin: "6px 0 0" }}>
         {others.length ? `${others.length} joueur${others.length > 1 ? "s ont indiqué leur" : " a indiqué sa"} ville` : "Aucun joueur n'a encore indiqué sa ville"}
-        {nearest ? <> · le plus proche : <b>{nearest.name}</b>, {cityLabel(nearest.city, nearest.tag)}, à {nearest.d} km</> : null}
+        {live ? <> · <i className="dot-live" />{live} en ligne</> : null}
+        {nearest ? <> · le plus proche : <b>{nearest.name}</b>, {cityLabel(nearest.city, nearest.tag)}, à {nearest.d} km{onlineIds?.has(nearest.id) ? " (en ligne)" : ""}</> : null}
         {!mine && <> · <button className="linkish" onClick={onSetCity}>indiquer ma ville</button> pour trouver des partenaires en vrai</>}
       </p>
     </div>
@@ -868,7 +894,7 @@ function DailyCard({ tcg, userId, go }) {
   const [prof, setProf] = useState(false);
   useEffect(() => {
     let alive = true;
-    loadDaily(tcg === "fab" ? "fab" : "safir").then((r) => alive && setD(r)).catch(() => {});
+    loadDaily(normTcg(tcg)).then((r) => alive && setD(r)).catch(() => {});
     return () => { alive = false; };
   }, [tcg]);
   if (!d || d.empty) return null;
