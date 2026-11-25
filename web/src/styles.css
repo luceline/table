@@ -1270,3 +1270,14 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .pmap-credit { margin-top: 10px; font-size: 11px; }
 .join-deck { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .join-deck .btn { width: 100%; }
+/* Cartes empilées sur le plateau : décalées, nombre sur celle du dessus, choix dans la fiche */
+.bcard.stacked { box-shadow: 0 -1px 0 rgba(0,0,0,.6), 0 -3px 6px rgba(0,0,0,.45); }
+.bcard .stack-n { position: absolute; top: 3px; right: 3px; z-index: 3; min-width: 1.6em; padding: 0 .35em; border-radius: 999px; background: #f0c24b; color: #1a1205; font-weight: 800; line-height: 1.6; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.6); pointer-events: none; }
+.stack-row { margin: 0 0 10px; }
+.stack-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px 4px; }
+.stack-th { position: relative; flex: 0 0 auto; width: 56px; aspect-ratio: 63 / 88; padding: 0; border: 2px solid var(--line); border-radius: 6px; overflow: hidden; background: #111; cursor: pointer; }
+.stack-th.l { width: 78px; aspect-ratio: 88 / 63; }
+.stack-th.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(240,194,75,.35); }
+.stack-th img, .stack-th .back { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stack-th span { position: absolute; left: 2px; bottom: 2px; padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.75); color: #fff; font-size: 11px; font-weight: 700; }
+.stack-down { width: 160px; aspect-ratio: 63 / 88; margin: 0 auto 10px; border-radius: 8px; }

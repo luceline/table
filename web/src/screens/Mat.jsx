@@ -3,7 +3,7 @@ import {
   MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, sorcNum, mirrorX, mirrorRectX, SORC,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
-import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
+import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS, stacksOf } from "../lib/game.js";
 import { playArrival, iceFall, arrivalForCard, fxOn } from "../lib/fx.js";
 
 // ---------- Effets visuels Safir ----------
@@ -157,6 +157,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
     return { left: r.x * s, top: r.y * s, width: w * s, height: h * s };
   };
   const pt = (x, y) => (flip ? { x: fp(x, y) * s, y: (MAT_H - y) * s } : { x: fp(x, y) * s, y: y * s });
+  const stacks = stacksOf(st?.board);
 
   const hi = hover && hover.side === side && hover.rect ? hover.rect : null;
 
@@ -303,12 +304,13 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
           const c = st.cards[b.iid];
           if (!c) return null;
           const dim = c.o === "l" ? CARD.l : CARD.p;
-          const p = pt(b.x, b.y);
+          const sk = stacks[b.iid];
+          const p = pt(b.x, b.y + (flip ? -1 : 1) * (sk?.dy || 0));
           const showFace = !b.down || (mine && !spectator); // spectateur : cartes face cachée cachées des deux côtés
           return (
             <div
               key={b.iid}
-              className={`bcard ${dragKey === `board:${b.iid}` ? "dragging" : ""}`}
+              className={`bcard ${dragKey === `board:${b.iid}` ? "dragging" : ""} ${sk?.n > 1 ? "stacked" : ""}`}
               data-iid={b.iid}
               data-side={side}
               style={{
@@ -321,6 +323,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
               onPointerDown={(e) => onPress(e, { type: mine ? "board" : "oppboard", side, iid: b.iid })}
             >
               {showFace ? <img src={cardUrl(c)} alt="" draggable={false} /> : <div className="back" />}
+              {sk?.n > 1 && sk.i === sk.n - 1 && <span className="stack-n" style={{ fontSize: Math.max(10, 5 * s) }}>{sk.n}</span>}
               {c.tok && <div className="tok-frame" />}
               {c.tok && <div className="tok-tag" style={{ fontSize: Math.max(7, 3.6 * s) }}>JETON</div>}
               {b.down && mine && !spectator && (
@@ -371,7 +374,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
           const b = st?.board.find((x) => x.iid === t.on);
           if (!b) return null;
           const [ox, oy] = rotPt(t.dx || 0, t.dy || 0, b.rot || 0);
-          const c = pt(b.x, b.y);
+          const c = pt(b.x, b.y + (flip ? -1 : 1) * (stacks[b.iid]?.dy || 0));
           p = { x: c.x + ox * s, y: c.y + oy * s };
         } else p = pt(t.x, t.y);
         if (t.label) {

@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 109,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🗂️ Cartes empilées sur le plateau : elles se décalent pour laisser voir le nom de chacune, avec le nombre de cartes sur celle du dessus. Touchez la pile : la fiche montre toutes les cartes, de dessous à dessus. Touchez celle que vous voulez pour la déplacer, la retirer, ou la mettre sur le dessus / sous la pile. Sur une pile adverse, vous pouvez voir chaque carte." },
+    ],
+  },
+  {
     id: 108,
     date: "25 novembre 2026",
     items: [

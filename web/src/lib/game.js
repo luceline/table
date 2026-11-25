@@ -293,6 +293,27 @@ export function detach(s, iid) {
   s.board = s.board.filter((b) => b.iid !== iid);
 }
 
+// Cartes empilées sur le plateau (posées au même endroit, à moins de STACK_NEAR unités) : regroupées dans l'ordre du plateau
+// (la dernière posée est dessus). Chaque carte est décalée vers le bas de l'écran pour laisser voir le haut (nom) de celles du dessous
+// (dy dans le repère du propriétaire : à inverser pour un tapis vu retourné).
+const STACK_NEAR = 18;
+export function stacksOf(board) {
+  const groups = [];
+  const at = {};
+  for (const b of board || []) {
+    const g = groups.find((q) => Math.abs(q.x - b.x) < STACK_NEAR && Math.abs(q.y - b.y) < STACK_NEAR);
+    if (g) g.ids.push(b.iid);
+    else groups.push({ x: b.x, y: b.y, ids: [b.iid] });
+  }
+  for (const g of groups) {
+    const n = g.ids.length;
+    const step = n > 1 ? Math.min(13, 36 / (n - 1)) : 0;
+    // décalage centré : la pile reste à l'endroit où elle a été posée
+    g.ids.forEach((iid, i) => (at[iid] = { dy: (i - (n - 1) / 2) * step, i, n, ids: g.ids }));
+  }
+  return at;
+}
+
 export function whereIs(s, iid) {
   if (s.hand.includes(iid)) return "hand";
   if (s.deck.includes(iid)) return "deck";

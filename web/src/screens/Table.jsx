@@ -19,7 +19,7 @@ import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slo
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
   PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, KIN_COLOR, kinSub, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
-  sorcLife, sorcAffinity, SORC_ELEMENTS,
+  sorcLife, sorcAffinity, SORC_ELEMENTS, stacksOf,
 } from "../lib/game.js";
 import { activateTcg, tcgOf, tcgFilter } from "../lib/tcg.js";
 import { myResult, saveResult } from "../lib/results.js";
@@ -943,6 +943,18 @@ export default function Table({ go, gameId, side = "" }) {
       return `montre « ${st.cards[iid].n} » de sa main`;
     });
 
+  // Pile de cartes sur le plateau : passer une carte dessus ou dessous (l'ordre du plateau fait l'empilement)
+  const stackMove = (iid, top) =>
+    mut((st) => {
+      const i = st.board.findIndex((b) => b.iid === iid);
+      if (i < 0) return false;
+      const [b] = st.board.splice(i, 1);
+      if (top) st.board.push(b);
+      else st.board.unshift(b);
+      const nm = b.down ? "une carte face cachée" : `« ${nameOf(st, iid)} »`;
+      return `met ${nm} ${top ? "sur le dessus" : "sous"} de sa pile de cartes`;
+    });
+
   const toggleTap = (iid) =>
     mut((st) => {
       const b = st.board.find((x) => x.iid === iid);
@@ -1501,8 +1513,9 @@ export default function Table({ go, gameId, side = "" }) {
       case "oppboard": {
         const b = o?.board.find((x) => x.iid === src.iid);
         if (!b) return;
-        if (b.down) return setToast("Carte face cachée (appui long pour la signaler)");
-        return setSheet({ kind: "view", c: o.cards[src.iid], ping: { owner: "opp", iid: src.iid } });
+        const inStack = stacksOf(o.board)[src.iid]?.n > 1;
+        if (b.down && !inStack) return setToast("Carte face cachée (appui long pour la signaler)");
+        return setSheet({ kind: "view", c: b.down ? null : o.cards[src.iid], title: b.down ? "Carte face cachée" : undefined, ping: { owner: "opp", iid: src.iid }, stack: inStack ? src.iid : null });
       }
       case "pile":
         if (src.side === "mine") return setSheet(src.pile === "deck" ? { kind: "deck" } : src.pile === "atlas" ? { kind: "atlas" } : { kind: "pile", pile: src.pile, side: "mine" });
@@ -1977,7 +1990,7 @@ export default function Table({ go, gameId, side = "" }) {
         result={result}
         onResult={recordResult}
         actions={{
-          draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
+          draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, stackMove, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
           startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, drawAtlas, shuffleAtlas, peekAtlas, showScan,
         }}
       />
@@ -2083,8 +2096,14 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         </div>
       </div>
     ) : null;
+    const sk = zone === "board" && b ? stacksOf(mine.board)[iid] : null;
+    if (sk?.n > 1) {
+      if (sk.i < sk.n - 1) btns.unshift(["Mettre sur le dessus de la pile", () => A.stackMove(iid, true)]);
+      if (sk.i > 0) btns.unshift(["Mettre sous la pile", () => A.stackMove(iid, false)]);
+    }
     return (
       <Sheet open onClose={close} title={c?.n}>
+        {sk?.n > 1 && <StackRow st={mine} ids={sk.ids} cur={iid} own onPick={(x) => setSheet({ kind: "card", iid: x, zone: "board" })} />}
         <ZoomPreview src={cardUrl(c, true)} alt={c?.n} />
         {aimBtns}
         {unifBtns}
@@ -2100,7 +2119,18 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
   if (sheet.kind === "view") {
     return (
       <Sheet open onClose={close} title={sheet.title || sheet.c?.n}>
-        <ZoomPreview src={cardUrl(sheet.c, true)} alt={sheet.c?.n} />
+        {sheet.stack && opp && stacksOf(opp.board)[sheet.stack]?.n > 1 && (
+          <StackRow
+            st={opp}
+            ids={stacksOf(opp.board)[sheet.stack].ids}
+            cur={sheet.stack}
+            onPick={(x) => {
+              const bx = opp.board.find((q) => q.iid === x);
+              setSheet({ kind: "view", c: bx?.down ? null : opp.cards[x], title: bx?.down ? "Carte face cachée" : undefined, ping: { owner: "opp", iid: x }, stack: x });
+            }}
+          />
+        )}
+        {sheet.c ? <ZoomPreview src={cardUrl(sheet.c, true)} alt={sheet.c?.n} /> : <div className="stack-down back" />}
         {sheet.hint && <p className="muted small" style={{ textAlign: "center" }}>{sheet.hint}</p>}
         {sheet.ping && (
           <button className="btn" style={{ width: "100%" }} onClick={() => { A.pingCard(sheet.ping.owner, sheet.ping.iid); close(); }}>
@@ -2653,6 +2683,28 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear, extra }) {
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
 // Sorcery : affinité (éléments des sites) et nombre de sites, sous les compteurs
+// Pile de cartes sur le plateau : toutes les cartes empilées à cet endroit, de dessous (1) à dessus ; toucher pour choisir
+function StackRow({ st, ids, cur, own, onPick }) {
+  return (
+    <div className="stack-row">
+      <div className="muted small">Pile de {ids.length} cartes (de dessous à dessus) : touchez celle à voir ou à déplacer.</div>
+      <div className="stack-thumbs">
+        {ids.map((x, i) => {
+          const b = st.board.find((q) => q.iid === x);
+          const c = st.cards[x];
+          const face = c && (!b?.down || own);
+          return (
+            <button key={x} className={`stack-th ${x === cur ? "on" : ""} ${c?.o === "l" ? "l" : ""}`} onClick={() => x !== cur && onPick(x)} title={face ? c.n : "Carte face cachée"}>
+              {face ? <img src={cardUrl(c)} alt="" draggable={false} /> : <div className="back" />}
+              <span>{i + 1}{i === ids.length - 1 ? " ▲" : ""}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Sorcery : seuils des 4 éléments (éléments des sites du joueur dans le royaume)
 function SorcEls({ st }) {
   const a = sorcAffinity(st);
@@ -2702,7 +2754,7 @@ export function Arrows({ L, s, mine, opp, aim, cams, flipMine }) {
       const b = st?.board.find((q) => q.iid === tgt.iid);
       if (!b) return null;
       x = b.x;
-      y = b.y;
+      y = b.y + (owner === "mine" ? 1 : -1) * (stacksOf(st.board)[b.iid]?.dy || 0);
     } else if (tgt.t != null) {
       x = TITLES[tgt.t].x;
       y = 125;
