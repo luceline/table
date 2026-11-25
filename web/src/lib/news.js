@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 110,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🎯 Fiche d'une carte : choisissez « Combattant », « Magie », « Face cachée » (toujours en Magie) ou « Défausse », puis le territoire I, II ou III. La carte va sur un emplacement libre du territoire choisi.", tcg: "safir" },
+    ],
+  },
+  {
     id: 109,
     date: "25 novembre 2026",
     items: [

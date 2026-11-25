@@ -769,6 +769,16 @@ export default function Table({ go, gameId, side = "" }) {
     else placeOnBoard(iid, 300, 130, from, faceDown);
   };
 
+  // Safir : poser dans un emplacement précis (Combattant / Magie du territoire t) ; face cachée = toujours en Magie.
+  // Emplacement libre de ce type dans le territoire, sinon empilée sur le premier.
+  const placeTerr = (iid, from, kind, t, faceDown) => {
+    const st = mineRef.current;
+    const taken = (sl) => st.board.some((b) => b.iid !== iid && Math.abs(b.x - (sl.x + sl.w / 2)) < 3 && Math.abs(b.y - (sl.y + sl.h / 2)) < 3);
+    const cands = SLOTS.filter((sl) => sl.kind === kind && sl.t === t);
+    const f = cands.find((sl) => !taken(sl)) || cands[0];
+    if (f) placeOnBoard(iid, f.x + f.w / 2, f.y + f.h / 2, from, faceDown);
+  };
+
   // Les cartes jetons se déplacent comme les autres (détruites, elles vont en défausse du territoire)
   const toHand = useCallback((iid, from) => {
     if (from === "board") clearTokensOn(iid);
@@ -1990,7 +2000,7 @@ export default function Table({ go, gameId, side = "" }) {
         result={result}
         onResult={recordResult}
         actions={{
-          draw, shuffleDeck, toHand, toPile, placeFree, toggleTap, stackMove, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
+          draw, shuffleDeck, toHand, toPile, placeFree, placeTerr, toggleTap, stackMove, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
           startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, drawAtlas, shuffleAtlas, peekAtlas, showScan,
         }}
       />
@@ -2042,7 +2052,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
       </div>
     ) : null;
     if (zone === "hand") {
-      if (A.hasOpp) btns.push(["Montrer à l'adversaire", () => A.showCard(iid)]);
+      // « Montrer à l'adversaire » : bouton à part, au-dessus des emplacements
     } else if (zone === "board" && b) {
       btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
 
@@ -2054,15 +2064,15 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     }
     if (!c?.tok) {
       if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
-      if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
-      if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
+      if (zone !== "board" && TCG !== "safir") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+      if (zone !== "board" && TCG !== "safir") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
       if (TCG === "sorcery") {
         if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
         if (zone !== "banish") btns.push(["Bannir", () => A.toPile(iid, "banish", zone)]);
       } else if (TCG === "fab") {
         for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
         if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
-      } else for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
+      } // Safir : défausses I, II, III dans le sélecteur (TerrPicker)
       if (TCG === "sorcery" && c?.site) {
         btns.push(["Dessus de l'atlas", () => A.toPile(iid, "atlas", zone)]);
         btns.push(["Dessous de l'atlas", () => A.toPile(iid, "atlas", zone, true)]);
@@ -2096,6 +2106,20 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         </div>
       </div>
     ) : null;
+    // Safir : un bouton par destination (Combattant, Magie, Face cachée, Défausse), puis le territoire I, II ou III
+    const terrOpts = TCG === "safir" && !c?.tok
+      ? [
+          ...(zone !== "board"
+            ? [
+                { k: "c", label: "Combattant", go: (t) => A.placeTerr(iid, zone, "combattant", t, false) },
+                { k: "m", label: "Magie", go: (t) => A.placeTerr(iid, zone, "magie", t, false) },
+                { k: "f", label: "Face cachée", go: (t) => A.placeTerr(iid, zone, "magie", t, true) },
+              ]
+            : []),
+          { k: "d", label: "Défausse", go: (t) => A.toPile(iid, `d${t + 1}`, zone), off: (t) => zone === `d${t + 1}` },
+        ]
+      : null;
+    const terrBtns = terrOpts ? <TerrPicker key={iid} opts={terrOpts} onDone={close} /> : null;
     const sk = zone === "board" && b ? stacksOf(mine.board)[iid] : null;
     if (sk?.n > 1) {
       if (sk.i < sk.n - 1) btns.unshift(["Mettre sur le dessus de la pile", () => A.stackMove(iid, true)]);
@@ -2107,6 +2131,12 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         <ZoomPreview src={cardUrl(c, true)} alt={c?.n} />
         {aimBtns}
         {unifBtns}
+        {zone === "hand" && A.hasOpp && (
+          <div className="actions" style={{ marginBottom: 8 }}>
+            <button className="btn" onClick={run(() => A.showCard(iid))}>Montrer à l'adversaire</button>
+          </div>
+        )}
+        {terrBtns}
         <div className="actions">
           {btns.map(([label, f]) => (
             <button key={label} className="btn" onClick={run(f)}>{label}</button>
@@ -2683,6 +2713,35 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear, extra }) {
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
 // Sorcery : affinité (éléments des sites) et nombre de sites, sous les compteurs
+// Safir : choisir la destination, puis le territoire (I, II, III). Une seule destination : ses 3 boutons tout de suite.
+function TerrPicker({ opts, onDone }) {
+  const [sel, setSel] = useState(opts.length === 1 ? opts[0].k : null);
+  const o = opts.find((x) => x.k === sel);
+  return (
+    <div className="terr-pick">
+      {opts.length > 1 && (
+        <div className="tp-kinds" style={{ gridTemplateColumns: `repeat(${opts.length}, 1fr)` }}>
+          {opts.map((x) => (
+            <button key={x.k} className={`btn ${sel === x.k ? "primary" : ""} ${x.k === "f" ? "down" : ""}`} onClick={() => setSel(sel === x.k ? null : x.k)}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {o && (
+        <div className="tp-terr">
+          <span className="muted small">{o.label} :</span>
+          {ROMAN.map((r, t) => (
+            <button key={r} className="btn" disabled={o.off?.(t)} onClick={() => { o.go(t); onDone(); }}>
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Pile de cartes sur le plateau : toutes les cartes empilées à cet endroit, de dessous (1) à dessus ; toucher pour choisir
 function StackRow({ st, ids, cur, own, onPick }) {
   return (
