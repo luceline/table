@@ -83,14 +83,18 @@ const SORC_PILES = [
   { id: "deck", x: 531, y: 266, w: 63, h: 88, lines: ["GRIMOIRE"], label: "GRIMOIRE", short: "Grimoire", de: "de son grimoire", dans: "dans son grimoire" },
   { id: "atlas", x: 531, y: 174, w: 63, h: 88, lines: ["ATLAS"], label: "ATLAS", short: "Atlas", de: "de son atlas", dans: "dans son atlas" },
   { id: "grave", x: 6, y: 266, w: 63, h: 88, lines: ["CIMETIÈRE"], label: "CIMETIÈRE", short: "Cimetière", de: "de son cimetière", dans: "dans son cimetière" },
+  { id: "banish", x: 6, y: 174, w: 63, h: 88, lines: ["BANNIES"], label: "BANNIES", short: "Bannies", de: "de ses cartes bannies", dans: "dans ses cartes bannies" },
 ];
-// Case du royaume, décrite du point de vue de celui qui joue (le journal est lu par les deux joueurs : « sa » gauche)
-const SORC_ROW = ["la rangée adverse", "la 3e rangée", "sa 2e rangée", "sa rangée"];
-const SORC_COL = ["tout à sa gauche", "à sa gauche", "au centre", "à sa droite", "tout à sa droite"];
+// Cases du royaume numérotées de 1 à 20, les mêmes pour les deux joueurs : vues depuis la place du joueur 1,
+// 1 à 5 sur la rangée la plus éloignée de lui (de gauche à droite), 16 à 20 sur sa propre rangée.
+// r, c sont dans le repère du tapis concerné (r = 3 : rangée de son propriétaire).
+let sorcP1 = true;
+export const setSorcSeat = (isP1) => { sorcP1 = isP1 !== false; };
+export const sorcNum = (r, c, p1 = sorcP1) => (p1 ? r * SORC.cols + c + 1 : (SORC.rows - 1 - r) * SORC.cols + (SORC.cols - 1 - c) + 1);
 export const sorcCell = (x, y) => {
   const c = Math.floor((x - SORC.x0) / SORC.cw), r = Math.floor((y - SORC.y0) / SORC.ch);
   if (c < 0 || c >= SORC.cols || r < 0 || r >= SORC.rows) return null;
-  return { c, r, name: `${SORC_ROW[r]}, ${SORC_COL[c]}` };
+  return { c, r, n: sorcNum(r, c), name: `la case ${sorcNum(r, c)}` };
 };
 
 // ---------- Géométrie du jeu actif (liaisons vivantes : les écrans lisent toujours la valeur courante) ----------

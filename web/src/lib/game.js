@@ -191,7 +191,7 @@ export function setRules(id) {
   START_PV = fab ? 40 : sorc ? SORC_LIFE : 0;
   PHASES = fab ? FAB_PHASES : sorc ? SORC_PHASES : SAFIR_PHASES;
   PHASE_BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
-  PILE_IDS = fab ? ["pitch", "grave", "banish"] : sorc ? ["atlas", "grave"] : ["d1", "d2", "d3"];
+  PILE_IDS = fab ? ["pitch", "grave", "banish"] : sorc ? ["atlas", "grave", "banish"] : ["d1", "d2", "d3"];
 }
 
 // Bonus rappelés sous le badge d'unification (Saison 3, Kin)

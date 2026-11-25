@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import {
-  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, mirrorX, mirrorRectX, SORC,
+  MAT_W, MAT_H, CARD, SLOTS, PILES, TITLES, DIVIDERS, MAT_KIND, rotPt, sorcNum, mirrorX, mirrorRectX, SORC,
 } from "../lib/mat.js";
 import { cardUrl } from "../pb.js";
 import { TOKEN_HEX, MARKER_ICON, territoryValues, TCG, UNIF_STATS } from "../lib/game.js";
@@ -64,7 +64,7 @@ const GOLD_TXT = "rgba(222,190,118,.78)";
 // Fond du tapis en SVG (coordonnées mm). flip = tapis adverse retourné haut/bas seulement (miroir) :
 // ses territoires I, II, III restent face aux miens (I contre I, II contre II, III contre III).
 // flipX = mon tapis inversé gauche/droite (III · II · I), face à un joueur filmé dont l'image est vue « assis en face ».
-export const MatBackground = memo(function MatBackground({ flip, flipX, layer }) {
+export const MatBackground = memo(function MatBackground({ flip, flipX, layer, p1View }) {
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
   const fp = (x, y) => (flipX ? mirrorX(x, y) : x);
   const R = (x, y, w, h) => (flip ? { x: fr(x, y, w, h), y: MAT_H - y - h, w, h } : { x: fr(x, y, w, h), y, w, h });
@@ -91,6 +91,15 @@ export const MatBackground = memo(function MatBackground({ flip, flipX, layer })
       els.push(<rect key="realm" x={x0} y={y0} width={cols * cw} height={rows * ch} fill="rgba(0,0,0,.18)" stroke={GOLD} strokeWidth={0.6} />);
       for (let c = 1; c < cols; c++) els.push(<line key={`gc${c}`} x1={x0 + c * cw} y1={y0} x2={x0 + c * cw} y2={y0 + rows * ch} stroke={GOLD} strokeWidth={0.4} />);
       for (let r = 1; r < rows; r++) els.push(<line key={`gr${r}`} x1={x0} y1={y0 + r * ch} x2={x0 + cols * cw} y2={y0 + r * ch} stroke={GOLD} strokeWidth={r === rows / 2 ? 0.7 : 0.4} strokeDasharray={r === rows / 2 ? "3 2" : undefined} />);
+      // Numéros des cases (1 à 20), identiques pour les deux joueurs : écrits dans le sens de l'écran
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          els.push(
+            <text key={`n${r}${c}`} className="sorc-num" x={x0 + c * cw + 3} y={y0 + r * ch + 3} fontSize={10} fill={GOLD_TXT} fillOpacity={0.75} dominantBaseline="hanging"
+              fontFamily="Georgia, serif" fontWeight={700} stroke="rgba(0,0,0,.55)" strokeWidth={1.6} paintOrder="stroke">
+              {sorcNum(r, c, p1View !== false)}
+            </text>
+          );
     }
     for (const p of PILES) {
       els.push(rect(R(p.x, p.y, p.w, p.h), `p${p.id}`));
@@ -138,7 +147,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX, layer })
   );
 });
 
-export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, frozen, layer, children }) {
+export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, dragKey, onPress, matRef, waiting, pings = [], aiming, spectator, flipX, frozen, layer, p1View, children }) {
   const mine = side === "mine";
   const flip = !mine;
   const fr = (x, y, w, h) => (flipX ? mirrorRectX(x, y, w, h) : x);
@@ -223,7 +232,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
       {/* Fond personnel du joueur (vu aussi par l'adversaire et les spectateurs), sous les emplacements du tapis */}
       {bg && <div className="mat-photo" style={{ backgroundImage: `url("${bg.url}")` }} />}
       {bg && <div className="mat-photo dim" style={{ opacity: (bg.dim ?? 35) / 100 }} />}
-      <MatBackground flip={flip} flipX={!!flipX} kind={MAT_KIND} layer={layer} />
+      <MatBackground flip={flip} flipX={!!flipX} kind={MAT_KIND} layer={layer} p1View={p1View} />
 
       {/* Valeur des combattants par territoire, comparée à l'adversaire (indicatif) */}
       {st && TCG === "safir" && (() => {
@@ -280,8 +289,9 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
                   {showBack || !c ? <div className="back" /> : <img src={cardUrl(c)} alt="" draggable={false} />}
                 </div>
               )}
+              {arr.length > 0 && TCG === "sorcery" && <span className="plbl" style={{ fontSize: Math.max(8, 4.6 * s) }}>{p.short}</span>}
               {arr.length > 0 && (
-                <span className="count" style={{ fontSize: Math.max(10, 4.2 * s) }}>{arr.length}</span>
+                <span className={`count ${TCG === "sorcery" ? "big" : ""}`} style={{ fontSize: TCG === "sorcery" ? Math.max(14, 9 * s) : Math.max(10, 4.2 * s) }}>{arr.length}</span>
               )}
             </div>
           );

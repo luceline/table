@@ -12,7 +12,7 @@ export const RULES_SORCERY = [
       { k: "Les quatre éléments", t: "Air, Terre, Feu et Eau. La plupart des sorts sont liés à un ou plusieurs éléments." },
       { k: "Affinité et seuil", t: "Votre affinité, ce sont les symboles d'éléments de vos sites (plus ceux donnés par certains effets). Le seuil d'un sort est l'affinité minimale qu'il demande : on ne la dépense pas, il suffit de l'avoir. Les artefacts n'ont en général pas de seuil." },
       { k: "Règle d'or", t: "Quand le texte d'une carte contredit les règles, c'est la carte qui a raison." },
-      { k: "Dans l'appli", t: "Le compteur VIE part de la vie de votre avatar (saisie au scan, 20 sinon). Le compteur MANA suit votre mana du tour. Sous vos compteurs : vos sites et votre affinité, comptés d'après les sites posés dans le royaume." },
+      { k: "Dans l'appli", t: "Le cadre rouge VIE part de la vie de votre avatar (saisie au scan, 20 sinon). MANA affiche le mana encore disponible sur le total du tour (1 par site). Sous votre nom : vos seuils dans les 4 éléments, comptés d'après vos sites posés dans le royaume." },
     ],
   },
   {
@@ -40,8 +40,8 @@ export const RULES_SORCERY = [
     title: "Le royaume",
     items: [
       { k: "Grille partagée", t: "Le royaume est une grille de 5 cases sur 4, commune aux deux joueurs : chacun est assis d'un côté. Au départ, toutes les cases sont du vide, que les sites viennent remplir." },
-      { k: "Dans l'appli", t: "Vous voyez le royaume de votre côté, votre rangée en bas. Les cartes de l'adversaire sont posées sur les mêmes cases, vues depuis votre place. C'est pourquoi Sorcery ne se joue pas avec des cartes filmées." },
-      { k: "Hors du royaume", t: "Chaque joueur a son atlas (deck de sites), son grimoire (deck de sorts) et son cimetière (public, l'ordre ne compte pas). Dans l'appli : grimoire et atlas à droite, cimetière à gauche ; ceux de l'adversaire en face." },
+      { k: "Dans l'appli", t: "Vous voyez le royaume de votre côté, votre rangée en bas. Les cartes de l'adversaire sont posées sur les mêmes cases, vues depuis votre place. Les cases sont numérotées de 1 à 20, les mêmes numéros pour les deux joueurs, et le journal les utilise (« pose le site sur la case 7 »). Le fond du royaume est le même pour tous : votre tapis personnalisé ne s'y applique pas. C'est pourquoi aussi Sorcery ne se joue pas avec des cartes filmées." },
+      { k: "Hors du royaume", t: "Chaque joueur a son atlas (deck de sites), son grimoire (deck de sorts) et son cimetière (public, l'ordre ne compte pas). Dans l'appli : grimoire et atlas à droite, cimetière et cartes bannies à gauche ; ceux de l'adversaire en face. « Bannir » sur une carte la met dans vos bannies." },
       { k: "Régions", t: "Surface (le dessus des sites, là où l'on joue d'habitude), sous-sol d'un site terrestre, fond d'un site aquatique, et le vide (cases sans site). Sans capacité adaptée, un sbire meurt sous terre ou sous l'eau, et est banni dans le vide. Un avatar ne quitte jamais la surface." },
       { k: "Adjacent, à proximité", t: "Adjacent : la case de la carte et les cases qui partagent un côté avec elle. À proximité : la case et les 8 qui l'entourent. Toujours dans la même région." },
     ],

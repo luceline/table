@@ -15,7 +15,7 @@ import { matBgOf, cardBackOf } from "../components/MatBgSettings.jsx";
 import { Mat, frozenTerritories } from "./Mat.jsx";
 import { RulesPanel } from "./Rules.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
-import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX, MAT_KIND } from "../lib/mat.js";
+import { MAT_W, MAT_H, GAP, BOARD_H, CARD, SLOTS, TITLES, ROMAN, PILE_BY_ID, slotAt, pileAt, placeName, boxAt, inRect, rotPt, mirrorX, MAT_KIND, setSorcSeat } from "../lib/mat.js";
 import {
   normalize, detach, addLog, shuffle, resetState, rid, TOKEN_COLORS, TOKEN_HEX,
   PHASES, PHASE_BY_ID, UNIF_BONUS, UNIF_STATS, KIN_COLOR, kinSub, MARKER_PRESETS, MARKER_ICON, parseVal, TCG, PILE_IDS, fabLife, START_PI, START_PV,
@@ -30,6 +30,10 @@ import { CamOverlay, QrImg, VideoTokens, videoToBoard, videoPointAt } from "../c
 const ZOOMS = [1, 1.6, 2.4, 3.2]; // niveaux de zoom de la loupe (vue d'un seul tapis)
 export const BAR = 48; // bandeau PI/PV en portrait (px écran)
 export const RAIL = 96; // colonne PI/PV en paysage (px écran)
+export const SORC_BAR = 64; // bandeau Sorcery en portrait : nom, phase et éléments sur trois lignes
+// Royaume partagé de Sorcery : toujours le même fond (carte ancienne), jamais le tapis personnalisé d'un joueur
+export const SORC_REALM_BG = { url: "/sorcery/realm.jpg", dim: 0 };
+export const barH = () => (MAT_KIND === "sorcery" ? SORC_BAR : BAR);
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
 // Noms des piles du jeu actif (Safir : PILE_NAMES ; Flesh and Blood : zones du tapis + inventaire)
 const pileName = (id) => (TCG !== "safir" ? (id === "inv" ? "Inventaire" : PILE_BY_ID[id]?.short || id) : PILE_NAMES[id]);
@@ -134,7 +138,7 @@ export default function Table({ go, gameId, side = "" }) {
   // Échelle : vue d'ensemble des deux tapis, ou loupe plein écran sur un seul tapis
   const fitS = landscape
     ? Math.min((vp.w - 12 - RAIL) / MAT_W, (vp.h - 12) / (focus ? MAT_H : BOARD_H))
-    : Math.min((vp.w - 12) / MAT_W, (vp.h - 12 - (focus ? BAR : 2 * BAR)) / (focus ? MAT_H : BOARD_H));
+    : Math.min((vp.w - 12) / MAT_W, (vp.h - 12 - (focus ? barH() : 2 * barH())) / (focus ? MAT_H : BOARD_H));
   const s = Math.max(0.15, fitS) * (focus ? ZOOMS[zoom] : 1);
   sRef.current = s;
   const mySide = sideRef.current;
@@ -145,6 +149,7 @@ export default function Table({ go, gameId, side = "" }) {
   // (deux enregistrements distincts : les écritures des deux joueurs ne s'écrasent jamais)
   const applyGame = useCallback((r) => {
     sideRef.current = r.solo ? (mySlot === "b" ? "p2" : "p1") : r.p1 === user.id ? "p1" : "p2";
+    setSorcSeat(sideRef.current === "p1"); // Sorcery : numéros des cases écrits dans le journal du point de vue du joueur 1
     setMeta({ code: r.code, p1: r.p1, p2: r.p2, status: r.status, ...(r.open ? { open: true } : null), ...(r.solo ? { solo: true } : null) });
   }, [user.id, mySlot]);
 
@@ -624,7 +629,7 @@ export default function Table({ go, gameId, side = "" }) {
       if (mq.matches) return setHandH(null);
       const ctrl = 46 + PHASE_H + (hasReserve ? 38 : 0);
       const fitW = (W - 12) / MAT_W;
-      const boardH = BOARD_H * fitW + 2 * BAR + 12;
+      const boardH = BOARD_H * fitW + 2 * barH() + 12;
       setHandH(clamp(H - ctrl - boardH, 112, 250));
     };
     compute();
@@ -1644,8 +1649,8 @@ export default function Table({ go, gameId, side = "" }) {
               <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }} onPointerDown={boardDown} onContextMenu={(e) => e.preventDefault()}>
                 {L.opp && (
                   <>
-                    <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{!L.shared && loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} sub={L.shared && opp ? <SorcAffinity st={opp} /> : undefined} />
-                    <Mat side="opp" st={opp} vs={mine} bg={L.shared ? matBgOf(user) : oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} flipX={L.shared} layer={L.shared ? "base" : undefined} />
+                    <ScorePanel st={opp} back={oppLook.back} hand={opp && !opp.filmed ? opp.hand.length : null} layout={L.mode} box={L.opp.panel} onAim={aimPanel("opp")} onUnif={() => opp?.unif && setToast(`${opp.name} : Unification ${opp.unif} (${UNIF_BONUS[opp.unif]})`)} extra={<>{!L.shared && loupe("opp", L.opp.mat, true)}{(oppLook.bg || oppLook.back) && <ReportButton inline onClick={() => setReportOpen(true)} />}</>} />
+                    <Mat side="opp" st={opp} vs={mine} bg={L.shared ? SORC_REALM_BG : oppLook.bg} back={oppLook.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={oppTokens} frozen={frozen} hover={hover} dragKey={dragKey} onPress={press} matRef={oppMatRef} waiting={waiting} pings={pings.filter((x) => x.owner === "opp")} aiming={!!aim} flipX={L.shared} layer={L.shared ? "base" : undefined} p1View={mySide === "p1"} />
                     {opp?.filmed && (
                       <CamOverlay
                         left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s}
@@ -1680,7 +1685,7 @@ export default function Table({ go, gameId, side = "" }) {
                         geo={camGeo.mine} s={s} dragKey={dragKey} onPress={press} type="token"
                       />
                     )}
-                    <ScorePanel st={mine} mine back={cardBackOf(user)} layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} sub={L.shared ? <SorcAffinity st={mine} /> : undefined} />
+                    <ScorePanel st={mine} mine back={cardBackOf(user)} layout={L.mode} box={L.mine.panel} onSet={setTrack} onAim={aimPanel("mine")} onUnif={cycleUnif} />
                     {!L.shared && loupe("mine", L.mine.mat)}
                   </>
                 )}
@@ -2024,6 +2029,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
     if (TCG === "sorcery") {
       if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
+      if (zone !== "banish") btns.push(["Bannir", () => A.toPile(iid, "banish", zone)]);
     } else if (TCG === "fab") {
       for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
       if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
@@ -2105,6 +2111,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         <p className="muted small deck-top-lbl">Mettre le site du dessus de l'atlas, face visible, dans :</p>
         <div className="actions">
           <button className="btn" disabled={!n} onClick={() => A.toPile(mine.piles.atlas[n - 1], "grave", "atlas")}>→ Cimetière</button>
+          <button className="btn" disabled={!n} onClick={() => A.toPile(mine.piles.atlas[n - 1], "banish", "atlas")}>→ Bannies</button>
         </div>
         <p className="muted small">Pour jouer un site : glissez le dessus de l'atlas sur une case du royaume, ou piochez-le puis posez-le depuis votre main.</p>
       </Sheet>
@@ -2127,7 +2134,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         </div>
         <p className="muted small deck-top-lbl">Mettre la carte du dessus du {DK}, face visible, dans :</p>
         <div className="actions">
-          {(TCG === "fab" ? ["grave", "banish"] : TCG === "sorcery" ? ["grave"] : ["d1", "d2", "d3"]).map((pid) => (
+          {(TCG !== "safir" ? ["grave", "banish"] : ["d1", "d2", "d3"]).map((pid) => (
             <button
               key={pid}
               className="btn"
@@ -2630,14 +2637,36 @@ function PhaseBar({ st, opp, onPhase, onEnd, onClear, extra }) {
 
 // Flèches d'attaque (rouges) et de ciblage (bleues), en px du plateau
 // Sorcery : affinité (éléments des sites) et nombre de sites, sous les compteurs
-function SorcAffinity({ st }) {
+// Sorcery : seuils des 4 éléments (éléments des sites du joueur dans le royaume)
+function SorcEls({ st }) {
   const a = sorcAffinity(st);
-  const els = SORC_ELEMENTS.filter((e) => a[e.id]);
   return (
-    <span className="sorc-aff" title="Affinité : éléments de vos sites dans le royaume (seuil des sorts). 1 mana par site au début du tour.">
-      {a.sites} site{a.sites > 1 ? "s" : ""}
-      {els.map((e) => <b key={e.id} style={{ color: e.hex }}> {e.icon}{a[e.id]}</b>)}
+    <span className="sorc-thr" title="Seuils : éléments des sites dans le royaume">
+      {SORC_ELEMENTS.map((e) => (
+        <i key={e.id} className={a[e.id] ? "" : "off"} aria-label={`${e.label} ${a[e.id] || 0}`}>{e.icon}<b style={{ color: e.hex }}>{a[e.id] || 0}</b></i>
+      ))}
     </span>
+  );
+}
+
+// Sorcery : vie (grand cadre rouge), mana disponible / total (1 par site) et seuils des 4 éléments
+function SorcStats({ st, onSet }) {
+  const a = sorcAffinity(st);
+  const pi = st?.pi ?? 0, pv = st?.pv ?? 0;
+  const btn = (k, d, lbl) => onSet && <button onClick={(e) => { e.stopPropagation(); onSet(k, (k === "pi" ? pi : pv) + d); }} aria-label={`${lbl} ${d > 0 ? "plus" : "moins"} 1`}>{d > 0 ? "+" : "−"}</button>;
+  return (
+    <div className={`sorc-nums ${onSet ? "" : "ro"}`}>
+      <div className="sorc-stat mana" title="Mana disponible / total (1 par site dans le royaume)">
+        {btn("pi", -1, "Mana")}
+        <div className="v"><small>MANA</small><b>{pi}<span>/{a.sites}</span></b></div>
+        {btn("pi", 1, "Mana")}
+      </div>
+      <div className="sorc-stat life" title="Points de vie">
+        {btn("pv", -1, "Vie")}
+        <div className="v"><small>VIE</small><b>{pv}</b></div>
+        {btn("pv", 1, "Vie")}
+      </div>
+    </div>
   );
 }
 
@@ -2730,10 +2759,11 @@ export function boardLayout(side, focus, s) {
         mine: { mat: { left: RAIL, top: 0 }, panel: { left: 0, top: half, width: RAIL, height: half } },
       };
     }
+    const B = SORC_BAR;
     return {
-      mode: "bar", w: mw, h: 2 * BAR + mh, shared: true,
-      opp: { mat: { left: 0, top: BAR }, panel: { left: 0, top: 0, width: mw, height: BAR } },
-      mine: { mat: { left: 0, top: BAR }, panel: { left: 0, top: BAR + mh, width: mw, height: BAR } },
+      mode: "bar", w: mw, h: 2 * B + mh, shared: true,
+      opp: { mat: { left: 0, top: B }, panel: { left: 0, top: 0, width: mw, height: B } },
+      mine: { mat: { left: 0, top: B }, panel: { left: 0, top: B + mh, width: mw, height: B } },
     };
   }
   if (side) {
@@ -2775,7 +2805,7 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
   const unif = st?.unif || 0;
   return (
     <div
-      className={`score ${layout} ${mine ? "mine" : "opp"} ${onAim ? "aimable" : ""} ${ph ? "active" : ""}`}
+      className={`score ${layout} ${TCG === "sorcery" ? "sorc" : ""} ${mine ? "mine" : "opp"} ${onAim ? "aimable" : ""} ${ph ? "active" : ""}`}
       style={box}
       onClick={onAim || undefined}
     >
@@ -2787,6 +2817,7 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
           </span>
           {sub && <span className="ssub">{sub}</span>}
         </span>
+        {TCG === "sorcery" && <SorcEls st={st} />}
       </div>
       {TCG === "safir" && (mine || unif > 0) && (
         <button className={`unif u${unif}`} onClick={(e) => { if (onAim) return; e.stopPropagation(); onUnif?.(); }} title={unif ? UNIF_BONUS[unif] : "Unification"}>
@@ -2803,8 +2834,14 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
           <small>main</small>
         </div>
       )}
-      <Stat label={counterLabel("pi")} k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine && !onAim ? onSet : null} />
-      <Stat label={counterLabel("pv")} k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
+      {TCG === "sorcery" ? (
+        <SorcStats st={st} onSet={mine && !onAim ? onSet : null} />
+      ) : (
+        <>
+          <Stat label={counterLabel("pi")} k="pi" v={st?.pi ?? 0} cls="pi" onSet={mine && !onAim ? onSet : null} />
+          <Stat label={counterLabel("pv")} k="pv" v={st?.pv ?? 0} cls="pv" onSet={mine && !onAim ? onSet : null} />
+        </>
+      )}
       {extra}
     </div>
   );

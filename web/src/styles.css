@@ -368,6 +368,42 @@ svg.arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index:
 .sorc-els { position: absolute; top: 4px; right: 4px; display: flex; gap: 2px; padding: 2px 4px; border-radius: 8px; background: rgba(10,8,30,.75); font-size: 13px; line-height: 1; }
 .sorc-els i { font-style: normal; }
 .sorc-aff { white-space: nowrap; }
+/* Sorcery : panneau des joueurs (seuils, mana dispo / total, vie en grand cadre rouge) */
+.score.sorc { gap: 6px; }
+.score.sorc .sname { gap: 2px; }
+.sorc-thr { display: flex; gap: 6px; font-family: var(--sans); font-size: 12px; line-height: 1; white-space: nowrap; }
+.sorc-thr i { font-style: normal; display: inline-flex; align-items: center; gap: 1px; }
+.sorc-thr i b { font-size: 13px; font-weight: 800; }
+.sorc-thr i.off { opacity: .35; filter: grayscale(1); }
+.score.side .sorc-thr { justify-content: center; gap: 1px; font-size: 10px; }
+.score.side .sorc-thr i b { font-size: 11px; }
+.sorc-nums { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.score.side .sorc-nums { flex-direction: column; gap: 5px; }
+.score.side .sorc-nums.ro { flex-direction: row; gap: 4px; }
+.score.side.sorc .sname { flex-shrink: 0; }
+.score.side.sorc .hand-fan { transform: none; margin: 0; }
+.sorc-stat { display: flex; align-items: center; flex: 0 0 auto; }
+.sorc-stat button { width: 24px; height: 34px; border: 0; background: transparent; color: #f4e6c8; font-size: 20px; cursor: pointer; border-radius: 8px; padding: 0; }
+.sorc-stat button:active { background: rgba(255,255,255,.1); }
+.sorc-stat .v { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; line-height: 1; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.sorc-stat .v small { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: .1em; opacity: .85; }
+.sorc-stat .v b { font-family: var(--sans); font-variant-numeric: tabular-nums; font-weight: 800; }
+.sorc-stat.mana .v { min-width: 50px; height: 44px; padding: 0 4px; background: linear-gradient(180deg, #2f5e9c, #193560); border: 2px solid #8fb8ef; }
+.sorc-stat.mana .v b { font-size: 22px; }
+.sorc-stat.mana .v b span { font-size: 14px; font-weight: 700; opacity: .8; }
+.sorc-stat.life .v { min-width: 54px; height: 50px; padding: 0 4px; background: linear-gradient(180deg, #d83c34, #8a1712); border: 2px solid #ffb4a6; box-shadow: 0 0 10px rgba(230,60,50,.45); }
+.sorc-stat.life .v b { font-size: 28px; }
+.score.side .sorc-stat button { width: 20px; font-size: 17px; }
+.score.side .sorc-stat.mana .v { min-width: 48px; height: 40px; }
+.score.side .sorc-stat.life .v { min-width: 50px; height: 48px; }
+.score.side .sorc-nums.ro .sorc-stat .v { min-width: 0; width: 42px; padding: 0 2px; }
+.score.side .sorc-nums.ro .sorc-stat.mana .v b { font-size: 18px; }
+.score.side .sorc-nums.ro .sorc-stat.mana .v b span { font-size: 11px; }
+.score.side .sorc-nums.ro .sorc-stat.life .v b { font-size: 24px; }
+.score.side.sorc { gap: 6px; }
+/* Piles Sorcery : nom et nombre de cartes bien lisibles */
+.pile .plbl { position: absolute; top: 4%; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 4px; background: rgba(10,8,6,.8); color: #f1dfb6; font-family: var(--sans); font-weight: 700; letter-spacing: .04em; white-space: nowrap; pointer-events: none; z-index: 1; }
+.pile .count.big { right: 50%; bottom: 8%; transform: translateX(50%); padding: 0 .45em; line-height: 1.35; background: rgba(10,8,6,.88); color: #fff; border: 2px solid var(--gold2); z-index: 1; }
 .page.page-deck { max-width: 760px; padding-bottom: calc(84px + var(--safe-b)); }
 .sheet .deck-list > h2 { display: none; }
 .deck-split { display: block; }

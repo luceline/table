@@ -1,8 +1,18 @@
 // Nouveautés montrées aux joueurs à leur prochaine connexion après une mise à jour.
 // À chaque mise à jour, ajouter une entrée EN TÊTE de liste avec le numéro suivant (id) : la fenêtre s'affiche une fois
 // par joueur (mémorisé sur son compte), avec les entrées qu'il n'a pas encore vues (3 au plus).
-// tcg : "safir" ou "fab" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
+// tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
+  {
+    id: 106,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🗺️ Sorcery : le royaume a son propre fond, une carte ancienne, le même pour les deux joueurs (votre tapis personnalisé ne s'y applique pas).", tcg: "sorcery" },
+      { t: "🔢 Les cases sont numérotées de 1 à 20, identiques pour les deux joueurs, et le journal les cite : « joue le site sur la case 7 ».", tcg: "sorcery" },
+      { t: "❤️ La vie s'affiche en grand dans un cadre rouge, le mana en « disponible / total » (1 par site) et vos seuils dans les 4 éléments sous votre nom.", tcg: "sorcery" },
+      { t: "🚫 Nouvelle pile « Bannies » à côté du cimetière (bouton « Bannir » sur une carte). Grimoire et atlas affichent leur nom et un compteur plus lisible.", tcg: "sorcery" },
+    ],
+  },
   {
     id: 105,
     date: "25 novembre 2026",

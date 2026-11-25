@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ZoomPreview } from "../components/ZoomView.jsx";
 import { pb, cardUrl, fileUrl, safeUn } from "../pb.js";
 import { Mat, frozenTerritories } from "./Mat.jsx";
-import { ScorePanel, Arrows, Journal, boardLayout, BAR, RAIL } from "./Table.jsx";
+import { ScorePanel, Arrows, Journal, boardLayout, barH, RAIL, SORC_REALM_BG } from "./Table.jsx";
 import { Sheet, Toast, PhaseFlash } from "../components/ui.jsx";
 import FxToggle from "../components/FxToggle.jsx";
 import { ReactionLayer, useReactionQueue } from "../components/Reactions.jsx";
@@ -267,7 +267,7 @@ export default function Spectator({ code }) {
   const avW = Math.max(0, vp.w - 12), avH = Math.max(0, vp.h - 12);
   const s = side
     ? Math.max(0.2, Math.min((avW - RAIL) / MAT_W, avH / BOARD_H))
-    : Math.max(0.2, Math.min(avW / MAT_W, (avH - 2 * BAR) / BOARD_H));
+    : Math.max(0.2, Math.min(avW / MAT_W, (avH - 2 * barH()) / BOARD_H));
   const L = boardLayout(side, null, s);
   const tokens = (who) => marks.filter((t) => t.side === who);
   // Joueur du haut filmé (Safir) : même présentation que chez son adversaire (image retournée, territoires du bas inversés)
@@ -330,7 +330,7 @@ export default function Spectator({ code }) {
           {game && vp.w > 0 && (
             <div className="board" key={TCG} style={{ width: L.w, height: L.h, marginTop: 6, marginBottom: 6 }}>
               <ScorePanel st={p2 || { name: game.n2 || "En attente d'un adversaire" }} back={look2.back} extra={authed && (look2.bg || look2.back) && game.p2 !== pb.authStore.record?.id ? <ReportButton inline onClick={() => setReport({ uid: game.p2, name: p2?.name || game.n2, look: look2 })} /> : null} layout={L.mode} box={L.opp.panel} sub={count(p2)} hand={p2 && !p2.filmed ? p2.hand.length : null} />
-              <Mat side="opp" st={p2} vs={p1} bg={L.shared ? look1.bg : look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator flipX={L.shared} layer={L.shared ? "base" : undefined} />
+              <Mat side="opp" st={p2} vs={p1} bg={L.shared ? SORC_REALM_BG : look2.bg} back={look2.back} s={s} top={L.opp.mat.top} left={L.opp.mat.left} tokens={tokens("p2")} frozen={frozenTerritories(marks)} onPress={press} pings={pings.filter((x) => x.owner === "p2")} spectator flipX={L.shared} layer={L.shared ? "base" : undefined} p1View />
               {p2?.filmed && (
                 <CamOverlay left={L.opp.mat.left} top={L.opp.mat.top} w={MAT_W * s} h={MAT_H * s} stream={peers[camId(game.p2)]?.stream} state={peers[camId(game.p2)]?.state} rot={((p2.camRot || 0) + (mirrorP1 ? 180 : 0)) % 360} name={p2.name} side="opp" tapZoom onGeom={(g) => setCamGeo((c) => ({ ...c, opp: g }))} />
               )}
