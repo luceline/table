@@ -266,6 +266,17 @@ export function emptyState() {
 
 export function normalize(s) {
   if (!s || typeof s !== "object" || !s.cards) return emptyState();
+  // Cartes jetons égarées hors du plateau (anciennes versions : renvoyées dans le deck, en main ou dans une pile) : elles quittent le jeu
+  if (Object.values(s.cards).some((c) => c?.tok)) {
+    const onBoard = new Set((s.board || []).map((b) => b.iid));
+    const stray = (iid) => s.cards[iid]?.tok && !onBoard.has(iid);
+    if ([...(s.deck || []), ...(s.hand || []), ...Object.values(s.piles || {}).flat()].some(stray)) {
+      const cards = { ...s.cards };
+      for (const iid of [...(s.deck || []), ...(s.hand || []), ...Object.values(s.piles || {}).flat()]) if (stray(iid)) delete cards[iid];
+      const keep = (arr) => (arr || []).filter((iid) => cards[iid] || !s.cards[iid]);
+      s = { ...s, cards, deck: keep(s.deck), hand: keep(s.hand), piles: Object.fromEntries(Object.entries(s.piles || {}).map(([k, v]) => [k, keep(v)])) };
+    }
+  }
   return {
     ...emptyState(),
     ...s,

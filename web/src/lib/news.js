@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 108,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🪙 Cartes jetons : un jeton qui quitte le plateau (renvoyé en main, sur le deck ou dans une pile) disparaît du jeu au lieu de rester mélangé à vos cartes. Les jetons égarés dans un deck ou une main lors des parties précédentes sont retirés d'office." },
+    ],
+  },
+  {
     id: 107,
     date: "25 novembre 2026",
     items: [

@@ -725,6 +725,15 @@ export default function Table({ go, gameId, side = "" }) {
     tokRef.current.filter((t) => t.on === iid).forEach((t) => delMark(t.id));
   };
 
+  // Une carte jeton n'existe que sur le plateau : renvoyée en main, dans le deck ou une pile, elle quitte le jeu
+  // (sinon elle restait mélangée au deck et revenait comme une vraie carte)
+  const tokenLeaves = (st, iid) => {
+    const c = st.cards[iid];
+    detach(st, iid);
+    delete st.cards[iid];
+    return `retire le jeton « ${c.n} » du jeu (un jeton qui quitte le plateau disparaît)`;
+  };
+
   const removeTokenCard = (iid) => {
     mut((st) => {
       const c = st.cards[iid];
@@ -768,6 +777,7 @@ export default function Table({ go, gameId, side = "" }) {
       const prev = st.board.find((b) => b.iid === iid);
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       const searchedA = from === "atlas" && (st.piles.atlas || [])[(st.piles.atlas || []).length - 1] !== iid;
+      if (c?.tok) return tokenLeaves(st, iid);
       detach(st, iid);
       st.hand.push(iid);
       // Flesh and Blood : carte reprise de la zone de pitch (erreur), ses ressources sont retirées
@@ -793,6 +803,7 @@ export default function Table({ go, gameId, side = "" }) {
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       const atl = st.piles.atlas || [];
       const searchedA = from === "atlas" && atl[atl.length - 1] !== iid;
+      if (c?.tok) return tokenLeaves(st, iid);
       detach(st, iid);
       const deckW = TCG === "sorcery" ? "grimoire" : "deck";
       if (pid === "deck") {
@@ -2024,24 +2035,29 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
 
       btns.push([b.down ? "Révéler" : "Face cachée", () => A.flipCard(iid)]);
     }
-    if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
-    if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
-    if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
-    if (TCG === "sorcery") {
-      if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
-      if (zone !== "banish") btns.push(["Bannir", () => A.toPile(iid, "banish", zone)]);
-    } else if (TCG === "fab") {
-      for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
-      if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
-    } else for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
-    if (TCG === "sorcery" && c?.site) {
-      btns.push(["Dessus de l'atlas", () => A.toPile(iid, "atlas", zone)]);
-      btns.push(["Dessous de l'atlas", () => A.toPile(iid, "atlas", zone, true)]);
-    } else {
-      btns.push([TCG === "sorcery" ? "Dessus du grimoire" : "Dessus du deck", () => A.toPile(iid, "deck", zone)]);
-      btns.push([TCG === "sorcery" ? "Dessous du grimoire" : "Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
+    if (c?.tok) {
+      if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+      btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
     }
-    if (c?.tok) btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
+    if (!c?.tok) {
+      if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
+      if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+      if (zone !== "board") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
+      if (TCG === "sorcery") {
+        if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
+        if (zone !== "banish") btns.push(["Bannir", () => A.toPile(iid, "banish", zone)]);
+      } else if (TCG === "fab") {
+        for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
+        if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
+      } else for (const p of ["d1", "d2", "d3"]) if (p !== zone) btns.push([PILE_NAMES[p], () => A.toPile(iid, p, zone)]);
+      if (TCG === "sorcery" && c?.site) {
+        btns.push(["Dessus de l'atlas", () => A.toPile(iid, "atlas", zone)]);
+        btns.push(["Dessous de l'atlas", () => A.toPile(iid, "atlas", zone, true)]);
+      } else {
+        btns.push([TCG === "sorcery" ? "Dessus du grimoire" : "Dessus du deck", () => A.toPile(iid, "deck", zone)]);
+        btns.push([TCG === "sorcery" ? "Dessous du grimoire" : "Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
+      }
+    }
     // Unification d'un combattant (Safir) : jetons ATK / Valeur / DEF avec les bonus du niveau
     const unifBtns = zone === "board" && b && TCG === "safir" && !c?.tok && !c?.cmd ? (
       <div className="unif-row">
