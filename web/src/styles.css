@@ -1268,3 +1268,5 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .pmap-sel { margin-top: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .pmap h3 { font-size: 15px; margin: 14px 0 6px; }
 .pmap-credit { margin-top: 10px; font-size: 11px; }
+.join-deck { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.join-deck .btn { width: 100%; }

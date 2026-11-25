@@ -217,15 +217,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
   const myName = user.name || user.email.split("@")[0];
 
-  function myState(asFilmed) {
-    if (filmed || asFilmed) {
+  function myState(asFilmed, id = deckId) {
+    if (asFilmed ?? filmed) {
       // cartes réelles : aucun deck dans l'appli, l'adversaire voit le tapis filmé
       const st = buildState({ name: myName, deck: { id: "", name: "Cartes réelles", entries: [] }, cardsById: {} });
       st.filmed = true;
       st.log = [{ t: Date.now(), m: "joue avec ses cartes réelles, filmées en direct" }];
       return st;
     }
-    const deck = decks.find((d) => d.id === deckId);
+    const deck = decks.find((d) => d.id === id);
     if (!deck) throw new Error("Choisissez un deck.");
     const chk = checkDeckFor(deck, cardsById);
     if (!chk.ok) throw new Error(`Deck « ${deck.name} » non conforme : ${chk.problems.join(" ")}`);
@@ -349,7 +349,8 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     }
   }
 
-  async function joinRecord(g) {
+  // ask : table ouverte, on demande toujours avec quel deck s'asseoir (le choix du haut de page n'est pas visible depuis la liste)
+  async function joinRecord(g, ask) {
       if (g.p1 === user.id || g.p2 === user.id) return go("table", { gameId: g.id });
       if (tcgOf(g) !== tcg) {
         // partie d'un autre jeu : on bascule sur ce jeu pour choisir un de ses decks
@@ -357,6 +358,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         throw new Error(`Cette partie est une partie de ${tcgName(tcgOf(g))}. Le jeu a été sélectionné : choisissez un deck puis touchez à nouveau « Rejoindre ».`);
       }
       if (g.p2) throw new Error("Cette partie a déjà deux joueurs.");
+      if (ask && (decks.length || g.loan?.cards?.length || tcg !== "sorcery")) {
+        // deck proposé d'office : celui choisi plus haut s'il est conforme, sinon le premier deck conforme
+        const cur = decks.find((d) => d.id === deckId);
+        if (!cur || !checkDeckFor(cur, cardsById).ok) {
+          const ok = decks.find((d) => checkDeckFor(d, cardsById).ok);
+          if (ok) setDeckId(ok.id);
+        }
+        return setJoinChoice(g);
+      }
       if (filmed) return await sit(g, false);
       if (g.loan?.cards?.length) {
         // Deck prêté disponible : direct si je n'ai pas de deck, sinon je choisis
@@ -402,7 +412,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     try {
       const fresh = await pb.collection("games").getOne(g.id).catch(() => null);
       if (!fresh || fresh.p2) throw new Error("Trop tard : quelqu'un s'est déjà assis à cette table.");
-      await joinRecord(fresh);
+      await joinRecord(fresh, true);
     } catch (e) {
       setErr(errMsg(e));
       loadOpen();
@@ -411,21 +421,21 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     }
   }
 
-  async function sit(g, useLoan, asFilmed) {
-    const state = useLoan ? loanState(g.loan) : myState(asFilmed);
+  async function sit(g, useLoan, asFilmed, id) {
+    const state = useLoan ? loanState(g.loan) : myState(asFilmed, id || deckId);
     await pb.collection("games").update(g.id, { p2: user.id, n2: state.name, status: "playing" });
     await pb.collection("seats").create({ game: g.id, player: user.id, state });
     go("table", { gameId: g.id });
   }
 
-  async function chooseJoin(how) {
+  async function chooseJoin(how, id) {
     const g = joinChoice;
     setJoinChoice(null);
     setErr("");
     setBusy(true);
     try {
       if (how === "filmed") setFilmed(true);
-      await sit(g, how === "loan", how === "filmed");
+      await sit(g, how === "loan", how === "filmed", id);
     } catch (e) {
       setErr(errMsg(e));
     } finally {
@@ -742,17 +752,32 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           </>
         )}
       </Sheet>
-      <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title="Avec quoi jouer ?">
+      <Sheet open={!!joinChoice} onClose={() => setJoinChoice(null)} title={joinChoice?.open && joinChoice?.n1 ? `S'asseoir à la table de ${joinChoice.n1}` : "Avec quoi jouer ?"}>
+        {joinChoice && decks.length > 0 && (() => {
+          const d = decks.find((x) => x.id === deckId) || decks[0];
+          const chk = d ? checkDeckFor(d, cardsById) : null;
+          return (
+            <div className="join-deck">
+              <div className="field">
+                <label>Mon deck pour cette partie</label>
+                <select className="input" value={d?.id || ""} onChange={(e) => setDeckId(e.target.value)}>
+                  {decks.map((x) => (
+                    <option key={x.id} value={x.id}>{x.name} ({deckLabel(x)}{checkDeckFor(x, cardsById).ok ? "" : ", non conforme"})</option>
+                  ))}
+                </select>
+              </div>
+              {chk && !chk.ok && <p className="err small" style={{ margin: "0 0 8px" }}>Deck non conforme : {chk.problems.join(" ")}</p>}
+              <button className="btn primary" disabled={!chk?.ok} onClick={() => chooseJoin("deck", d?.id)}>
+                Jouer avec « {d?.name} »
+              </button>
+            </div>
+          );
+        })()}
         {joinChoice && (
           <div className="actions">
             {joinChoice.loan?.cards?.length > 0 && (
-              <button className="btn primary" onClick={() => chooseJoin("loan")}>
+              <button className={`btn ${decks.length ? "" : "primary"}`} onClick={() => chooseJoin("loan")}>
                 Deck prêté par {joinChoice.loan.by} : « {joinChoice.loan.name} »
-              </button>
-            )}
-            {decks.length > 0 && (
-              <button className="btn" onClick={() => chooseJoin("deck")}>
-                Mon deck : « {decks.find((d) => d.id === deckId)?.name} »
               </button>
             )}
             {tcg !== "sorcery" && (

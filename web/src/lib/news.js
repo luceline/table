@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 107,
+    date: "25 novembre 2026",
+    items: [
+      { t: "🪑 Tables ouvertes : en touchant « S'asseoir », vous choisissez maintenant votre deck (ou le deck prêté, ou vos cartes filmées) avant de rejoindre. L'appli propose d'office un deck conforme." },
+    ],
+  },
+  {
     id: 106,
     date: "25 novembre 2026",
     items: [
