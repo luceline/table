@@ -7,7 +7,7 @@ export const NEWS = [
     id: 114,
     date: "27 novembre 2026",
     items: [
-      { t: "🖥 Sur grand écran, l'accueil prend toute la largeur : l'onglet Jouer passe sur deux colonnes, et les salons redeviennent un encadré. Vous préférez le tchat toujours visible ? « Sur le côté » dans l'encadré Salons le remet en colonne, ✕ le range." },
+      { t: "💬 Salons sur grand écran : la colonne de droite fait la hauteur de l'accueil, les derniers messages s'affichent en bas et on remonte pour lire les plus anciens, comme sur Discord. Fini la discussion qui s'allonge sans fin." },
     ],
   },
   {
