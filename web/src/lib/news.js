@@ -8,6 +8,7 @@ export const NEWS = [
     date: "27 novembre 2026",
     items: [
       { t: "💬 Salons sur grand écran : la colonne de droite fait la hauteur de l'accueil, les derniers messages s'affichent en bas et on remonte pour lire les plus anciens, comme sur Discord. Fini la discussion qui s'allonge sans fin." },
+      { t: "🖥 Grand écran : l'accueil et les salons prennent toute la largeur, et l'onglet Jouer passe sur deux colonnes quand il y a la place." },
     ],
   },
   {

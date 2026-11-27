@@ -515,13 +515,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         ))}
       </div>
 
-      {tab === "jouer" && EXT && (<>
-        <ExternalPlay tcg={tcg} ext={EXT} />
-        {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
-        <AgendaCard agenda={agenda} go={go} />
-        <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
-      </>)}
-      {tab === "jouer" && !EXT && (<>
+      {tab === "jouer" && EXT && (<div className="jouer-grid">
+        <div className="jg-side">
+          {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
+          <AgendaCard agenda={agenda} go={go} />
+          <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+        </div>
+        <div className="jg-main"><ExternalPlay tcg={tcg} ext={EXT} /></div>
+      </div>)}
+      {tab === "jouer" && !EXT && (<div className="jouer-grid"><div className="jg-side">
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       {tcg !== "sorcery" && <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />}
 
@@ -529,6 +531,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
       <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      </div><div className="jg-main">
 
       <div className="card-box">
         <h2>Jouer</h2>
@@ -743,7 +746,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
-      </>)}
+      </div></div>)}
 
       <Sheet open={!!soloForm} onClose={() => setSoloForm(null)} title="Partie solo">
         {soloForm && (
