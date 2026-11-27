@@ -56,7 +56,7 @@ function when(s) {
 
 // Salons de discussion du jeu choisi, comme sur Discord : salons à gauche (ou en haut sur téléphone), messages en direct
 // embedded : salons dans la colonne de droite de l'accueil (grand écran), présentés comme sur téléphone
-export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart, embedded, draft }) {
+export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart, embedded, draft, onClose }) {
   const user = me();
   const tcg = currentTcg();
   const admin = useIsAdmin(user.id);
@@ -631,6 +631,7 @@ export default function Salons({ go, channelId, dm: dmStart, voice: voiceStart, 
         <h1 className="grow">{embedded ? "💬 Salons" : `Salons · ${tcgName(tcg)}`}</h1>
         {admin && <button className="btn sm" onClick={() => setEdit({ name: "", topic: "", kind: "text", max: 6 })}>＋ Salon</button>}
         {embedded && <button className="btn icon ghost" onClick={() => go("salons", mList ? {} : vview ? { voice: vview } : dm ? { dm } : { channelId: cur })} title="Ouvrir en plein écran" aria-label="Ouvrir en plein écran">⤢</button>}
+        {embedded && onClose && <button className="btn icon ghost" onClick={onClose} title="Ranger les salons (ils restent dans l'accueil)" aria-label="Ranger les salons">✕</button>}
       </div>
       <div className="presence-line small">
         <button className="linkish" onClick={() => setOnlineSheet(true)}><span className="on-dot on" /> {presence.online.length} en ligne</button>

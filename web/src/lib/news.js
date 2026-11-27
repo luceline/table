@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 114,
+    date: "27 novembre 2026",
+    items: [
+      { t: "🖥 Sur grand écran, l'accueil prend toute la largeur : l'onglet Jouer passe sur deux colonnes, et les salons redeviennent un encadré. Vous préférez le tchat toujours visible ? « Sur le côté » dans l'encadré Salons le remet en colonne, ✕ le range." },
+    ],
+  },
+  {
     id: 113,
     date: "27 novembre 2026",
     items: [

@@ -79,6 +79,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     if (tcgExternal(tcg) && (tab === "cartes" || tab === "echanges")) setTabState("jouer");
   }, [tcg, tab]);
   const [wideHome, setWideHome] = useState(() => window.matchMedia("(min-width: 1180px)").matches);
+  // Grand écran : salons dans une colonne à droite seulement si le joueur le demande (mémorisé)
+  const [side, setSideRaw] = useState(() => { try { return localStorage.getItem("home_side") === "1"; } catch (_) { return false; } });
+  const setSide = (v) => { setSideRaw(v); try { localStorage.setItem("home_side", v ? "1" : "0"); } catch (_) {} };
+  const sideOn = wideHome && side;
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1180px)");
     const f = () => setWideHome(mq.matches);
@@ -480,7 +484,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         ["perso", "🎨 Personnalisation"],
       ];
   return (
-    <div className={`home ${wideHome ? "home-wide" : ""}`}>
+    <div className={`home ${wideHome ? "home-wide" : ""} ${sideOn ? "side-open" : ""} tab-${tab}`}>
     <div className="page home-main">
       <div className="topbar">
         <div className="brand grow">Table de jeu</div>
@@ -515,20 +519,23 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         ))}
       </div>
 
-      {tab === "jouer" && EXT && (<>
-        <ExternalPlay tcg={tcg} ext={EXT} />
-        {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
-        <AgendaCard agenda={agenda} go={go} />
-        <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
-      </>)}
-      {tab === "jouer" && !EXT && (<>
+      {tab === "jouer" && EXT && (<div className="jouer-grid">
+        <div className="jg-side">
+          {!sideOn && <SalonsCard tcg={tcg} userId={user.id} go={go} onDock={wideHome ? () => setSide(true) : null} />}
+          <AgendaCard agenda={agenda} go={go} />
+          <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+        </div>
+        <div className="jg-main"><ExternalPlay tcg={tcg} ext={EXT} /></div>
+      </div>)}
+      {tab === "jouer" && !EXT && (<div className="jouer-grid"><div className="jg-side">
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       {tcg !== "sorcery" && <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />}
 
       <DailyCard tcg={tcg} userId={user.id} go={go} />
-      {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
+      {!sideOn && <SalonsCard tcg={tcg} userId={user.id} go={go} onDock={wideHome ? () => setSide(true) : null} />}
       <AgendaCard agenda={agenda} go={go} />
       <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      </div><div className="jg-main">
 
       <div className="card-box">
         <h2>Jouer</h2>
@@ -743,7 +750,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
-      </>)}
+      </div></div>)}
 
       <Sheet open={!!soloForm} onClose={() => setSoloForm(null)} title="Partie solo">
         {soloForm && (
@@ -894,9 +901,9 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <LegalFooter />
       <NewsPopup user={user} tcg={tcg} forceOpen={newsOpen} onClose={() => setNewsOpen(false)} />
     </div>
-    {wideHome && (
+    {sideOn && (
       <aside className="home-side">
-        <Salons key={tcg} go={go} embedded />
+        <Salons key={tcg} go={go} embedded onClose={() => setSide(false)} />
       </aside>
     )}
     </div>
@@ -981,7 +988,7 @@ function DailyCard({ tcg, userId, go }) {
 }
 
 // Accès aux salons de discussion du jeu, avec les messages non lus
-function SalonsCard({ tcg, userId, go }) {
+function SalonsCard({ tcg, userId, go, onDock }) {
   const { channels, unread } = useSalonsSummary(tcg, userId);
   const dmUnread = useDmUnread(userId);
   const { rooms: vrooms, byRoom } = useVoiceRooms(tcg);
@@ -991,6 +998,7 @@ function SalonsCard({ tcg, userId, go }) {
     <div className="card-box salons-card">
       <div className="row" style={{ alignItems: "center" }}>
         <h2 className="grow" style={{ margin: 0 }}>💬 Salons{total > 0 && <span className="lobby-n live" style={{ marginLeft: 8, verticalAlign: "middle" }}>{total > 99 ? "99+" : total}</span>}</h2>
+        {onDock && <button className="btn sm" onClick={onDock} title="Afficher les salons dans une colonne à droite">Sur le côté</button>}
         <button className="btn sm primary" onClick={() => go("salons", {})}>Ouvrir</button>
       </div>
       <div className="salons-chips">

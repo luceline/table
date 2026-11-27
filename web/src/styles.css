@@ -1216,6 +1216,10 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .home-tabs button.on { color: var(--text); border-color: var(--gold2, var(--accent)); background: rgba(255,255,255,.06); }
 .home-wide { display: flex; align-items: flex-start; justify-content: center; gap: 18px; padding: 0 16px; }
 .home-wide .home-main { flex: 1 1 auto; max-width: 760px; margin: 0; height: 100dvh; overflow-y: auto; }
+/* Grand écran sans colonne des salons : accueil plus large, onglet Jouer sur deux colonnes */
+.home-wide:not(.side-open) .home-main { max-width: 900px; }
+.home-wide:not(.side-open).tab-jouer .home-main { max-width: 1280px; }
+.home-wide:not(.side-open) .jouer-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
 .home-side { flex: 0 0 440px; height: 100dvh; position: sticky; top: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: rgba(0,0,0,.12); }
 @media (min-width: 1500px) { .home-side { flex-basis: 520px; } }
 
@@ -1233,7 +1237,7 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .trade-row:last-child { border-bottom: 0; }
 .trade-k { width: 22px; text-align: center; }
 .trade-admin { margin-top: 12px; }
-.home-wide + .voice-bar.float { display: none; }
+.home-wide.side-open + .voice-bar.float { display: none; }
 @media (max-width: 560px) { .home-tabs { display: grid; grid-template-columns: 1fr 1fr; overflow: visible; } .home-tabs button { padding: 8px 6px; font-size: 14px; } }
 .trades .lobby-tabs button { white-space: nowrap; }
 .trades .lbl-short { display: none; }
