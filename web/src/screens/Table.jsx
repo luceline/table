@@ -725,7 +725,7 @@ export default function Table({ go, gameId, side = "" }) {
     tokRef.current.filter((t) => t.on === iid).forEach((t) => delMark(t.id));
   };
 
-  // Une carte jeton n'existe que sur le plateau : renvoyée en main, dans le deck ou une pile, elle quitte le jeu
+  // Une carte jeton n'existe que sur le plateau (et, en Safir, dans les défausses) : renvoyée en main, dans le deck ou une autre pile, elle quitte le jeu
   // (sinon elle restait mélangée au deck et revenait comme une vraie carte)
   const tokenLeaves = (st, iid) => {
     const c = st.cards[iid];
@@ -813,7 +813,8 @@ export default function Table({ go, gameId, side = "" }) {
       const searched = from === "deck" && st.deck[st.deck.length - 1] !== iid;
       const atl = st.piles.atlas || [];
       const searchedA = from === "atlas" && atl[atl.length - 1] !== iid;
-      if (c?.tok) return tokenLeaves(st, iid);
+      // Safir : un jeton détruit va en défausse de territoire et y reste (effets de cartes) ; ailleurs il quitte le jeu
+      if (c?.tok && !(TCG === "safir" && /^d[123]$/.test(pid))) return tokenLeaves(st, iid);
       detach(st, iid);
       const deckW = TCG === "sorcery" ? "grimoire" : "deck";
       if (pid === "deck") {
@@ -946,11 +947,13 @@ export default function Table({ go, gameId, side = "" }) {
       return `montre « ${rec.name || "une carte"} »`;
     });
 
-  const showCard = (iid) =>
+  const showCard = (iid, from = "hand") =>
     mut((st) => {
       if (!st.cards[iid]) return false;
       st.reveal = { iid, t: Date.now() };
-      return `montre « ${st.cards[iid].n} » de sa main`;
+      return from === "deck"
+        ? `révèle la carte du dessus de son ${TCG === "sorcery" ? "grimoire" : "deck"} : « ${st.cards[iid].n} »`
+        : `montre « ${st.cards[iid].n} » de sa main`;
     });
 
   // Pile de cartes sur le plateau : passer une carte dessus ou dessous (l'ordre du plateau fait l'empilement)
@@ -1033,6 +1036,20 @@ export default function Table({ go, gameId, side = "" }) {
     });
     setToast(n ? `Unification ${n} : ${UNIF_BONUS[n]}` : "Unification retirée");
   };
+
+  // Mécaniques courantes des jeux de cartes : dés, tout dégager
+  const dice = (n) => {
+    const r = (crypto.getRandomValues(new Uint32Array(1))[0] % n) + 1;
+    mut(() => `lance un dé à ${n} faces : ${r}`);
+    setToast(`Dé à ${n} faces : ${r}`);
+  };
+  const untapAll = () =>
+    mut((st) => {
+      const n = st.board.filter((b) => b.rot).length;
+      if (!n) return false;
+      for (const b of st.board) if (b.rot) b.rot = 0;
+      return `dégage toutes ses cartes (${n})`;
+    });
 
   const coin = () => {
     const r = crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? "Pile" : "Face";
@@ -2000,7 +2017,7 @@ export default function Table({ go, gameId, side = "" }) {
         result={result}
         onResult={recordResult}
         actions={{
-          draw, shuffleDeck, toHand, toPile, placeFree, placeTerr, toggleTap, stackMove, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
+          draw, shuffleDeck, toHand, toPile, placeFree, placeTerr, toggleTap, stackMove, dice, untapAll, flipCard, resetMine, share, updMark, delMark, go, removeTokenCard, showCard,
           startAim, clearArrows, pingCard, mulligan, setCardUnif, setCardBonus, coin, sendMsg, addMarker, peekDeck, editMark, shareWatch, hasOpp: !!opp, drawUpTo, pitchToDeck, drawAtlas, shuffleAtlas, peekAtlas, showScan,
         }}
       />
@@ -2042,6 +2059,12 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     const run = (f) => () => { f(); close(); };
     const btns = [];
     const nArrows = (mine.arrows || []).filter((a) => a.from === iid).length;
+    const quickBtns = zone === "board" && b ? (
+      <div className="actions quick-row">
+        <button className={`btn ${b.rot ? "primary" : ""}`} onClick={run(() => A.toggleTap(iid))}>{b.rot ? "↶ Dégager" : "↷ Engager"}</button>
+        <button className="btn" onClick={run(() => A.flipCard(iid))}>{b.down ? "Révéler" : "Face cachée"}</button>
+      </div>
+    ) : null;
     const aimBtns = b ? (
       <div className="actions" style={{ marginBottom: 8 }}>
         <button className="btn atk" onClick={() => A.startAim(iid, "atk")}>⚔ Attaquer</button>
@@ -2053,11 +2076,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     ) : null;
     if (zone === "hand") {
       // « Montrer à l'adversaire » : bouton à part, au-dessus des emplacements
-    } else if (zone === "board" && b) {
-      btns.push([b.rot ? "Dégager" : "Engager", () => A.toggleTap(iid)]);
-
-      btns.push([b.down ? "Révéler" : "Face cachée", () => A.flipCard(iid)]);
-    }
+    } // carte sur le plateau : Engager et Face cachée tout en haut de la fiche (quickBtns)
     if (c?.tok) {
       if (zone !== "board") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
       btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
@@ -2107,9 +2126,9 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
       </div>
     ) : null;
     // Safir : un bouton par destination (Combattant, Magie, Face cachée, Défausse), puis le territoire I, II ou III
-    const terrOpts = TCG === "safir" && !c?.tok
+    const terrOpts = TCG === "safir"
       ? [
-          ...(zone !== "board"
+          ...(zone !== "board" && !c?.tok
             ? [
                 { k: "c", label: "Combattant", go: (t) => A.placeTerr(iid, zone, "combattant", t, false) },
                 { k: "m", label: "Magie", go: (t) => A.placeTerr(iid, zone, "magie", t, false) },
@@ -2127,6 +2146,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     }
     return (
       <Sheet open onClose={close} title={c?.n}>
+        {quickBtns}
         {sk?.n > 1 && <StackRow st={mine} ids={sk.ids} cur={iid} own onPick={(x) => setSheet({ kind: "card", iid: x, zone: "board" })} />}
         <ZoomPreview src={cardUrl(c, true)} alt={c?.n} />
         {aimBtns}
@@ -2206,6 +2226,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
           {TCG === "fab" && <button className="btn" onClick={run(() => A.drawUpTo(4))} disabled={!mine.deck.length}>Main à 4 cartes</button>}
           <button className="btn" onClick={run(A.shuffleDeck)}>Mélanger</button>
           <button className="btn" onClick={A.peekDeck}>Chercher dans le {DK}</button>
+          {A.hasOpp && <button className="btn" onClick={run(() => A.showCard(mine.deck[mine.deck.length - 1], "deck"))} disabled={!mine.deck.length}>Révéler la carte du dessus</button>}
           {TCG === "safir" && <button className="btn" onClick={() => setSheet({ kind: "mull" })} disabled={!mine.hand.length}>Mulligan{mine.mull ? " (déjà fait)" : ""}</button>}
         </div>
         <p className="muted small deck-top-lbl">Mettre la carte du dessus du {DK}, face visible, dans :</p>
@@ -2356,6 +2377,9 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
         {TCG === "safir" && <FxToggle />}
         <div className="actions" style={{ marginBottom: 14 }}>
           <button className="btn" onClick={() => { A.coin(); close(); }}>Pile ou face</button>
+          <button className="btn" onClick={() => { A.dice(6); close(); }}>🎲 Dé à 6 faces</button>
+          <button className="btn" onClick={() => { A.dice(20); close(); }}>🎲 Dé à 20 faces</button>
+          {!mine?.filmed && <button className="btn" onClick={() => { A.untapAll(); close(); }} disabled={!mine?.board.some((b) => b.rot)}>↶ Dégager toutes mes cartes</button>}
           {mine?.filmed ? (
             <>
               <button className="btn" onClick={() => setSheet({ kind: "camqr" })}>📷 Caméra de ma table</button>

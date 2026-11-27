@@ -7,7 +7,12 @@ export const TCG_LIST = [
   { id: "safir", name: "Safir Cards" },
   { id: "fab", name: "Flesh and Blood" },
   { id: "sorcery", name: "Sorcery: Contested Realm", short: "Sorcery" },
+  // Jeu joué ailleurs (site externe) : ici seulement la communauté (salons, disponibilités, carte des joueurs)
+  { id: "netrunner", name: "Netrunner", external: { url: "https://jinteki.net", site: "jinteki.net" } },
 ];
+// Jeux qu'on joue sur la table de l'appli (avec cartes, decks, parties)
+export const PLAY_TCGS = TCG_LIST.filter((g) => !g.external);
+export const tcgExternal = (id) => TCG_LIST.find((g) => g.id === id)?.external || null;
 export const DEFAULT_TCG = "safir";
 const KEY = "table_tcg";
 
@@ -37,7 +42,9 @@ export function tcgFilter(id) {
 // Active les règles et le tapis d'un jeu pour tous les écrans (tapis, phases, piles, compteurs)
 export function activateTcg(id) {
   const v = normTcg(id);
-  setGeometry(v);
-  setRules(v);
+  // jeu externe : pas de table ici, règles et tapis de Safir par défaut (jamais affichés)
+  const r = tcgExternal(v) ? DEFAULT_TCG : v;
+  setGeometry(r);
+  setRules(r);
   return v;
 }

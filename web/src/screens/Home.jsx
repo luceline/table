@@ -24,7 +24,7 @@ import { applyTheme, storedTheme } from "../lib/theme.js";
 import { useLive, ago } from "../lib/live.js";
 import { useResults, ratioText } from "../lib/results.js";
 import { useStats, plural } from "../lib/stats.js";
-import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, tcgShort, activateTcg, normTcg } from "../lib/tcg.js";
+import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, tcgShort, activateTcg, normTcg, tcgExternal } from "../lib/tcg.js";
 
 // Dates PocketBase (« AAAA-MM-JJ HH:MM:SS.sssZ ») et affichage en heure locale
 const pbDate = (v) => String(v || "").replace(" ", "T");
@@ -74,6 +74,10 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("echanges")) window.history.replaceState(null, "", window.location.pathname);
   }, []);
+  // jeu joué ailleurs (Netrunner) : pas d'onglets Mes cartes ni Échanges
+  useEffect(() => {
+    if (tcgExternal(tcg) && (tab === "cartes" || tab === "echanges")) setTabState("jouer");
+  }, [tcg, tab]);
   const [wideHome, setWideHome] = useState(() => window.matchMedia("(min-width: 1180px)").matches);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1180px)");
@@ -465,12 +469,16 @@ export default function Home({ go, pendingJoin, clearJoin }) {
     }
   }
 
-  const TABS = [
-    ["jouer", "🎲 Jouer"],
-    ["cartes", "🃏 Mes cartes"],
-    ["echanges", "🤝 Échanges", trades.matches.length],
-    ["perso", "🎨 Personnalisation"],
-  ];
+  // Jeu joué sur un autre site (Netrunner) : seulement la communauté et la personnalisation
+  const EXT = tcgExternal(tcg);
+  const TABS = EXT
+    ? [["jouer", "🎲 Jouer"], ["perso", "🎨 Personnalisation"]]
+    : [
+        ["jouer", "🎲 Jouer"],
+        ["cartes", "🃏 Mes cartes"],
+        ["echanges", "🤝 Échanges", trades.matches.length],
+        ["perso", "🎨 Personnalisation"],
+      ];
   return (
     <div className={`home ${wideHome ? "home-wide" : ""}`}>
     <div className="page home-main">
@@ -507,7 +515,13 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         ))}
       </div>
 
-      {tab === "jouer" && (<>
+      {tab === "jouer" && EXT && (<>
+        <ExternalPlay tcg={tcg} ext={EXT} />
+        {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
+        <AgendaCard agenda={agenda} go={go} />
+        <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      </>)}
+      {tab === "jouer" && !EXT && (<>
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       {tcg !== "sorcery" && <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />}
 
@@ -843,7 +857,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
       </>)}
 
-      {tab === "echanges" && <Trades tcg={tcg} go={go} admin={isAdmin} data={trades} />}
+      {tab === "echanges" && !EXT && <Trades tcg={tcg} go={go} admin={isAdmin} data={trades} />}
 
       {tab === "perso" && (<>
       <h3 className="perso-sec">Pour tous les jeux</h3>
@@ -859,14 +873,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       <ThemeSettings key={themeKey} />
       <MatBgSettings />
       <CardBackSettings />
-      <h3 className="perso-sec">Pour {tcgName(tcg)} uniquement</h3>
-      <div className="card-box">
+      {!EXT && <h3 className="perso-sec">Pour {tcgName(tcg)} uniquement</h3>}
+      {!EXT && <div className="card-box">
         <h2 style={{ margin: 0 }}>🔔 Partenaire recherché</h2>
         <p className="muted small" style={{ margin: "6px 0 0" }}>
           Être prévenu quand un joueur de {tcgName(tcg)} clique sur « Je cherche un partenaire ».
         </p>
         <OpenAlertToggle key={tcg + notifKey} tcg={tcg} hasDeck={decks.length > 0} />
-      </div>
+      </div>}
       {tcg === "safir" && <FxSettings />}
       </>)}
       <ProfileSheet uid={profOpen ? user.id : null} onClose={() => setProfOpen(false)} />
@@ -914,6 +928,29 @@ function MapCard({ players, tcg, onlineIds, onOpen, onSetCity }) {
 }
 
 // Carte du jour (mini-jeu quotidien) et accès à son profil (titre, badges)
+// Jeu joué sur un site externe (Netrunner sur jinteki.net) : lien, conseils et liens utiles
+function ExternalPlay({ tcg, ext }) {
+  return (
+    <div className="card-box ext-play">
+      <h2>Jouer à {tcgName(tcg)}</h2>
+      <p style={{ marginTop: 0 }}>
+        {tcgName(tcg)} se joue en ligne sur <b>{ext.site}</b> : gratuit, toutes les cartes, règles automatisées (site en anglais).
+        Ici, retrouvez les joueurs francophones : salons, disponibilités et carte des joueurs.
+      </p>
+      <a className="btn primary ext-go" href={ext.url} target="_blank" rel="noopener noreferrer">Ouvrir {ext.site} ↗</a>
+      <p className="muted small">
+        Pour jouer ensemble : donnez-vous rendez-vous dans le salon #cherche-partie ou via les disponibilités, puis créez une partie sur {ext.site} et donnez son nom à votre adversaire.
+      </p>
+      {tcg === "netrunner" && (
+        <ul className="ext-links">
+          <li><a href="https://netrunnerdb.com/fr/" target="_blank" rel="noopener noreferrer">NetrunnerDB</a> : toutes les cartes (en français) et construction de decks.</li>
+          <li><a href="https://nullsignal.games/" target="_blank" rel="noopener noreferrer">Null Signal Games</a> : apprendre à jouer, règles officielles, cartes à imprimer gratuitement.</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function DailyCard({ tcg, userId, go }) {
   const [d, setD] = useState(null);
   const [prof, setProf] = useState(false);

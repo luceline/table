@@ -4,6 +4,29 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 113,
+    date: "27 novembre 2026",
+    items: [
+      { t: "🌐 Netrunner rejoint la liste des jeux. Il se joue sur jinteki.net (gratuit, toutes les cartes) : ici, retrouvez les joueurs francophones avec ses salons, ses salons vocaux, les disponibilités et la carte des joueurs (cochez « Netrunner » dans Personnalisation, Ma ville)." },
+    ],
+  },
+  {
+    id: 112,
+    date: "26 novembre 2026",
+    items: [
+      { t: "↷ Fiche d'une carte posée : « Engager / Dégager » et « Face cachée / Révéler » sont maintenant tout en haut, plus besoin de faire défiler." },
+      { t: "🎲 Menu ☰ : dé à 6 faces, dé à 20 faces (résultat dans le journal) et « Dégager toutes mes cartes »." },
+      { t: "👁 Deck : « Révéler la carte du dessus » la montre à l'adversaire, sans la piocher." },
+    ],
+  },
+  {
+    id: 111,
+    date: "26 novembre 2026",
+    items: [
+      { t: "🪙 Jetons : un jeton détruit va dans la défausse de son territoire (I, II ou III) et y reste, pour les cartes qui en tiennent compte. Il disparaît seulement à la fin de la partie (« Nouvelle partie »), ou s'il part en main ou dans le deck.", tcg: "safir" },
+    ],
+  },
+  {
     id: 110,
     date: "25 novembre 2026",
     items: [
@@ -21,7 +44,7 @@ export const NEWS = [
     id: 108,
     date: "25 novembre 2026",
     items: [
-      { t: "🪙 Cartes jetons : un jeton qui quitte le plateau (renvoyé en main, sur le deck ou dans une pile) disparaît du jeu au lieu de rester mélangé à vos cartes. Les jetons égarés dans un deck ou une main lors des parties précédentes sont retirés d'office." },
+      { t: "🪙 Cartes jetons (Flesh and Blood, Sorcery) : un jeton qui quitte le plateau (renvoyé en main, sur le deck ou dans une pile) disparaît du jeu au lieu de rester mélangé à vos cartes. Les jetons égarés dans un deck ou une main lors des parties précédentes sont retirés d'office." },
     ],
   },
   {

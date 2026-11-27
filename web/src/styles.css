@@ -1289,3 +1289,11 @@ body:has(.voice-bar.float) { padding-bottom: 76px; }
 .terr-pick .tp-terr { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
 .terr-pick .tp-terr .btn { flex: 1; font-size: 17px; font-weight: 700; padding: 8px 0; }
 .terr-pick .tp-terr .muted { white-space: nowrap; }
+/* Fiche d'une carte posée : Engager et Face cachée tout en haut */
+.actions.quick-row { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.actions.quick-row .btn { font-size: 16px; font-weight: 700; padding: 10px 6px; }
+/* Jeu joué sur un site externe (Netrunner sur jinteki.net) */
+.ext-play .ext-go { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; margin: 4px 0 10px; }
+.ext-play .ext-links { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.ext-play .ext-links li { margin: 4px 0; }
+.ext-play .ext-links a { color: var(--gold); }

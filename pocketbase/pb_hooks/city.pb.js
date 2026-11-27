@@ -16,7 +16,7 @@ onRecordUpdateRequest((e) => {
     r.set("city_lat", Math.round(lat * 1000) / 1000);
     r.set("city_lon", Math.round(lon * 1000) / 1000);
   }
-  // jeux : seulement Safir et Flesh and Blood
+  // jeux : ceux de la liste du serveur (tcg_lib)
   let g = [];
   try { g = JSON.parse(r.getString("games") || "[]"); } catch (_) {}
   if (!Array.isArray(g)) g = [];
@@ -36,7 +36,8 @@ routerAdd("GET", "/api/table/map", (e) => {
   const gamesOf = (u) => {
     let g = [];
     try { g = JSON.parse(u.getString("games") || "[]"); } catch (_) {}
-    g = Array.isArray(g) ? g.filter((t) => t === "safir" || t === "fab" || t === "sorcery") : [];
+    const ids = require(`${__hooks}/tcg_lib.js`).IDS;
+    g = Array.isArray(g) ? g.filter((t) => ids.indexOf(t) >= 0) : [];
     return g.length ? g : byDeck[u.id] || [];
   };
   e.response.header().set("Cache-Control", "no-store");

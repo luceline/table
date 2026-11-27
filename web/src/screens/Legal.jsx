@@ -59,7 +59,7 @@ export default function Legal() {
         <h2>Jeux et propriété intellectuelle</h2>
         <p>
           Table de jeu est un projet de fan, non officiel, qui n'est ni affilié, ni approuvé, ni soutenu par Legend Story Studios
-          ou par l'éditeur de Safir Cards. Flesh and Blood est une marque de Legend Story Studios. Sorcery: Contested Realm est une marque d'Erik's Curiosa. Safir Cards appartient à son éditeur.
+          ou par l'éditeur de Safir Cards. Flesh and Blood est une marque de Legend Story Studios. Sorcery: Contested Realm est une marque d'Erik's Curiosa. Netrunner est une marque de Wizards of the Coast ; l'appli ne propose pas de partie de Netrunner, elle renvoie vers jinteki.net, NetrunnerDB et Null Signal Games, sites indépendants sans lien avec elle. Safir Cards appartient à son éditeur.
           Les règles, illustrations et textes des cartes restent la propriété de leurs éditeurs et de leurs auteurs.
         </p>
         <p>
