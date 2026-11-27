@@ -9,9 +9,14 @@ export const TCG_LIST = [
   { id: "sorcery", name: "Sorcery: Contested Realm", short: "Sorcery" },
   // Jeu joué ailleurs (site externe) : ici seulement la communauté (salons, disponibilités, carte des joueurs)
   { id: "netrunner", name: "Netrunner", external: { url: "https://jinteki.net", site: "jinteki.net" } },
+  // Prototype du jeu de cartes maison (Référence v0.2) : visible seulement par l'admin (et par un invité qui rejoint sa partie)
+  { id: "heros", name: "Héros (prototype)", short: "Héros", private: true },
 ];
 // Jeux qu'on joue sur la table de l'appli (avec cartes, decks, parties)
 export const PLAY_TCGS = TCG_LIST.filter((g) => !g.external);
+// Jeux proposés à tous (carte du jour, carte des joueurs) : ni externes ni privés
+export const PUBLIC_TCGS = TCG_LIST.filter((g) => !g.external && !g.private);
+export const tcgPrivate = (id) => !!TCG_LIST.find((g) => g.id === id)?.private;
 export const tcgExternal = (id) => TCG_LIST.find((g) => g.id === id)?.external || null;
 export const DEFAULT_TCG = "safir";
 const KEY = "table_tcg";

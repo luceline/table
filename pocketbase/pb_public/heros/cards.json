@@ -1,0 +1,685 @@
+{
+ "version": 2,
+ "cards": [
+  {
+   "code": "A1",
+   "name": "Escarbille",
+   "kind": "action",
+   "val": "1",
+   "atk": "1",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A1.jpg"
+  },
+  {
+   "code": "A2",
+   "name": "Flammèche",
+   "kind": "action",
+   "val": "1",
+   "atk": "1",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A2.jpg"
+  },
+  {
+   "code": "A3",
+   "name": "Tison",
+   "kind": "action",
+   "val": "1",
+   "atk": "2",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A3.jpg"
+  },
+  {
+   "code": "A4",
+   "name": "Souffle ardent",
+   "kind": "action",
+   "val": "2",
+   "atk": "2",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A4.jpg"
+  },
+  {
+   "code": "A5",
+   "name": "Inspiration brûlante",
+   "kind": "action",
+   "val": "1",
+   "atk": "3",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A5.jpg"
+  },
+  {
+   "code": "A6",
+   "name": "Fonte d'armure",
+   "kind": "action",
+   "val": "2",
+   "atk": "3",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A6.jpg"
+  },
+  {
+   "code": "A7",
+   "name": "Javelot de flammes",
+   "kind": "action",
+   "val": "3",
+   "atk": "3",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A7.jpg"
+  },
+  {
+   "code": "A8",
+   "name": "Boule de feu",
+   "kind": "action",
+   "val": "3",
+   "atk": "4",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A8.jpg"
+  },
+  {
+   "code": "A9",
+   "name": "Pluie de cendres",
+   "kind": "action",
+   "val": "2",
+   "atk": "4",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A9.jpg"
+  },
+  {
+   "code": "A10",
+   "name": "Rempart de braises",
+   "kind": "action",
+   "val": "3",
+   "atk": "5",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A10.jpg"
+  },
+  {
+   "code": "A11",
+   "name": "Étincelle ardente",
+   "kind": "action",
+   "val": "2",
+   "atk": "6",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A11.jpg"
+  },
+  {
+   "code": "A12",
+   "name": "Colonne de feu",
+   "kind": "action",
+   "val": "5",
+   "atk": "7",
+   "factions": [
+    "Feu"
+   ],
+   "file": "A12.jpg"
+  },
+  {
+   "code": "B1",
+   "name": "Parade",
+   "kind": "reaction",
+   "val": "1",
+   "atk": "1",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B1.jpg"
+  },
+  {
+   "code": "B2",
+   "name": "Posture",
+   "kind": "action",
+   "val": "1",
+   "atk": "1",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B2.jpg"
+  },
+  {
+   "code": "B3",
+   "name": "Peau de fer",
+   "kind": "action",
+   "val": "2",
+   "atk": "2",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B3.jpg"
+  },
+  {
+   "code": "B4",
+   "name": "Garde vigilante",
+   "kind": "action",
+   "val": "2",
+   "atk": "2",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B4.jpg"
+  },
+  {
+   "code": "B5",
+   "name": "Mur de boucliers",
+   "kind": "reaction",
+   "val": "1",
+   "atk": "3",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B5.jpg"
+  },
+  {
+   "code": "B6",
+   "name": "Coup de bouclier",
+   "kind": "action",
+   "val": "2",
+   "atk": "3",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B6.jpg"
+  },
+  {
+   "code": "B7",
+   "name": "Second souffle",
+   "kind": "action",
+   "val": "3",
+   "atk": "3",
+   "factions": [],
+   "file": "B7.jpg"
+  },
+  {
+   "code": "B8",
+   "name": "Riposte",
+   "kind": "reaction",
+   "val": "2",
+   "atk": "4",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B8.jpg"
+  },
+  {
+   "code": "B9",
+   "name": "Charge du bastion",
+   "kind": "action",
+   "val": "3",
+   "atk": "5",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B9.jpg"
+  },
+  {
+   "code": "B10",
+   "name": "Contre-attaque",
+   "kind": "reaction",
+   "val": "3",
+   "atk": "6",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B10.jpg"
+  },
+  {
+   "code": "B11",
+   "name": "Rempart ancestral",
+   "kind": "action",
+   "val": "6",
+   "atk": "7",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B11.jpg"
+  },
+  {
+   "code": "B12",
+   "name": "Juste châtiment",
+   "kind": "action",
+   "val": "5",
+   "atk": "7",
+   "factions": [
+    "Garde"
+   ],
+   "file": "B12.jpg"
+  },
+  {
+   "code": "QD1",
+   "name": "Premier sang",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QD1.jpg"
+  },
+  {
+   "code": "QD2",
+   "name": "Briseur de garde",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QD2.jpg"
+  },
+  {
+   "code": "QA1",
+   "name": "Garde levée",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QA1.jpg"
+  },
+  {
+   "code": "QA2",
+   "name": "Parade",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QA2.jpg"
+  },
+  {
+   "code": "QS1",
+   "name": "Étincelle",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QS1.jpg"
+  },
+  {
+   "code": "QS2",
+   "name": "Concentration",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QS2.jpg"
+  },
+  {
+   "code": "QE1",
+   "name": "Ajustement",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QE1.jpg"
+  },
+  {
+   "code": "QE2",
+   "name": "Forge",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QE2.jpg"
+  },
+  {
+   "code": "QP1",
+   "name": "Exploration",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QP1.jpg"
+  },
+  {
+   "code": "QP2",
+   "name": "Blessure",
+   "kind": "quete",
+   "val": "1",
+   "rarity": "simple",
+   "factions": [],
+   "file": "QP2.jpg"
+  },
+  {
+   "code": "QD3",
+   "name": "Assaut",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QD3.jpg"
+  },
+  {
+   "code": "QD4",
+   "name": "Frappe lourde",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QD4.jpg"
+  },
+  {
+   "code": "QA3",
+   "name": "Rempart",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QA3.jpg"
+  },
+  {
+   "code": "QA4",
+   "name": "Encaisser",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QA4.jpg"
+  },
+  {
+   "code": "QS3",
+   "name": "Incantation",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QS3.jpg"
+  },
+  {
+   "code": "QS4",
+   "name": "Combo",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QS4.jpg"
+  },
+  {
+   "code": "QE3",
+   "name": "Forgeron",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QE3.jpg"
+  },
+  {
+   "code": "QE4",
+   "name": "Panoplie",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QE4.jpg"
+  },
+  {
+   "code": "QP3",
+   "name": "Seconde chance",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QP3.jpg"
+  },
+  {
+   "code": "QP4",
+   "name": "Main pleine",
+   "kind": "quete",
+   "val": "2",
+   "rarity": "intermediaire",
+   "factions": [],
+   "file": "QP4.jpg"
+  },
+  {
+   "code": "QD5",
+   "name": "Exécution",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QD5.jpg"
+  },
+  {
+   "code": "QD6",
+   "name": "Siège",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QD6.jpg"
+  },
+  {
+   "code": "QA5",
+   "name": "Forteresse",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QA5.jpg"
+  },
+  {
+   "code": "QA6",
+   "name": "Inébranlable",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QA6.jpg"
+  },
+  {
+   "code": "QS5",
+   "name": "Flux arcanique",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QS5.jpg"
+  },
+  {
+   "code": "QS6",
+   "name": "Maîtrise",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QS6.jpg"
+  },
+  {
+   "code": "QE5",
+   "name": "Arsenal",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QE5.jpg"
+  },
+  {
+   "code": "QE6",
+   "name": "Maître d'armes",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QE6.jpg"
+  },
+  {
+   "code": "QP5",
+   "name": "Sanctuaire",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QP5.jpg"
+  },
+  {
+   "code": "QP6",
+   "name": "Dos au mur",
+   "kind": "quete",
+   "val": "3",
+   "rarity": "complexe",
+   "factions": [],
+   "file": "QP6.jpg"
+  },
+  {
+   "code": "EQ1",
+   "name": "Casque d'acier",
+   "kind": "equipement",
+   "val": "6",
+   "factions": [
+    "Casque"
+   ],
+   "file": "EQ1.jpg"
+  },
+  {
+   "code": "EQ2",
+   "name": "Plastron runique",
+   "kind": "equipement",
+   "val": "10",
+   "factions": [
+    "Plastron"
+   ],
+   "file": "EQ2.jpg"
+  },
+  {
+   "code": "EQ3",
+   "name": "Jambières du pèlerin",
+   "kind": "equipement",
+   "val": "6",
+   "factions": [
+    "Jambières"
+   ],
+   "file": "EQ3.jpg"
+  },
+  {
+   "code": "EQ4",
+   "name": "Bottes de voyage",
+   "kind": "equipement",
+   "val": "5",
+   "factions": [
+    "Bottes"
+   ],
+   "file": "EQ4.jpg"
+  },
+  {
+   "code": "EQ5",
+   "name": "Gants de duelliste",
+   "kind": "equipement",
+   "val": "3",
+   "factions": [
+    "Gants"
+   ],
+   "file": "EQ5.jpg"
+  },
+  {
+   "code": "EQ6",
+   "name": "Épée longue",
+   "kind": "equipement",
+   "val": "8",
+   "factions": [
+    "Épée"
+   ],
+   "file": "EQ6.jpg"
+  },
+  {
+   "code": "EQ7",
+   "name": "Bouclier de chêne",
+   "kind": "equipement",
+   "val": "10",
+   "factions": [
+    "Bouclier"
+   ],
+   "file": "EQ7.jpg"
+  }
+ ],
+ "decks": [
+  {
+   "name": "Brasier (démo)",
+   "cards": {
+    "A1": 3,
+    "A2": 3,
+    "A3": 3,
+    "A4": 3,
+    "A5": 3,
+    "A6": 2,
+    "A7": 3,
+    "A8": 3,
+    "A9": 1,
+    "A10": 2,
+    "A11": 2,
+    "A12": 2
+   },
+   "quests": [
+    "QD3",
+    "QE1",
+    "QD1",
+    "QS1",
+    "QD4",
+    "QS3",
+    "QS4",
+    "QD2",
+    "QD6",
+    "QD5"
+   ],
+   "equip": [
+    "EQ1",
+    "EQ2",
+    "EQ3",
+    "EQ4",
+    "EQ5",
+    "EQ6",
+    "EQ7"
+   ]
+  },
+  {
+   "name": "Bastion (démo)",
+   "cards": {
+    "B1": 3,
+    "B2": 3,
+    "B3": 3,
+    "B4": 2,
+    "B5": 3,
+    "B6": 3,
+    "B7": 2,
+    "B8": 3,
+    "B9": 3,
+    "B10": 2,
+    "B11": 2,
+    "B12": 1
+   },
+   "quests": [
+    "QA2",
+    "QP2",
+    "QA1",
+    "QS2",
+    "QA3",
+    "QA4",
+    "QP3",
+    "QA5",
+    "QD5",
+    "QP5"
+   ],
+   "equip": [
+    "EQ1",
+    "EQ2",
+    "EQ3",
+    "EQ4",
+    "EQ5",
+    "EQ6",
+    "EQ7"
+   ]
+  }
+ ]
+}

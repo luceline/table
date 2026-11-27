@@ -111,7 +111,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX, layer, p
       </svg>
     );
   }
-  els.push(<rect key="frame" x={3} y={3} width={594} height={MAT_KIND === "fab" ? MAT_H - 6 : 294} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
+  els.push(<rect key="frame" x={3} y={3} width={594} height={MAT_KIND === "fab" || MAT_KIND === "heros" ? MAT_H - 6 : 294} rx={5} fill="none" stroke={GOLD} strokeWidth={0.5} />);
   if (MAT_KIND === "fab") {
     // Flesh and Blood : filet sous la chaîne de combat, avec son titre
     const a = P(6, 99), b = P(597, 99);
@@ -127,7 +127,7 @@ export const MatBackground = memo(function MatBackground({ flip, flipX, layer, p
   TITLES.forEach((t, i) => els.push(text(t.x, t.y - 4, t.text, 12, `ti${i}`, { fontWeight: 600 })));
   for (const s of SLOTS) {
     els.push(rect(R(s.x, s.y, s.w, s.h), `s${s.id}`));
-    els.push(text(s.x + s.w / 2, s.y + s.h / 2, s.label, s.kind === "commandant" ? 6 : 5.4, `sl${s.id}`));
+    els.push(text(s.x + s.w / 2, s.y + s.h / 2, s.label, s.kind === "commandant" ? 6 : s.kind === "equip" ? 6.4 : 5.4, `sl${s.id}`));
   }
   for (const p of PILES) {
     els.push(rect(R(p.x, p.y, p.w, p.h), `p${p.id}`));
@@ -265,7 +265,7 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
           const arr = p.id === "deck" ? st.deck : st.piles[p.id] || [];
           const topId = arr[arr.length - 1];
           const c = topId ? st.cards[topId] : null;
-          const showBack = p.id === "deck" || p.id === "atlas";
+          const showBack = p.id === "deck" || p.id === "atlas" || p.id === "quests"; // réserve de quêtes : cachée
           const dragging = dragKey === `pile:${side}:${p.id}`;
           const cw = (c?.o === "l" ? CARD.l : CARD.p);
           // Carte portrait couchée pour tenir dans la zone paysage (zones portrait de Flesh and Blood : à l'endroit)
@@ -290,9 +290,9 @@ export function Mat({ side, st, vs, bg, back, s, top, left = 0, tokens, hover, d
                   {showBack || !c ? <div className="back" /> : <img src={cardUrl(c)} alt="" draggable={false} />}
                 </div>
               )}
-              {arr.length > 0 && TCG === "sorcery" && <span className="plbl" style={{ fontSize: Math.max(8, 4.6 * s) }}>{p.short}</span>}
+              {arr.length > 0 && (TCG === "sorcery" || TCG === "heros") && <span className="plbl" style={{ fontSize: Math.max(8, 4.6 * s) }}>{p.short}</span>}
               {arr.length > 0 && (
-                <span className={`count ${TCG === "sorcery" ? "big" : ""}`} style={{ fontSize: TCG === "sorcery" ? Math.max(14, 9 * s) : Math.max(10, 4.2 * s) }}>{arr.length}</span>
+                <span className={`count ${TCG === "sorcery" || TCG === "heros" ? "big" : ""}`} style={{ fontSize: TCG === "sorcery" || TCG === "heros" ? Math.max(14, 9 * s) : Math.max(10, 4.2 * s) }}>{arr.length}</span>
               )}
             </div>
           );

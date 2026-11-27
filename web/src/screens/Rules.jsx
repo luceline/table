@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { RULES as RULES_SAFIR } from "../lib/rules.js";
 import { RULES_FAB } from "../lib/rules_fab.js";
 import { RULES_SORCERY } from "../lib/rules_sorcery.js";
+import { RULES_HEROS } from "../lib/rules_heros.js";
 import { TCG } from "../lib/game.js";
 
 // Minuscules sans accents, caractère par caractère (même longueur que le texte d'origine)
@@ -37,7 +38,7 @@ const itemText = (it) => [it.k, it.t || "", ...(it.table ? [...it.table.head, ..
 
 // Aide-mémoire des règles avec recherche (sans accents ni majuscules, tous les mots doivent figurer)
 export function RulesPanel() {
-  const RULES = TCG === "fab" ? RULES_FAB : TCG === "sorcery" ? RULES_SORCERY : RULES_SAFIR; // aide-mémoire du jeu de la partie
+  const RULES = TCG === "heros" ? RULES_HEROS : TCG === "fab" ? RULES_FAB : TCG === "sorcery" ? RULES_SORCERY : RULES_SAFIR; // aide-mémoire du jeu de la partie
   const [q, setQ] = useState("");
   const boxRef = useRef();
   const words = useMemo(() => fold(q.trim()).split(/\s+/).filter((w) => w.length > 0), [q]);
@@ -71,7 +72,7 @@ export function RulesPanel() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={TCG === "fab" ? "Rechercher : pitch, arsenal, go again…" : TCG === "sorcery" ? "Rechercher : seuil, site, portes de la mort…" : "Rechercher : riposte, gel, unification…"}
+            placeholder={TCG === "heros" ? "Rechercher : quête, Brûlure, enchaînement…" : TCG === "fab" ? "Rechercher : pitch, arsenal, go again…" : TCG === "sorcery" ? "Rechercher : seuil, site, portes de la mort…" : "Rechercher : riposte, gel, unification…"}
           />
           {q && <button className="btn sm ghost" onClick={() => setQ("")} aria-label="Effacer">✕</button>}
         </div>

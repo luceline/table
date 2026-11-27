@@ -2,7 +2,7 @@
 // plus à chaque erreur). Points du mois, série de jours avec un joker par semaine, partage sans dévoiler la réponse.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pb, me, errMsg } from "../pb.js";
-import { PLAY_TCGS as TCG_LIST, currentTcg, tcgName, tcgExternal } from "../lib/tcg.js";
+import { PUBLIC_TCGS as TCG_LIST, currentTcg, tcgName, tcgExternal } from "../lib/tcg.js";
 
 const CROP = [0.16, 0.26, 0.4, 0.6, 0.85]; // part de la largeur visible selon le nombre d'essais déjà faits
 const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/œ/g, "oe").replace(/[^a-z0-9]+/g, " ").trim();
@@ -42,7 +42,7 @@ function Reveal({ img, fx, fy, level, full }) {
 }
 
 export default function Daily({ go }) {
-  const [tcg, setTcg] = useState(tcgExternal(currentTcg()) ? "safir" : currentTcg());
+  const [tcg, setTcg] = useState(tcgExternal(currentTcg()) || !TCG_LIST.some((g) => g.id === currentTcg()) ? "safir" : currentTcg());
   const [st, setSt] = useState(null);
   const [board, setBoard] = useState(null);
   const [text, setText] = useState("");

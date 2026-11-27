@@ -16,6 +16,7 @@ export default function Library({ go }) {
   const user = me();
   const fab = TCG === "fab"; // Flesh and Blood : type, couleur de pitch, coût / attaque / défense, classes
   const sorc = TCG === "sorcery"; // Sorcery : type, rareté, éléments, valeurs
+  const heros = TCG === "heros"; // prototype Héros : cartes générées, rien à saisir
   const [cards, setCards] = useState(null);
   const [sel, setSel] = useState(null);
   const [name, setName] = useState("");
@@ -172,6 +173,7 @@ export default function Library({ go }) {
               {sorc && c.kind === "avatar" && <span className="badge">AVATAR</span>}
               {sorc && c.kind === "site" && <span className="badge">SITE</span>}
               {fab && c.kind === "heros" && <span className="badge">HÉROS</span>}
+              {heros && { quete: "QUÊTE", equipement: "ÉQUIP.", reaction: "RÉACTION" }[c.kind] && <span className="badge">{{ quete: "QUÊTE", equipement: "ÉQUIP.", reaction: "RÉACTION" }[c.kind]}</span>}
               {fab && c.kind === "arene" && <span className="badge">ÉQUIP.</span>}
               {fab && c.pitch && <span className="pitch-tag" style={{ background: { r: "#c83a32", y: "#d6b13b", b: "#3b78c8" }[c.pitch] }} />}
               {picking && (
@@ -202,6 +204,8 @@ export default function Library({ go }) {
               </div>
               {err && <div className="err">{err}</div>}
             </div>
+            {heros && <p className="muted small">Carte générée depuis la Référence : pour la modifier, changez les règles puis remettez à jour les cartes de démo.</p>}
+            {!heros && <>
             {fab && (
               <>
                 <KindPicker value={sel.kind || "carte"} onChange={(k) => save(k === "carte" ? { kind: k } : { kind: k, pitch: "" })} />
@@ -256,7 +260,8 @@ export default function Library({ go }) {
               }}
             />
             )}
-            {!fab && !sorc && (
+            </>}
+            {!fab && !sorc && !heros && (
               <div className="field">
                 <label>Type</label>
                 <div className="hand-tabs type-tabs">

@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 115,
+    date: "28 novembre 2026",
+    items: [
+      { t: "🧪 Prototype Héros : plateau de test du jeu maison (réserve de quêtes, quête active, 7 emplacements d'équipement, fiche de héros), cartes et decks de démo générés depuis la Référence v0.2.", tcg: "heros" },
+    ],
+  },
+  {
     id: 114,
     date: "27 novembre 2026",
     items: [

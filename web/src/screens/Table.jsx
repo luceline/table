@@ -33,14 +33,25 @@ export const RAIL = 96; // colonne PI/PV en paysage (px écran)
 export const SORC_BAR = 64; // bandeau Sorcery en portrait : nom, phase et éléments sur trois lignes
 // Royaume partagé de Sorcery : toujours le même fond (carte ancienne), jamais le tapis personnalisé d'un joueur
 export const SORC_REALM_BG = { url: "/sorcery/realm.jpg", dim: 0 };
-export const barH = () => (MAT_KIND === "sorcery" ? SORC_BAR : BAR);
+export const barH = () => (MAT_KIND === "sorcery" || MAT_KIND === "heros" ? SORC_BAR : BAR);
 const PILE_NAMES = { d1: "Défausse I", d2: "Défausse II", d3: "Défausse III", deck: "Deck" };
 // Noms des piles du jeu actif (Safir : PILE_NAMES ; Flesh and Blood : zones du tapis + inventaire)
 const pileName = (id) => (TCG !== "safir" ? (id === "inv" ? "Inventaire" : PILE_BY_ID[id]?.short || id) : PILE_NAMES[id]);
 const deSa = (id) => (TCG !== "safir" ? (id === "inv" ? "de son inventaire" : PILE_BY_ID[id]?.de || "") : `de sa ${PILE_NAMES[id]}`);
 const dansSa = (id) => (TCG !== "safir" ? (id === "inv" ? "dans son inventaire" : PILE_BY_ID[id]?.dans || "") : `dans sa ${PILE_NAMES[id]}`);
 // Libellés des compteurs (Safir : PI / PV ; Flesh and Blood : ressources / vie)
-export const counterLabel = (k) => (TCG === "fab" ? (k === "pi" ? "RES" : "VIE") : TCG === "sorcery" ? (k === "pi" ? "MANA" : "VIE") : k === "pi" ? "PI" : "PV");
+// Prototype Héros : fiche de héros (compteurs) ; pv et pi = PV et mana
+export const HEROS_STATS = [
+  { k: "pv", icon: "❤", label: "PV", big: true },
+  { k: "pi", icon: "💧", label: "Mana" },
+  { k: "arm", icon: "🛡", label: "Armure" },
+  { k: "lvl", icon: "⭐", label: "Niveau", max: 10 },
+  { k: "eq", icon: "⚙", label: "Points d'équipement" },
+  { k: "burn", icon: "🔥", label: "Brûlure" },
+  { k: "spent", icon: "Σ", label: "Mana dépensé ce tour" },
+];
+const HEROS_WHAT = { pv: "ses PV", pi: "son mana", arm: "son armure", lvl: "son niveau", eq: "ses points d'équipement", burn: "ses marqueurs Brûlure", spent: "son mana dépensé ce tour" };
+export const counterLabel = (k) => (TCG === "heros" ? (k === "pi" ? "MANA" : "PV") : TCG === "fab" ? (k === "pi" ? "RES" : "VIE") : TCG === "sorcery" ? (k === "pi" ? "MANA" : "VIE") : k === "pi" ? "PI" : "PV");
 const PHASE_H = 40; // barre des phases au-dessus de la main (portrait)
 const WIN_PV = 30;
 const QUICK = ["OK", "Attends", "Je réagis", "Riposte ?", "Vol vie ?", "À toi", "Bien joué !"];
@@ -302,8 +313,8 @@ export default function Table({ go, gameId, side = "" }) {
       if (TCG === "sorcery") {
         // Sorcery : à 0, l'avatar est aux portes de la mort (immunisé jusqu'à la fin du tour) ; le coup suivant l'achève
         if (prev !== undefined && prev > 0 && st.pv <= 0) setToast(`☠ ${k === "mine" ? "Votre avatar est" : `L'avatar de ${st.name || "l'adversaire"} est`} aux portes de la mort : le prochain dégât (pas une perte de vie) achève la partie.`);
-      } else if (TCG === "fab") {
-        // Flesh and Blood : le héros qui tombe à 0 point de vie perd la partie
+      } else if (TCG === "fab" || TCG === "heros") {
+        // Flesh and Blood (et prototype Héros) : le héros qui tombe à 0 point de vie perd la partie
         const other = k === "mine" ? opp : mine;
         if (prev !== undefined && prev > 0 && st.pv <= 0) setWinner({ name: other?.name || (k === "mine" ? "L'adversaire" : "Vous"), mine: k !== "mine", fab: true, loser: st.name || (k === "mine" ? "Vous" : "L'adversaire") });
       } else if (prev !== undefined && prev < WIN_PV && st.pv >= WIN_PV) setWinner({ name: st.name || (k === "mine" ? "Vous" : "L'adversaire"), mine: k === "mine" });
@@ -761,6 +772,13 @@ export default function Table({ go, gameId, side = "" }) {
       }
       return placeOnBoard(iid, av ? av.x + 14 : 300, av ? av.y - 20 : 250, from, faceDown);
     }
+    if (TCG === "heros") {
+      // quête : sur la quête active ; équipement : sur un emplacement libre ; autre carte : zone de jeu
+      const c = st.cards[iid];
+      const kind = c?.quest ? "quest" : c?.eqp ? "equip" : "play";
+      const f = SLOTS.find((sl) => sl.kind === kind && !taken(sl)) || SLOTS.find((sl) => sl.kind === kind);
+      return f ? placeOnBoard(iid, f.x + f.w / 2, f.y + f.h / 2, from, faceDown) : placeOnBoard(iid, 300, 60, from, faceDown);
+    }
     const free = TCG === "fab"
       ? (faceDown && SLOTS.find((sl) => sl.kind === "arsenal" && !taken(sl))) || SLOTS.find((sl) => sl.kind === "arena" && !taken(sl)) || SLOTS.find((sl) => sl.kind === "chain" && !taken(sl))
       : (faceDown && SLOTS.find((sl) => sl.kind === "magie" && !taken(sl))) ||
@@ -835,7 +853,7 @@ export default function Table({ go, gameId, side = "" }) {
         if (from === "atlas") return `${searchedA ? "⚠ cherche dans son atlas et met" : "met le site du dessus de son atlas,"} « ${c.n} » ${dansSa(pid)}`;
         return `met « ${c.n} »${from === "hand" ? " de sa main" : ""} ${dansSa(pid)}`;
       }
-      if (TCG === "fab") {
+      if (TCG === "fab" || TCG === "heros") {
         // carte pitchée : sa valeur de pitch (couleur) s'ajoute aux ressources ; reprise du pitch : retirée
         let res = "";
         if (c.p && (pid === "pitch") !== (from === "pitch")) {
@@ -929,7 +947,7 @@ export default function Table({ go, gameId, side = "" }) {
       if (st[kind] === nv) return false;
       const from = fromOf(st, kind, st[kind] ?? 0);
       st[kind] = nv;
-      const what = TCG === "fab" ? (kind === "pv" ? "sa vie" : "ses ressources") : TCG === "sorcery" ? (kind === "pv" ? "sa vie" : "son mana") : `ses ${kind.toUpperCase()}`;
+      const what = TCG === "heros" ? HEROS_WHAT[kind] || kind : TCG === "fab" ? (kind === "pv" ? "sa vie" : "ses ressources") : TCG === "sorcery" ? (kind === "pv" ? "sa vie" : "son mana") : `ses ${kind.toUpperCase()}`;
       return from === nv ? `remet ${what} à ${nv}` : `passe ${what} de ${from} à ${nv}`;
     }, kind);
 
@@ -973,6 +991,7 @@ export default function Table({ go, gameId, side = "" }) {
       const b = st.board.find((x) => x.iid === iid);
       if (!b) return false;
       b.rot = b.rot ? 0 : 90;
+      if (TCG === "heros" && st.cards[iid]?.eqp) return `${b.rot ? "débloque" : "remet inactive"} la pièce « ${nameOf(st, iid)} »`;
       return `${b.rot ? "engage" : "dégage"} ${b.down ? "une carte face cachée" : `« ${nameOf(st, iid)} »`}`;
     });
 
@@ -989,6 +1008,8 @@ export default function Table({ go, gameId, side = "" }) {
       if (!confirm(`Nouvelle partie : revenir à PI ${START_PI} / PV ${START_PV} et retirer vos jetons ?`)) return;
     } else if (TCG === "sorcery") {
       if (!confirm(`Remettre vos sites dans l'atlas et vos sorts dans le grimoire, les mélanger, remettre votre avatar à sa place, retirer vos cartes jetons et revenir à ${sorcLife(mineRef.current?.cards)} de vie ?`)) return;
+    } else if (TCG === "heros") {
+      if (!confirm(`Remettre vos cartes dans la pioche et la mélanger, vos quêtes dans la réserve, votre équipement inactif, et revenir à ${START_PV} PV, niveau 0 ?`)) return;
     } else if (TCG === "fab") {
       if (!confirm(`Remettre vos cartes dans le deck (armes et équipements dans l'inventaire), le mélanger, retirer vos cartes jetons et revenir à ${fabLife(mineRef.current?.format)} de vie ?`)) return;
     } else if (!confirm("Remettre toutes vos cartes dans le deck, le mélanger, retirer vos cartes jetons et revenir à PI 4 / PV 0 ?")) return;
@@ -1325,7 +1346,7 @@ export default function Table({ go, gameId, side = "" }) {
       const c = st.cards[iid];
       const dim = CARD[c?.o === "l" ? "l" : "p"];
       const k = Math.max(sc, 64 / dim.w);
-      g = { src: src.type === "pile" && (src.pile === "deck" || src.pile === "atlas") ? null : cardUrl(c), w: dim.w * k, h: dim.h * k };
+      g = { src: src.type === "pile" && (src.pile === "deck" || src.pile === "atlas" || src.pile === "quests") ? null : cardUrl(c), w: dim.w * k, h: dim.h * k };
       setDragKey(src.type === "pile" ? `pile:mine:${src.pile}` : src.type === "board" ? `board:${iid}` : src.type === "inv" ? `inv:${iid}` : `hand:${iid}`);
     }
     setGhost({ ...g, x: e.clientX, y: e.clientY });
@@ -1548,6 +1569,7 @@ export default function Table({ go, gameId, side = "" }) {
         if (src.side === "mine") return setSheet(src.pile === "deck" ? { kind: "deck" } : src.pile === "atlas" ? { kind: "atlas" } : { kind: "pile", pile: src.pile, side: "mine" });
         if (src.pile === "deck") return setToast(`${TCG === "sorcery" ? "Grimoire" : "Deck"} adverse : ${o?.deck.length || 0} carte(s)`);
         if (src.pile === "atlas") return setToast(`Atlas adverse : ${o?.piles?.atlas?.length || 0} site(s)`);
+        if (src.pile === "quests") return setToast(`Réserve de quêtes adverse (cachée) : ${o?.piles?.quests?.length || 0} quête(s)`);
         return setSheet({ kind: "pile", pile: src.pile, side: "opp" });
       case "token": {
         const t = tokRef.current.find((x) => x.id === src.id);
@@ -2061,7 +2083,7 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
     const nArrows = (mine.arrows || []).filter((a) => a.from === iid).length;
     const quickBtns = zone === "board" && b ? (
       <div className="actions quick-row">
-        <button className={`btn ${b.rot ? "primary" : ""}`} onClick={run(() => A.toggleTap(iid))}>{b.rot ? "↶ Dégager" : "↷ Engager"}</button>
+        <button className={`btn ${b.rot ? "primary" : ""}`} onClick={run(() => A.toggleTap(iid))}>{TCG === "heros" && c?.eqp ? (b.rot ? "↶ Remettre inactive" : "↷ Débloquer") : b.rot ? "↶ Dégager" : "↷ Engager"}</button>
         <button className="btn" onClick={run(() => A.flipCard(iid))}>{b.down ? "Révéler" : "Face cachée"}</button>
       </div>
     ) : null;
@@ -2082,20 +2104,28 @@ function TableSheets({ sheet, setSheet, mine, opp, tokens, meta, actions, messag
       btns.push(["Retirer le jeton du jeu", () => A.removeTokenCard(iid)]);
     }
     if (!c?.tok) {
-      if (zone !== "hand") btns.push(["En main", () => A.toHand(iid, zone)]);
-      if (zone !== "board" && TCG !== "safir") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
-      if (zone !== "board" && TCG !== "safir") btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
+      const hq = TCG === "heros" && (c?.quest || c?.eqp); // quêtes et équipement : jamais en main ni dans la pioche
+      if (zone !== "hand" && !hq) btns.push(["En main", () => A.toHand(iid, zone)]);
+      if (zone !== "board" && TCG === "heros" && c?.quest) btns.push(["Quête active", () => A.placeFree(iid, zone)]);
+      else if (zone !== "board" && TCG !== "safir") btns.push(["Sur le plateau", () => A.placeFree(iid, zone)]);
+      if (zone !== "board" && TCG !== "safir" && !hq) btns.push(["Poser face cachée", () => A.placeFree(iid, zone, true)]);
       if (TCG === "sorcery") {
         if (zone !== "grave") btns.push(["Cimetière", () => A.toPile(iid, "grave", zone)]);
         if (zone !== "banish") btns.push(["Bannir", () => A.toPile(iid, "banish", zone)]);
       } else if (TCG === "fab") {
         for (const p of PILE_IDS) if (p !== zone) btns.push([pileName(p), () => A.toPile(iid, p, zone)]);
         if (c?.arena && zone !== "inv") btns.push(["Inventaire", () => A.toPile(iid, "inv", zone)]);
+      } else if (TCG === "heros") {
+        // quête : réserve, active (sur le tapis) ou validée ; autre carte : défausse
+        if (c?.quest) {
+          if (zone !== "quests") btns.push(["Remettre dans la réserve", () => A.toPile(iid, "quests", zone)]);
+          if (zone !== "done") btns.push(["Quête validée", () => A.toPile(iid, "done", zone)]);
+        } else if (!c?.eqp && zone !== "grave") btns.push(["Défausse", () => A.toPile(iid, "grave", zone)]);
       } // Safir : défausses I, II, III dans le sélecteur (TerrPicker)
       if (TCG === "sorcery" && c?.site) {
         btns.push(["Dessus de l'atlas", () => A.toPile(iid, "atlas", zone)]);
         btns.push(["Dessous de l'atlas", () => A.toPile(iid, "atlas", zone, true)]);
-      } else {
+      } else if (!hq) {
         btns.push([TCG === "sorcery" ? "Dessus du grimoire" : "Dessus du deck", () => A.toPile(iid, "deck", zone)]);
         btns.push([TCG === "sorcery" ? "Dessous du grimoire" : "Dessous du deck", () => A.toPile(iid, "deck", zone, true)]);
       }
@@ -2788,6 +2818,39 @@ function StackRow({ st, ids, cur, own, onPick }) {
   );
 }
 
+// Prototype Héros : fiche de héros (PV, mana, armure, niveau, points d'équipement, Brûlure, mana dépensé).
+// Rien n'est automatique : chacun règle ses compteurs ; toucher un compteur ouvre −5 −1 +1 +5.
+function HerosStats({ st, onSet }) {
+  const [open, setOpen] = useState(null);
+  const S = HEROS_STATS.find((x) => x.k === open);
+  const v = (k) => st?.[k] ?? 0;
+  return (
+    <>
+      <div className="heros-stats">
+        {HEROS_STATS.map((x) => (
+          <button key={x.k} className={`hs hs-${x.k} ${v(x.k) ? "" : "zero"}`} disabled={!onSet} title={x.label}
+            onClick={(e) => { e.stopPropagation(); setOpen(x.k); }}>
+            <i>{x.icon}</i><b>{v(x.k)}</b>{x.big && <small>PV</small>}
+          </button>
+        ))}
+      </div>
+      {S && onSet && (
+        <Sheet open onClose={() => setOpen(null)} title={`${S.icon} ${S.label}`}>
+          <div className="hs-edit">
+            {[-5, -1].map((d) => <button key={d} className="btn" onClick={() => onSet(S.k, Math.max(0, Math.min(S.max ?? 99, v(S.k) + d)))}>{d}</button>)}
+            <b className="hs-val">{v(S.k)}</b>
+            {[1, 5].map((d) => <button key={d} className="btn" onClick={() => onSet(S.k, Math.max(0, Math.min(S.max ?? 99, v(S.k) + d)))}>+{d}</button>)}
+          </div>
+          <div className="row" style={{ justifyContent: "center", gap: 8 }}>
+            {S.k !== "pv" && <button className="btn sm ghost" onClick={() => onSet(S.k, 0)}>Remettre à 0</button>}
+            <button className="btn sm primary" onClick={() => setOpen(null)}>OK</button>
+          </div>
+        </Sheet>
+      )}
+    </>
+  );
+}
+
 // Sorcery : seuils des 4 éléments (éléments des sites du joueur dans le royaume)
 function SorcEls({ st }) {
   const a = sorcAffinity(st);
@@ -2927,6 +2990,7 @@ export function boardLayout(side, focus, s) {
       mine: { mat: { left: RAIL, top: mh + gap }, panel: panel(mh + gap) },
     };
   }
+  const BAR = barH(); // prototype Héros : bandeau plus haut (fiche de héros sur deux lignes)
   const bar = (top) => ({ left: 0, top, width: mw, height: BAR });
   if (focus === "mine") return { mode: "bar", w: mw, h: mh + BAR, mine: { mat: { left: 0, top: 0 }, panel: bar(mh) } };
   if (focus === "opp") return { mode: "bar", w: mw, h: mh + BAR, opp: { mat: { left: 0, top: BAR }, panel: bar(0) } };
@@ -2956,7 +3020,7 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
   const unif = st?.unif || 0;
   return (
     <div
-      className={`score ${layout} ${TCG === "sorcery" ? "sorc" : ""} ${mine ? "mine" : "opp"} ${onAim ? "aimable" : ""} ${ph ? "active" : ""}`}
+      className={`score ${layout} ${TCG === "sorcery" ? "sorc" : TCG === "heros" ? "heros" : ""} ${mine ? "mine" : "opp"} ${onAim ? "aimable" : ""} ${ph ? "active" : ""}`}
       style={box}
       onClick={onAim || undefined}
     >
@@ -2985,7 +3049,9 @@ export function ScorePanel({ st, mine, layout, box, onSet, onAim, onUnif, extra,
           <small>main</small>
         </div>
       )}
-      {TCG === "sorcery" ? (
+      {TCG === "heros" ? (
+        <HerosStats st={st} onSet={mine && !onAim ? onSet : null} />
+      ) : TCG === "sorcery" ? (
         <SorcStats st={st} onSet={mine && !onAim ? onSet : null} />
       ) : (
         <>

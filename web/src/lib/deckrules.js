@@ -106,8 +106,48 @@ export function checkSorcery(deck, cardsById) {
   return { spellbook, atlas, total: spellbook + atlas, problems, ok: problems.length === 0 };
 }
 
+// ---------- Héros (prototype, Référence v0.2, section 2) ----------
+// 30 cartes Action / Réaction, 3 exemplaires au plus ; 10 quêtes, 1 copie de chacune, au moins 2 de chaque palier ;
+// équipement : 7 pièces au plus, une par emplacement. Deck de découverte : règles ignorées.
+export const HEROS_RULES = { cards: 30, copies: 3, quests: 10, perTier: 2, equip: 7 };
+export const HEROS_TIERS = { simple: "Simple", intermediaire: "Intermédiaire", complexe: "Complexe" };
+export function checkHeros(deck, cardsById) {
+  let total = 0, quests = 0, equip = 0;
+  const byName = {}, tiers = { simple: 0, intermediaire: 0, complexe: 0 }, slots = {};
+  const problems = [];
+  for (const e of deck?.entries || []) {
+    const c = cardsById[e.card];
+    if (!c || !(e.qty > 0)) continue;
+    if (c.kind === "quete") {
+      quests += e.qty;
+      if (tiers[c.rarity] !== undefined) tiers[c.rarity] += e.qty;
+      if (e.qty > 1) problems.push(`Quête « ${c.name} » en ${e.qty} copies : une seule.`);
+      continue;
+    }
+    if (c.kind === "equipement") {
+      equip += e.qty;
+      const sl = (c.factions || [])[0] || "?";
+      slots[sl] = (slots[sl] || 0) + e.qty;
+      continue;
+    }
+    if (c.kind === "jeton" || e.tok) continue;
+    total += e.qty;
+    const k = nameKey(c.name) || c.id;
+    byName[k] = { name: c.name || "Sans nom", n: (byName[k]?.n || 0) + e.qty };
+  }
+  if (deck?.initiation) return { total, quests, equip, tiers, problems: [], ok: true, initiation: true };
+  if (total !== HEROS_RULES.cards) problems.push(`${total} carte${total > 1 ? "s" : ""} Action / Réaction : il en faut ${HEROS_RULES.cards}.`);
+  for (const v of Object.values(byName)) if (v.n > HEROS_RULES.copies) problems.push(`« ${v.name} » en ${v.n} exemplaires : ${HEROS_RULES.copies} au maximum.`);
+  if (quests !== HEROS_RULES.quests) problems.push(`${quests} quête${quests > 1 ? "s" : ""} : il en faut ${HEROS_RULES.quests}.`);
+  for (const [t, n] of Object.entries(tiers)) if (n < HEROS_RULES.perTier) problems.push(`${n} quête${n > 1 ? "s" : ""} ${HEROS_TIERS[t].toLowerCase()}${n > 1 ? "s" : ""} : au moins ${HEROS_RULES.perTier}.`);
+  if (equip > HEROS_RULES.equip) problems.push(`${equip} pièces d'équipement : ${HEROS_RULES.equip} au maximum.`);
+  for (const [sl, n] of Object.entries(slots)) if (n > 1) problems.push(`${n} pièces pour l'emplacement ${sl} : une seule.`);
+  return { total, quests, equip, tiers, problems, ok: problems.length === 0 };
+}
+
 // Contrôle du deck selon le jeu actif (Safir : règles d'origine, inchangées)
 export function checkDeckFor(deck, cardsById) {
+  if (TCG === "heros") return checkHeros(deck, cardsById);
   if (TCG === "sorcery") return checkSorcery(deck, cardsById);
   return TCG === "fab" ? checkFab(deck, cardsById) : checkDeck(deck?.entries, cardsById, deck?.commander);
 }

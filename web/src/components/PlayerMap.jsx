@@ -1,7 +1,9 @@
 // Carte des joueurs (France, Belgique, Suisse, Luxembourg, Monaco) : ville facultative, pour se retrouver en vrai.
 // Villes : GeoNames (CC BY 4.0), plus de 1 000 habitants ; contours : Natural Earth (domaine public).
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TCG_LIST, normTcg } from "../lib/tcg.js";
+import { PUBLIC_TCGS, TCG_LIST as ALL_TCGS, normTcg } from "../lib/tcg.js";
+// jeux proposés dans « Je joue à » : pas le prototype privé
+const TCG_LIST = ALL_TCGS.filter((g) => !g.private);
 import { pb, me, errMsg } from "../pb.js";
 import { messageTo } from "./Trades.jsx";
 

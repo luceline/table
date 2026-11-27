@@ -97,6 +97,25 @@ export const sorcCell = (x, y) => {
   return { c, r, n: sorcNum(r, c), name: `la case ${sorcNum(r, c)}` };
 };
 
+// ---------- Héros (prototype maison, Référence v0.2) : quêtes, zone de jeu, piles en haut ; 7 pièces d'équipement en bas ----------
+// En haut : réserve de quêtes (cachée), quête active, quêtes validées, 3 cases de jeu, défausse, pioche.
+// En bas : les 7 emplacements d'équipement ; une pièce tournée de côté = débloquée.
+const HEROS_H = 206;
+export const HEROS_EQUIP = ["Casque", "Plastron", "Jambières", "Bottes", "Gants", "Épée", "Bouclier"];
+const hs = (id, kind, x, y, w, label, name) => ({ id, kind, x, y, w, h: 88, label, name });
+const HEROS_SLOTS = [
+  hs("quest", "quest", 75, 8, 63, "QUÊTE ACTIVE", "sa quête active"),
+  ...[222, 288, 354].map((x, i) => hs(`play${i}`, "play", x, 8, 63, "ZONE DE JEU", "la zone de jeu")),
+  ...HEROS_EQUIP.map((n, i) => hs(`eq${i}`, "equip", 6 + i * 84.6, 110, 84, n.toUpperCase(), `l'emplacement ${n}`)),
+];
+const hp = (id, x, lines, short, de, dans) => ({ id, x, y: 8, w: 63, h: 88, lines, label: lines.join(" "), short, de, dans });
+const HEROS_PILES = [
+  hp("quests", 6, ["RÉSERVE", "DE QUÊTES"], "Réserve de quêtes", "de sa réserve de quêtes", "dans sa réserve de quêtes"),
+  hp("done", 144, ["QUÊTES", "VALIDÉES"], "Quêtes validées", "de ses quêtes validées", "dans ses quêtes validées"),
+  hp("grave", 462, ["DÉFAUSSE"], "Défausse", "de sa défausse", "dans sa défausse"),
+  hp("deck", 531, ["PIOCHE"], "Pioche", "de sa pioche", "dans sa pioche"),
+];
+
 // ---------- Géométrie du jeu actif (liaisons vivantes : les écrans lisent toujours la valeur courante) ----------
 export let SLOTS = SAFIR_SLOTS;
 export let PILES = SAFIR_PILES;
@@ -109,6 +128,18 @@ export let MAT_KIND = "safir";
 export function setGeometry(id) {
   const fab = id === "fab";
   const sorc = id === "sorcery";
+  if (id === "heros") {
+    MAT_KIND = "heros";
+    MAT_H = HEROS_H;
+    BOARD_H = MAT_H * 2 + GAP;
+    SLOTS = HEROS_SLOTS;
+    PILES = HEROS_PILES;
+    PILE_BY_ID = Object.fromEntries(PILES.map((p) => [p.id, p]));
+    TITLES = [];
+    DIVIDERS = [];
+    ROMAN = [];
+    return;
+  }
   MAT_KIND = fab ? "fab" : sorc ? "sorcery" : "safir";
   MAT_H = fab ? FAB_H : sorc ? SORC_H : 300;
   // Sorcery : un seul tapis à l'écran (le royaume partagé), celui de l'adversaire est superposé
@@ -159,7 +190,7 @@ export function placeName(x, y) {
     const k = sorcCell(x, y);
     return k ? k.name : "le bord du royaume";
   }
-  if (MAT_KIND === "fab") {
+  if (MAT_KIND === "fab" || MAT_KIND === "heros") {
     const f = slotAt(x, y);
     return f ? f.name : "le plateau";
   }

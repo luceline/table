@@ -24,7 +24,7 @@ import { applyTheme, storedTheme } from "../lib/theme.js";
 import { useLive, ago } from "../lib/live.js";
 import { useResults, ratioText } from "../lib/results.js";
 import { useStats, plural } from "../lib/stats.js";
-import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, tcgShort, activateTcg, normTcg, tcgExternal } from "../lib/tcg.js";
+import { TCG_LIST, currentTcg, setCurrentTcg, tcgFilter, tcgOf, tcgName, tcgShort, activateTcg, normTcg, tcgExternal, tcgPrivate } from "../lib/tcg.js";
 
 // Dates PocketBase (« AAAA-MM-JJ HH:MM:SS.sssZ ») et affichage en heure locale
 const pbDate = (v) => String(v || "").replace(" ", "T");
@@ -58,7 +58,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const [tcg, setTcg] = useState(() => activateTcg(currentTcg()));
   const stats = useStats(); // joueurs inscrits (affichés sous le choix du jeu)
   const [filmed, setFilmedRaw] = useState(false);
-  const setFilmed = (v) => setFilmedRaw(v && currentTcg() !== "sorcery"); // Sorcery : royaume partagé, jamais filmé
+  const setFilmed = (v) => setFilmedRaw(v && currentTcg() !== "sorcery" && currentTcg() !== "heros"); // Sorcery : royaume partagé ; Héros : cartes générées ; jamais filmé
   const [soloForm, setSoloForm] = useState(null); // partie solo : { a, b } decks choisis pour les deux côtés // je joue avec mes cartes réelles, filmées par un téléphone
   const [lobby, setLobby] = useState("open"); // onglet : tables ouvertes ou parties en direct
   // Onglets de l'accueil (mémorisés sur l'appareil) ; grand écran : salons dans une colonne à droite
@@ -208,6 +208,15 @@ export default function Home({ go, pendingJoin, clearJoin }) {
   const deckSize = (d) => (d.entries || []).reduce((n, e) => n + (e.tok || cardsById[e.card]?.kind === "jeton" || cardsById[e.card]?.kind === "arene" || cardsById[e.card]?.kind === "heros" ? 0 : e.qty || 0), 0) + (tcg === "safir" && d.commander && cardsById[d.commander] ? 1 : 0);
   // Sorcery : grimoire et atlas comptés à part (l'avatar n'est dans aucun des deux)
   const deckLabel = (d) => {
+    if (tcg === "heros") {
+      let n = 0, q = 0;
+      for (const e of d.entries || []) {
+        const k = cardsById[e.card]?.kind;
+        if (k === "quete") q += e.qty || 0;
+        else if (k && k !== "equipement") n += e.qty || 0;
+      }
+      return `${n} cartes · ${q} quêtes`;
+    }
     if (tcg !== "sorcery") return `${deckSize(d)} cartes`;
     let sp = 0, at = 0;
     for (const e of d.entries || []) {
@@ -471,8 +480,13 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
   // Jeu joué sur un autre site (Netrunner) : seulement la communauté et la personnalisation
   const EXT = tcgExternal(tcg);
+  // Prototype maison (Héros) : réservé à l'admin ; pas de communauté, pas d'échanges, cartes générées (pas de scan)
+  const PRIV = tcgPrivate(tcg);
+  const NOFILM = tcg === "sorcery" || PRIV;
   const TABS = EXT
     ? [["jouer", "🎲 Jouer"], ["perso", "🎨 Personnalisation"]]
+    : PRIV
+    ? [["jouer", "🎲 Jouer"], ["cartes", "🃏 Cartes et decks"], ["perso", "🎨 Personnalisation"]]
     : [
         ["jouer", "🎲 Jouer"],
         ["cartes", "🃏 Mes cartes"],
@@ -490,7 +504,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
 
       {TCG_LIST.length > 1 && (
         <div className="tcg-pick" role="tablist" aria-label="Jeu">
-          {TCG_LIST.map((g) => (
+          {TCG_LIST.filter((g) => !g.private || isAdmin || tcg === g.id).map((g) => (
             <button key={g.id} role="tab" aria-selected={tcg === g.id} className={tcg === g.id ? "on" : ""} onClick={() => pickTcg(g.id)}>
               {g.short ? <><span className="tp-long">{g.name}</span><span className="tp-short">{g.short}</span></> : g.name}
             </button>
@@ -524,6 +538,9 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         <div className="jg-main"><ExternalPlay tcg={tcg} ext={EXT} /></div>
       </div>)}
       {tab === "jouer" && !EXT && (<div className="jouer-grid"><div className="jg-side">
+      {PRIV ? (
+        <HerosSetup isAdmin={isAdmin} cards={cards} decks={decks} onDone={() => load(tcg)} />
+      ) : (<>
       {/* ouvert d'office seulement pour un nouveau joueur de Safir (aucune carte) ; fermé sinon */}
       {tcg !== "sorcery" && <TutoVideo key={`${tcg}-${cards.length ? "o" : "n"}`} tcg={tcg} open={tcg === "safir" && !cards.length} />}
 
@@ -531,11 +548,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       {!wideHome && <SalonsCard tcg={tcg} userId={user.id} go={go} />}
       <AgendaCard agenda={agenda} go={go} />
       <MapCard players={mapPlayers} tcg={tcg} onlineIds={onlineNow.ids} onOpen={() => setMapOpen(true)} onSetCity={() => setTab("perso")} />
+      </>)}
       </div><div className="jg-main">
 
       <div className="card-box">
         <h2>Jouer</h2>
-        {tcg === "sorcery" ? (
+        {PRIV ? (
+          <p className="muted small" style={{ marginTop: 0 }}>Prototype : jouez contre vous-même avec la partie solo, ou créez une partie en prêtant un deck à un joueur invité, qui rejoint avec le code.</p>
+        ) : tcg === "sorcery" ? (
           <p className="muted small" style={{ marginTop: 0 }}>Sorcery se joue sur un royaume partagé par les deux joueurs : uniquement avec un deck de l'appli (pas de cartes filmées).</p>
         ) : (
         <label className="init-toggle filmed-toggle">
@@ -646,7 +666,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         )}
       </div>
 
-      <div className="card-box open-tables">
+      {!PRIV && <div className="card-box open-tables">
         <div className="lobby-tabs">
           <button className={lobby === "open" ? "on" : ""} onClick={() => setLobby("open")}>
             Tables ouvertes{openTables.length ? <span className="lobby-n">{openTables.length}</span> : null}
@@ -744,7 +764,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
         </div>
         </>
         )}
-      </div>
+      </div>}
 
       </div></div>)}
 
@@ -797,14 +817,14 @@ export default function Home({ go, pendingJoin, clearJoin }) {
                 Deck prêté par {joinChoice.loan.by} : « {joinChoice.loan.name} »
               </button>
             )}
-            {tcg !== "sorcery" && (
+            {!NOFILM && (
               <button className={`btn ${!joinChoice.loan?.cards?.length && !decks.length ? "primary" : ""}`} onClick={() => chooseJoin("filmed")}>
                 🎥 Mes cartes réelles, filmées par mon téléphone
               </button>
             )}
           </div>
         )}
-        {joinChoice && !decks.length && tcg !== "sorcery" && (
+        {joinChoice && !decks.length && !NOFILM && (
           <p className="muted small">
             Vous n'avez pas encore de deck dans l'appli. Avec vos cartes réelles, un téléphone filme votre tapis et votre adversaire le voit en direct ;
             il vous faut un deuxième écran pour voir son tapis.
@@ -813,6 +833,13 @@ export default function Home({ go, pendingJoin, clearJoin }) {
       </Sheet>
 
       {tab === "cartes" && (<>
+      {PRIV ? (
+      <div className="card-box">
+        <h2>Cartes du prototype</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>{cards.length} carte{cards.length > 1 ? "s" : ""}, générées depuis la Référence (pas de scan).</p>
+        <button className="btn" onClick={() => go("library")} disabled={!cards.length}>Voir les cartes</button>
+      </div>
+      ) : (
       <div className="card-box">
         <h2>Ma collection</h2>
         <p className="muted small" style={{ marginTop: 0 }}>
@@ -823,6 +850,7 @@ export default function Home({ go, pendingJoin, clearJoin }) {
           <button className="btn" onClick={() => go("library")}>Voir mes cartes</button>
         </div>
       </div>
+      )}
 
       <div className="card-box">
         <div className="row" style={{ marginBottom: 10 }}>
@@ -950,6 +978,77 @@ function ExternalPlay({ tcg, ext }) {
           <li><a href="https://nullsignal.games/" target="_blank" rel="noopener noreferrer">Null Signal Games</a> : apprendre à jouer, règles officielles, cartes à imprimer gratuitement.</li>
         </ul>
       )}
+    </div>
+  );
+}
+
+// Prototype Héros : installe (ou met à jour) les cartes générées et les deux decks de démo, depuis /heros/cards.json
+function HerosSetup({ isAdmin, cards, decks, onDone }) {
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const u = me();
+  async function install() {
+    setErr("");
+    try {
+      const data = await (await fetch(`/heros/cards.json?v=${Date.now()}`)).json();
+      const mine = await pb.collection("cards").getFullList({ filter: `owner="${u.id}" && tcg = "heros"`, requestKey: null });
+      const key = (n, k) => `${k}|${n}`;
+      const have = Object.fromEntries(mine.map((c) => [key(c.name, c.kind), c]));
+      const idOf = {};
+      let i = 0;
+      for (const c of data.cards) {
+        i++;
+        setBusy(`Cartes : ${i} / ${data.cards.length}`);
+        const blob = await (await fetch(`/heros/${c.file}?v=${data.version}`)).blob();
+        const fd = new FormData();
+        fd.append("owner", u.id);
+        fd.append("tcg", "heros");
+        fd.append("name", c.name);
+        fd.append("kind", c.kind);
+        fd.append("orient", "p");
+        fd.append("val", c.val || "");
+        fd.append("atk", c.atk || "");
+        fd.append("rarity", c.rarity || "");
+        fd.append("factions", JSON.stringify(c.factions || []));
+        fd.append("image", new File([blob], c.file, { type: "image/jpeg" }));
+        const old = have[key(c.name, c.kind)];
+        const rec = old ? await pb.collection("cards").update(old.id, fd) : await pb.collection("cards").create(fd);
+        idOf[c.code] = rec.id;
+      }
+      setBusy("Decks…");
+      for (const d of data.decks) {
+        const entries = [
+          ...Object.entries(d.cards).map(([code, qty]) => ({ card: idOf[code], qty })),
+          ...d.quests.map((code) => ({ card: idOf[code], qty: 1 })),
+          ...d.equip.map((code) => ({ card: idOf[code], qty: 1 })),
+        ].filter((e) => e.card);
+        const old = decks.find((x) => x.name === d.name);
+        if (old) await pb.collection("decks").update(old.id, { entries });
+        else await pb.collection("decks").create({ owner: u.id, name: d.name, entries, tcg: "heros" });
+      }
+      setBusy("");
+      onDone?.();
+    } catch (e) {
+      setBusy("");
+      setErr(errMsg(e));
+    }
+  }
+  return (
+    <div className="card-box">
+      <h2>🧪 Prototype Héros</h2>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        Plateau de test du jeu maison, visible de vous seul. Rien n'est automatique : chaque joueur règle sa fiche de héros (PV, mana, armure, niveau, points d'équipement, Brûlure, mana dépensé).
+        Pour inviter un joueur : créez une partie en lui prêtant un deck, puis donnez-lui le code.
+      </p>
+      {isAdmin && (
+        <>
+          <button className="btn" onClick={install} disabled={!!busy}>
+            {busy || (cards.length ? "Mettre à jour les cartes et les decks de démo" : "Installer les cartes et les decks de démo")}
+          </button>
+          <p className="muted small" style={{ margin: "6px 0 0" }}>Brasier et Bastion (Decks de démo v0.1), les 30 quêtes et les 7 pièces d'équipement. Une mise à jour remplace les images et remet les deux decks de démo à leur liste d'origine.</p>
+        </>
+      )}
+      {err && <div className="err">{err}</div>}
     </div>
   );
 }

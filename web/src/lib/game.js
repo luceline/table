@@ -4,7 +4,7 @@
 // Jetons partagés (games.tokens) : {rev, by, list: [{id, side: 'p1'|'p2', x, y, color, v, on?, dx?, dy?}]}
 // on = iid de la carte portant le jeton (dx, dy = décalage dans le repère de la carte)
 
-import { SLOTS } from "./mat.js";
+import { SLOTS, HEROS_EQUIP } from "./mat.js";
 
 export function rid(n = 8) {
   const a = "abcdefghijkmnpqrstuvwxyz23456789";
@@ -40,6 +40,7 @@ export function buildState({ name, deck, cardsById }) {
   const reserve = [];
   const inv = []; // Flesh and Blood : armes et équipements, hors deck
   const atlas = []; // Sorcery : atlas (deck de sites)
+  const questsP = [], eqps = []; // Héros : réserve de quêtes, pièces d'équipement
   for (const e of deck.entries || []) {
     const rec = cardsById[e.card];
     if (!rec || !(e.qty > 0)) continue;
@@ -65,6 +66,15 @@ export function buildState({ name, deck, cardsById }) {
         }
         continue;
       }
+    }
+    // Héros (prototype) : quêtes dans la réserve de quêtes, équipement posé (inactif) sur son emplacement, hors deck
+    if (TCG === "heros" && (rec.kind === "quete" || rec.kind === "equipement")) {
+      for (let i = 0; i < e.qty; i++) {
+        const iid = rid(7);
+        cards[iid] = { ...base, [rec.kind === "quete" ? "quest" : "eqp"]: rec.kind === "quete" ? true : (rec.factions || [])[0] || "" };
+        (rec.kind === "quete" ? questsP : eqps).push(iid);
+      }
+      continue;
     }
     if (TCG === "fab" && rec.kind === "arene") {
       for (let i = 0; i < e.qty; i++) {
@@ -93,6 +103,7 @@ export function buildState({ name, deck, cardsById }) {
     if (TCG === "sorcery") cards[iid].life = parseVal(cmd.val) || SORC_LIFE;
     board.push(commanderSpot(iid, cards[iid].o));
   }
+  if (TCG === "heros") board.push(...herosEquipBoard(eqps, cards));
   return {
     name,
     deckId: deck.id,
@@ -101,18 +112,40 @@ export function buildState({ name, deck, cardsById }) {
     reserve,
     deck: shuffle(ids),
     hand: [],
-    piles: TCG === "fab" ? { ...emptyPiles(), inv } : TCG === "sorcery" ? { ...emptyPiles(), atlas: shuffle(atlas) } : { d1: [], d2: [], d3: [] },
+    piles: TCG === "fab" ? { ...emptyPiles(), inv } : TCG === "sorcery" ? { ...emptyPiles(), atlas: shuffle(atlas) } : TCG === "heros" ? { ...emptyPiles(), quests: questsP } : { d1: [], d2: [], d3: [] },
     board,
     pi: START_PI,
     pv: TCG === "fab" ? fabLife(deck.format) : TCG === "sorcery" ? sorcLife(cards) : START_PV,
     ...TURN_RESET,
+    ...(TCG === "heros" ? HEROS_RESET : null),
     ...(TCG === "fab" ? { format: FAB_FORMATS[deck.format] ? deck.format : "cc" } : null),
-    log: [{ t: Date.now(), m: TCG === "sorcery"
+    log: [{ t: Date.now(), m: TCG === "heros"
+      ? `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes, ${questsP.length} quêtes, ${eqps.length} pièces d'équipement)`
+      : TCG === "sorcery"
       ? `rejoint la table avec le deck « ${deck.name} » (grimoire de ${ids.length} cartes, atlas de ${atlas.length} sites${cmd ? `, avatar « ${cmd.name} »` : ""})`
       : TCG === "fab"
       ? `rejoint la table avec le deck « ${deck.name} » (${FAB_FORMATS[deck.format] || FAB_FORMATS.cc}${deck.initiation ? " initiation" : ""}, ${ids.length} cartes${inv.length ? `, ${inv.length} arme(s) et équipement(s)` : ""}${cmd ? `, héros « ${cmd.name} »` : ""})`
       : `rejoint la table avec le deck « ${deck.name} » (${ids.length} cartes${reserve.length ? `, ${reserve.length} carte(s) jeton` : ""}${cmd ? `, commandant « ${cmd.name} »` : ""})` }],
   };
+}
+
+// Héros (prototype) : compteurs de la fiche de héros (en plus de pv = PV et pi = mana)
+// arm armure, lvl niveau, eq points d'équipement, burn marqueurs Brûlure, spent mana dépensé ce tour (enchaînements)
+export const HEROS_RESET = { arm: 0, lvl: 0, eq: 0, burn: 0, spent: 0 };
+export const HEROS_LIFE = 60;
+// Pièces d'équipement posées sur leur emplacement (ordre du tapis), face visible et inactives (droites)
+export function herosEquipBoard(ids, cards) {
+  const used = new Set();
+  const out = [];
+  for (const iid of ids) {
+    let i = HEROS_EQUIP.indexOf(cards[iid]?.eqp);
+    if (i < 0 || used.has(i)) i = HEROS_EQUIP.findIndex((_, k) => !used.has(k));
+    if (i < 0) i = 0;
+    used.add(i);
+    const sl = SLOTS.find((s) => s.id === `eq${i}`);
+    out.push({ iid, x: sl ? sl.x + sl.w / 2 : 300, y: sl ? sl.y + sl.h / 2 : 154, rot: 0, down: false });
+  }
+  return out;
 }
 
 // Zone Commandant du tapis (x 6.5, y 226, 88 x 63) ; une carte portrait y est couchée
@@ -186,6 +219,15 @@ export const emptyPiles = () => Object.fromEntries(PILE_IDS.map((k) => [k, []]))
 export function setRules(id) {
   const fab = id === "fab";
   const sorc = id === "sorcery";
+  if (id === "heros") {
+    TCG = "heros";
+    START_PI = 1; // mana = niveau, 1 au minimum
+    START_PV = HEROS_LIFE;
+    PHASES = SORC_PHASES; // début, principale, fin
+    PHASE_BY_ID = Object.fromEntries(PHASES.map((p) => [p.id, p]));
+    PILE_IDS = ["grave", "quests", "done"];
+    return;
+  }
   TCG = fab ? "fab" : sorc ? "sorcery" : "safir";
   START_PI = fab || sorc ? 0 : 4;
   START_PV = fab ? 40 : sorc ? SORC_LIFE : 0;
@@ -227,6 +269,24 @@ export function resetState(s) {
       reveal: null,
     };
   }
+  if (TCG === "heros") {
+    // quêtes dans la réserve, équipement inactif sur ses emplacements, fiche de héros remise à zéro
+    const keys = Object.keys(cards);
+    return {
+      ...s,
+      cards,
+      deck: shuffle(keys.filter((k) => !cards[k].quest && !cards[k].eqp)),
+      hand: [],
+      piles: { ...emptyPiles(), quests: keys.filter((k) => cards[k].quest) },
+      board: herosEquipBoard(keys.filter((k) => cards[k].eqp), cards),
+      pi: START_PI,
+      pv: START_PV,
+      ...TURN_RESET,
+      ...HEROS_RESET,
+      ping: null,
+      reveal: null,
+    };
+  }
   if (TCG === "fab") {
     // armes et équipements reviennent dans l'inventaire, la vie repart de la valeur du format
     return {
@@ -259,6 +319,7 @@ export function resetState(s) {
 }
 
 export function emptyState() {
+  if (TCG === "heros") return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: emptyPiles(), board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, ...HEROS_RESET, log: [] };
   if (TCG === "sorcery") return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: emptyPiles(), board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
   if (TCG === "fab") return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { ...emptyPiles(), inv: [] }, board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
   return { name: "", cards: {}, reserve: [], deck: [], hand: [], piles: { d1: [], d2: [], d3: [] }, board: [], pi: START_PI, pv: START_PV, ...TURN_RESET, log: [] };
@@ -283,7 +344,7 @@ export function normalize(s) {
   return {
     ...emptyState(),
     ...s,
-    piles: TCG === "fab" ? { ...emptyPiles(), inv: [], ...(s.piles || {}) } : TCG === "sorcery" ? { ...emptyPiles(), ...(s.piles || {}) } : { d1: [], d2: [], d3: [], ...(s.piles || {}) },
+    piles: TCG === "fab" ? { ...emptyPiles(), inv: [], ...(s.piles || {}) } : TCG === "sorcery" || TCG === "heros" ? { ...emptyPiles(), ...(s.piles || {}) } : { d1: [], d2: [], d3: [], ...(s.piles || {}) },
     arrows: Array.isArray(s.arrows) ? s.arrows : [],
   };
 }
