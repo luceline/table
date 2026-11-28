@@ -4,6 +4,13 @@
 // tcg : "safir", "fab" ou "sorcery" pour une nouveauté propre à un jeu (montrée seulement à ce jeu), absent = pour tous.
 export const NEWS = [
   {
+    id: 116,
+    date: "28 novembre 2026",
+    items: [
+      { t: "📥 Prototype Héros : « Importer des decks (.md) » lit un fichier au format Decks de démo (tableaux des cartes, des quêtes et plan d'équipement). Les cartes nouvelles ou modifiées sont créées ou redessinées, un deck du même nom est remplacé.", tcg: "heros" },
+    ],
+  },
+  {
     id: 115,
     date: "28 novembre 2026",
     items: [

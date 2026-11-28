@@ -15,6 +15,7 @@ import Trades, { useTrades } from "../components/Trades.jsx";
 import { CitySettings, PlayersMap, usePlayersMap, km, cityLabel } from "../components/PlayerMap.jsx";
 import { useEffect, useRef, useState } from "react";
 import { pb, me, errMsg, safeUn } from "../pb.js";
+import { parseHerosDecks, summarize, plan, syncCards, findCard, keyOf, deckEntries } from "../lib/herosImport.js";
 import { buildState, genCode } from "../lib/game.js";
 import { checkDeck, checkDeckFor } from "../lib/deckrules.js";
 import { Sheet } from "../components/ui.jsx";
@@ -982,57 +983,62 @@ function ExternalPlay({ tcg, ext }) {
   );
 }
 
-// Prototype Héros : installe (ou met à jour) les cartes générées et les deux decks de démo, depuis /heros/cards.json
+// Prototype Héros : installe les cartes et decks de démo (/heros/cards.json), et importe des decks au format
+// Markdown « Decks de démo » (fichier ou texte collé). Les cartes sont dessinées dans le navigateur ;
+// une carte dont le texte change est redessinée, les autres sont gardées telles quelles.
 function HerosSetup({ isAdmin, cards, decks, onDone }) {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
+  const [imp, setImp] = useState(null); // { text, parsed, existing }
+  const [done, setDone] = useState("");
   const u = me();
+  const mineCards = () => pb.collection("cards").getFullList({ filter: `owner="${u.id}" && tcg = "heros"`, requestKey: null });
+  async function saveDeck(name, entries) {
+    const old = decks.find((x) => x.name === name);
+    if (old) await pb.collection("decks").update(old.id, { entries });
+    else await pb.collection("decks").create({ owner: u.id, name, entries, tcg: "heros" });
+  }
   async function install() {
-    setErr("");
+    setErr(""); setDone("");
     try {
       const data = await (await fetch(`/heros/cards.json?v=${Date.now()}`)).json();
-      const mine = await pb.collection("cards").getFullList({ filter: `owner="${u.id}" && tcg = "heros"`, requestKey: null });
-      const key = (n, k) => `${k}|${n}`;
-      const have = Object.fromEntries(mine.map((c) => [key(c.name, c.kind), c]));
-      const idOf = {};
-      let i = 0;
-      for (const c of data.cards) {
-        i++;
-        setBusy(`Cartes : ${i} / ${data.cards.length}`);
-        const blob = await (await fetch(`/heros/${c.file}?v=${data.version}`)).blob();
-        const fd = new FormData();
-        fd.append("owner", u.id);
-        fd.append("tcg", "heros");
-        fd.append("name", c.name);
-        fd.append("kind", c.kind);
-        fd.append("orient", "p");
-        fd.append("val", c.val || "");
-        fd.append("atk", c.atk || "");
-        fd.append("rarity", c.rarity || "");
-        fd.append("factions", JSON.stringify(c.factions || []));
-        fd.append("image", new File([blob], c.file, { type: "image/jpeg" }));
-        const old = have[key(c.name, c.kind)];
-        const rec = old ? await pb.collection("cards").update(old.id, fd) : await pb.collection("cards").create(fd);
-        idOf[c.code] = rec.id;
-      }
+      const { ids, all } = await syncCards(await mineCards(), data.cards, setBusy);
       setBusy("Decks…");
+      const byCode = (kind, code) => { const c = data.cards.find((x) => x.code === code && (kind === "quete" ? x.kind === "quete" : x.kind !== "quete" && x.kind !== "equipement")); return c && ids[keyOf(c)]; };
       for (const d of data.decks) {
-        const entries = [
-          ...Object.entries(d.cards).map(([code, qty]) => ({ card: idOf[code], qty })),
-          ...d.quests.map((code) => ({ card: idOf[code], qty: 1 })),
-          ...d.equip.map((code) => ({ card: idOf[code], qty: 1 })),
-        ].filter((e) => e.card);
-        const old = decks.find((x) => x.name === d.name);
-        if (old) await pb.collection("decks").update(old.id, { entries });
-        else await pb.collection("decks").create({ owner: u.id, name: d.name, entries, tcg: "heros" });
+        await saveDeck(d.name, [
+          ...Object.entries(d.cards).map(([code, qty]) => ({ card: byCode("carte", code), qty })),
+          ...d.quests.map((code) => ({ card: byCode("quete", code), qty: 1 })),
+          ...deckEntries({ cards: [], quests: [], equip: [] }, ids, all), // une pièce par emplacement
+        ].filter((e) => e.card));
       }
       setBusy("");
+      setDone("Cartes et decks de démo installés.");
       onDone?.();
-    } catch (e) {
-      setBusy("");
-      setErr(errMsg(e));
-    }
+    } catch (e) { setBusy(""); setErr(errMsg(e)); }
   }
+  async function readImport(text) {
+    setErr(""); setDone("");
+    const parsed = parseHerosDecks(text);
+    if (!parsed.length) return setErr("Aucun deck trouvé : il faut une section « ## … Deck … — Nom » avec le tableau des cartes (colonnes Carte, Ex., Type, Niv. / coût, Texte de la carte).");
+    setImp({ text, parsed, existing: await mineCards() });
+  }
+  async function runImport() {
+    setErr("");
+    try {
+      const existing = imp.existing;
+      const list = imp.parsed.flatMap((d) => [...d.cards, ...d.quests, ...d.equip.filter((e) => !findCard(existing, e))]);
+      const { ids, all } = await syncCards(existing, list, setBusy);
+      for (const e of imp.parsed.flatMap((d) => d.equip)) { const r = findCard(all, e); if (r) ids[keyOf(e)] = r.id; }
+      setBusy("Decks…");
+      for (const d of imp.parsed) await saveDeck(d.name, deckEntries(d, ids, all));
+      setBusy("");
+      setDone(`Import terminé : ${imp.parsed.map((d) => `« ${d.name} »`).join(", ")}.`);
+      setImp(null);
+      onDone?.();
+    } catch (e) { setBusy(""); setErr(errMsg(e)); }
+  }
+  const pl = imp?.parsed && plan(imp.existing, imp.parsed.flatMap((d) => [...d.cards, ...d.quests]));
   return (
     <div className="card-box">
       <h2>🧪 Prototype Héros</h2>
@@ -1041,14 +1047,56 @@ function HerosSetup({ isAdmin, cards, decks, onDone }) {
         Pour inviter un joueur : créez une partie en lui prêtant un deck, puis donnez-lui le code.
       </p>
       {isAdmin && (
-        <>
-          <button className="btn" onClick={install} disabled={!!busy}>
-            {busy || (cards.length ? "Mettre à jour les cartes et les decks de démo" : "Installer les cartes et les decks de démo")}
-          </button>
-          <p className="muted small" style={{ margin: "6px 0 0" }}>Brasier et Bastion (Decks de démo v0.1), les 30 quêtes et les 7 pièces d'équipement. Une mise à jour remplace les images et remet les deux decks de démo à leur liste d'origine.</p>
-        </>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <button className="btn primary" onClick={() => setImp({ text: "", parsed: null, existing: [] })} disabled={!!busy}>📥 Importer des decks (.md)</button>
+          <button className="btn" onClick={install} disabled={!!busy}>{cards.length ? "Remettre les decks de démo" : "Installer les cartes et les decks de démo"}</button>
+        </div>
       )}
+      {busy && <p className="small" style={{ margin: "8px 0 0" }}>⏳ {busy}</p>}
+      {done && <p className="small" style={{ margin: "8px 0 0" }}>✓ {done}</p>}
       {err && <div className="err">{err}</div>}
+      <Sheet open={!!imp} onClose={() => !busy && setImp(null)} title="Importer des decks">
+        {imp && !imp.parsed && (
+          <>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Fichier au format « Decks de démo » : une section par deck (« ## … Deck … — Nom »), avec le tableau des cartes, le tableau des quêtes et, si besoin, le plan d'équipement.
+              Les cartes nouvelles ou dont le texte a changé sont créées ou redessinées ; un deck du même nom est remplacé.
+            </p>
+            <label className="btn" style={{ display: "inline-flex", cursor: "pointer" }}>
+              Choisir le fichier .md
+              <input type="file" accept=".md,.txt,text/markdown,text/plain" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) readImport(await f.text()); }} />
+            </label>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>ou collez le texte</label>
+              <textarea className="input" rows={6} value={imp.text} onChange={(e) => setImp({ ...imp, text: e.target.value })} placeholder="## 1. Deck A — Brasier (Feu, offensif) …" />
+            </div>
+            <button className="btn primary" disabled={!imp.text.trim()} onClick={() => readImport(imp.text)}>Lire</button>
+          </>
+        )}
+        {imp?.parsed && (
+          <>
+            {imp.parsed.map((d) => {
+              const sm = summarize(d);
+              return (
+                <div key={d.name} className="card-box" style={{ margin: "0 0 10px" }}>
+                  <b>« {d.name} »</b> {decks.some((x) => x.name === d.name) && <span className="muted small">(remplace le deck existant)</span>}
+                  <div className="small">
+                    {sm.total} cartes ({d.cards.length} différentes) · {d.quests.length} quêtes (simples {sm.tiers.simple}, intermédiaires {sm.tiers.intermediaire}, complexes {sm.tiers.complexe}) · {d.equip.length ? `plan d'équipement : ${d.equip.map((e) => e.name).join(", ")}` : "équipement : vos 7 pièces"}
+                  </div>
+                  {sm.problems.length > 0 && <div className="small warn">À vérifier : {sm.problems.join(", ")}.</div>}
+                  {d.warnings.map((w, i) => <div key={i} className="small warn">{w}</div>)}
+                </div>
+              );
+            })}
+            <p className="small">{pl.created} carte{pl.created > 1 ? "s" : ""} à créer, {pl.changed} à redessiner (texte ou valeurs changés), les autres sont déjà à jour.</p>
+            <div className="row">
+              <button className="btn ghost" onClick={() => setImp({ text: imp.text, parsed: null, existing: [] })} disabled={!!busy}>← Retour</button>
+              <span className="grow" />
+              <button className="btn primary" onClick={runImport} disabled={!!busy}>{busy || "Importer"}</button>
+            </div>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }

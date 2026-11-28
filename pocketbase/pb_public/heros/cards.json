@@ -1,607 +1,608 @@
 {
- "version": 2,
+ "version": 3,
  "cards": [
   {
    "code": "A1",
    "name": "Escarbille",
    "kind": "action",
-   "val": "1",
-   "atk": "1",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A1.jpg"
+   "lvl": 1,
+   "cost": 1,
+   "fam": "Feu",
+   "text": "Infligez 2 dégâts.",
+   "chain": ""
   },
   {
    "code": "A2",
    "name": "Flammèche",
    "kind": "action",
-   "val": "1",
-   "atk": "1",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A2.jpg"
+   "lvl": 1,
+   "cost": 1,
+   "fam": "Feu",
+   "text": "Brûlure 1.",
+   "chain": "Facile : si vous avez joué une carte [Feu] avant ce tour, Brûlure 1 de plus."
   },
   {
    "code": "A3",
    "name": "Tison",
    "kind": "action",
-   "val": "1",
-   "atk": "2",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A3.jpg"
+   "lvl": 2,
+   "cost": 1,
+   "fam": "Feu",
+   "text": "Infligez 2 dégâts, Brûlure 1.",
+   "chain": ""
   },
   {
    "code": "A4",
    "name": "Souffle ardent",
    "kind": "action",
-   "val": "2",
-   "atk": "2",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A4.jpg"
+   "lvl": 2,
+   "cost": 2,
+   "fam": "Feu",
+   "text": "Infligez 3 dégâts, Brûlure 2.",
+   "chain": "Facile : si vous avez joué une carte [Feu] avant ce tour, 3 dégâts de plus."
   },
   {
    "code": "A5",
    "name": "Inspiration brûlante",
    "kind": "action",
-   "val": "1",
-   "atk": "3",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A5.jpg"
+   "lvl": 3,
+   "cost": 1,
+   "fam": "Feu",
+   "text": "Piochez 1 carte, Brûlure 1.",
+   "chain": ""
   },
   {
    "code": "A6",
    "name": "Fonte d'armure",
    "kind": "action",
-   "val": "2",
-   "atk": "3",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A6.jpg"
+   "lvl": 3,
+   "cost": 2,
+   "fam": "Feu",
+   "text": "Détruisez jusqu'à 4 armures adverses, puis infligez 4 dégâts.",
+   "chain": "Moyenne : si l'adversaire est Brûlé, 6 dégâts de plus."
   },
   {
    "code": "A7",
    "name": "Javelot de flammes",
    "kind": "action",
-   "val": "3",
-   "atk": "3",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A7.jpg"
+   "lvl": 3,
+   "cost": 3,
+   "fam": "Feu",
+   "text": "Infligez 9 dégâts.",
+   "chain": "Facile : si vous avez joué une carte [Feu] avant ce tour, 5 dégâts de plus."
   },
   {
    "code": "A8",
    "name": "Boule de feu",
    "kind": "action",
-   "val": "3",
-   "atk": "4",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A8.jpg"
+   "lvl": 4,
+   "cost": 3,
+   "fam": "Feu",
+   "text": "Infligez 8 dégâts.",
+   "chain": "Moyenne : si l'adversaire est Brûlé, 7 dégâts de plus."
   },
   {
    "code": "A9",
    "name": "Pluie de cendres",
    "kind": "action",
-   "val": "2",
-   "atk": "4",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A9.jpg"
+   "lvl": 4,
+   "cost": 2,
+   "fam": "Feu",
+   "text": "Brûlure 5.",
+   "chain": "Facile : si vous avez joué une carte [Feu] avant ce tour, Brûlure 3 de plus."
   },
   {
    "code": "A10",
    "name": "Rempart de braises",
    "kind": "action",
-   "val": "3",
-   "atk": "5",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A10.jpg"
+   "lvl": 5,
+   "cost": 3,
+   "fam": "Feu",
+   "text": "Gagnez 7 armures.",
+   "chain": "Facile : si vous avez joué une carte [Feu] avant ce tour, Brûlure 5."
   },
   {
    "code": "A11",
    "name": "Étincelle ardente",
    "kind": "action",
-   "val": "2",
-   "atk": "6",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A11.jpg"
+   "lvl": 6,
+   "cost": 2,
+   "fam": "Feu",
+   "text": "Infligez 5 dégâts, Brûlure 3.",
+   "chain": ""
   },
   {
    "code": "A12",
    "name": "Colonne de feu",
    "kind": "action",
-   "val": "5",
-   "atk": "7",
-   "factions": [
-    "Feu"
-   ],
-   "file": "A12.jpg"
+   "lvl": 7,
+   "cost": 5,
+   "fam": "Feu",
+   "text": "Infligez 10 dégâts, Brûlure 5.",
+   "chain": "Difficile : si vous avez joué deux cartes [Feu] avant ce tour, 15 dégâts de plus."
   },
   {
    "code": "B1",
    "name": "Parade",
    "kind": "reaction",
-   "val": "1",
-   "atk": "1",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B1.jpg"
+   "lvl": 1,
+   "cost": 1,
+   "fam": "Garde",
+   "text": "Réduisez de 2 les dégâts de l'attaque.",
+   "chain": ""
   },
   {
    "code": "B2",
    "name": "Posture",
    "kind": "action",
-   "val": "1",
-   "atk": "1",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B2.jpg"
+   "lvl": 1,
+   "cost": 1,
+   "fam": "Garde",
+   "text": "Gagnez 1 armure, soignez 1 PV.",
+   "chain": ""
   },
   {
    "code": "B3",
    "name": "Peau de fer",
    "kind": "action",
-   "val": "2",
-   "atk": "2",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B3.jpg"
+   "lvl": 2,
+   "cost": 2,
+   "fam": "Garde",
+   "text": "Gagnez 4 armures, soignez 1 PV.",
+   "chain": ""
   },
   {
    "code": "B4",
    "name": "Garde vigilante",
    "kind": "action",
-   "val": "2",
-   "atk": "2",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B4.jpg"
+   "lvl": 2,
+   "cost": 2,
+   "fam": "Garde",
+   "text": "Piochez 1 carte, gagnez 2 armures.",
+   "chain": ""
   },
   {
    "code": "B5",
    "name": "Mur de boucliers",
    "kind": "reaction",
-   "val": "1",
-   "atk": "3",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B5.jpg"
+   "lvl": 3,
+   "cost": 1,
+   "fam": "Garde",
+   "text": "Réduisez de 4 les dégâts de l'attaque.",
+   "chain": ""
   },
   {
    "code": "B6",
    "name": "Coup de bouclier",
    "kind": "action",
-   "val": "2",
-   "atk": "3",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B6.jpg"
+   "lvl": 3,
+   "cost": 2,
+   "fam": "Garde",
+   "text": "Infligez 4 dégâts, gagnez 1 armure.",
+   "chain": "Facile : si vous avez joué une carte [Garde] avant ce tour, 4 dégâts de plus."
   },
   {
    "code": "B7",
    "name": "Second souffle",
    "kind": "action",
-   "val": "3",
-   "atk": "3",
-   "factions": [],
-   "file": "B7.jpg"
+   "lvl": 3,
+   "cost": 3,
+   "fam": "",
+   "text": "Soignez 13 PV.",
+   "chain": ""
   },
   {
    "code": "B8",
    "name": "Riposte",
    "kind": "reaction",
-   "val": "2",
-   "atk": "4",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B8.jpg"
+   "lvl": 4,
+   "cost": 2,
+   "fam": "Garde",
+   "text": "Réduisez de 3 les dégâts de l'attaque, infligez 2 dégâts à l'attaquant.",
+   "chain": ""
   },
   {
    "code": "B9",
    "name": "Charge du bastion",
    "kind": "action",
-   "val": "3",
-   "atk": "5",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B9.jpg"
+   "lvl": 5,
+   "cost": 3,
+   "fam": "Garde",
+   "text": "Infligez 9 dégâts.",
+   "chain": "Moyenne : si vous avez au moins 10 armures, 8 dégâts de plus."
   },
   {
    "code": "B10",
    "name": "Contre-attaque",
    "kind": "reaction",
-   "val": "3",
-   "atk": "6",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B10.jpg"
+   "lvl": 6,
+   "cost": 3,
+   "fam": "Garde",
+   "text": "Réduisez de 5 les dégâts de l'attaque, infligez 5 dégâts à l'attaquant.",
+   "chain": ""
   },
   {
    "code": "B11",
    "name": "Rempart ancestral",
    "kind": "action",
-   "val": "6",
-   "atk": "7",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B11.jpg"
+   "lvl": 7,
+   "cost": 6,
+   "fam": "Garde",
+   "text": "Gagnez 15 armures.",
+   "chain": ""
   },
   {
    "code": "B12",
    "name": "Juste châtiment",
    "kind": "action",
-   "val": "5",
-   "atk": "7",
-   "factions": [
-    "Garde"
-   ],
-   "file": "B12.jpg"
+   "lvl": 7,
+   "cost": 5,
+   "fam": "Garde",
+   "text": "Infligez 15 dégâts.",
+   "chain": "Moyenne : si vous avez au moins 10 armures, 12 dégâts de plus."
   },
   {
-   "code": "QD1",
+   "code": "D1",
    "name": "Premier sang",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QD1.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Infliger 3 dégâts en un tour.",
+   "reward": "Piocher 1, infliger 2 dégâts.",
+   "tag": ""
   },
   {
-   "code": "QD2",
+   "code": "D2",
    "name": "Briseur de garde",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QD2.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Détruire 2 armures adverses.",
+   "reward": "Infliger 5 dégâts.",
+   "tag": "⚔"
   },
   {
-   "code": "QA1",
+   "code": "A1",
    "name": "Garde levée",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QA1.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Avoir au moins 4 armures.",
+   "reward": "Gagner 4 armures.",
+   "tag": ""
   },
   {
-   "code": "QA2",
+   "code": "A2",
    "name": "Parade",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QA2.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Jouer 1 carte Réaction.",
+   "reward": "Piocher 1, soigner 2.",
+   "tag": "⚔"
   },
   {
-   "code": "QS1",
+   "code": "S1",
    "name": "Étincelle",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QS1.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Jouer une carte Action de coût 2 ou plus.",
+   "reward": "Infliger 3 dégâts, gagner 1 armure.",
+   "tag": ""
   },
   {
-   "code": "QS2",
+   "code": "S2",
    "name": "Concentration",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QS2.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Finir votre tour avec au moins 2 mana non dépensé.",
+   "reward": "Gagner 2 armures, soigner 3.",
+   "tag": ""
   },
   {
-   "code": "QE1",
+   "code": "E1",
    "name": "Ajustement",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QE1.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Activer 1 pièce d'équipement.",
+   "reward": "Gagner 4 armures.",
+   "tag": "⏳"
   },
   {
-   "code": "QE2",
+   "code": "E2",
    "name": "Forge",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QE2.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Débloquer une pièce d'équipement.",
+   "reward": "Piocher 1, soigner 2.",
+   "tag": "⏳"
   },
   {
-   "code": "QP1",
+   "code": "P1",
    "name": "Exploration",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QP1.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Piocher 2 cartes en plus de la pioche de début de tour.",
+   "reward": "Soigner 6.",
+   "tag": ""
   },
   {
-   "code": "QP2",
+   "code": "P2",
    "name": "Blessure",
    "kind": "quete",
-   "val": "1",
-   "rarity": "simple",
-   "factions": [],
-   "file": "QP2.jpg"
+   "tier": "simple",
+   "cost": 1,
+   "goal": "Perdre au moins 3 PV.",
+   "reward": "Piocher 1, soigner 2.",
+   "tag": "⚔"
   },
   {
-   "code": "QD3",
+   "code": "D3",
    "name": "Assaut",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QD3.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Infliger des dégâts pendant 2 de vos tours consécutifs.",
+   "reward": "Infliger 8 dégâts, détruire 4 armures.",
+   "tag": ""
   },
   {
-   "code": "QD4",
+   "code": "D4",
    "name": "Frappe lourde",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QD4.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Infliger au moins 6 dégâts avec une seule carte.",
+   "reward": "Piocher 1, infliger 7 dégâts.",
+   "tag": ""
   },
   {
-   "code": "QA3",
+   "code": "A3",
    "name": "Rempart",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QA3.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Absorber 6 dégâts avec votre armure.",
+   "reward": "Gagner 8 armures.",
+   "tag": "⚔"
   },
   {
-   "code": "QA4",
+   "code": "A4",
    "name": "Encaisser",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QA4.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Subir une attaque de 5 dégâts ou plus sans perdre de PV.",
+   "reward": "Piocher 1, gagner 5 armures.",
+   "tag": "⚔"
   },
   {
-   "code": "QS3",
+   "code": "S3",
    "name": "Incantation",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QS3.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Jouer 2 cartes Action dans le même tour.",
+   "reward": "Piocher 1, infliger 7 dégâts.",
+   "tag": ""
   },
   {
-   "code": "QS4",
+   "code": "S4",
    "name": "Combo",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QS4.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Déclencher 2 enchaînements.",
+   "reward": "Piocher 1, infliger 3 dégâts, gagner 3 armures.",
+   "tag": ""
   },
   {
-   "code": "QE3",
+   "code": "E3",
    "name": "Forgeron",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QE3.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Activer 2 pièces d'équipement différentes.",
+   "reward": "Piocher 1, gagner 5 armures.",
+   "tag": "⏳"
   },
   {
-   "code": "QE4",
+   "code": "E4",
    "name": "Panoplie",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QE4.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Avoir 2 pièces d'équipement débloquées.",
+   "reward": "Infliger 5 dégâts, gagner 4 armures.",
+   "tag": "⏳"
   },
   {
-   "code": "QP3",
+   "code": "P3",
    "name": "Seconde chance",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QP3.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Soigner 4 PV.",
+   "reward": "Piocher 1, soigner 9.",
+   "tag": ""
   },
   {
-   "code": "QP4",
+   "code": "P4",
    "name": "Main pleine",
    "kind": "quete",
-   "val": "2",
-   "rarity": "intermediaire",
-   "factions": [],
-   "file": "QP4.jpg"
+   "tier": "intermediaire",
+   "cost": 2,
+   "goal": "Avoir au moins 6 cartes en main à la fin de votre tour.",
+   "reward": "Gagner 5 armures, soigner 5.",
+   "tag": ""
   },
   {
-   "code": "QD5",
+   "code": "D5",
    "name": "Exécution",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QD5.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Infliger 12 dégâts.",
+   "reward": "Infliger 11 dégâts, détruire 8 armures.",
+   "tag": ""
   },
   {
-   "code": "QD6",
+   "code": "D6",
    "name": "Siège",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QD6.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Faire perdre 8 PV à l'adversaire.",
+   "reward": "Piocher 2, infliger 8 dégâts.",
+   "tag": ""
   },
   {
-   "code": "QA5",
+   "code": "A5",
    "name": "Forteresse",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QA5.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Avoir au moins 15 armures à la fin de votre tour.",
+   "reward": "Piocher 2, gagner 6 armures.",
+   "tag": ""
   },
   {
-   "code": "QA6",
+   "code": "A6",
    "name": "Inébranlable",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QA6.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Ne perdre aucun PV pendant 2 tours adverses consécutifs, en subissant au moins une attaque à chacun.",
+   "reward": "Gagner 8 armures, soigner 6.",
+   "tag": "⚔"
   },
   {
-   "code": "QS5",
+   "code": "S5",
    "name": "Flux arcanique",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QS5.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Dépenser au moins 6 mana en un tour, sans compter le coût de cette quête.",
+   "reward": "Piocher 2, infliger 8 dégâts.",
+   "tag": ""
   },
   {
-   "code": "QS6",
+   "code": "S6",
    "name": "Maîtrise",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QS6.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Jouer une carte dont le coût dépasse votre niveau.",
+   "reward": "Piocher 3, infliger 4 dégâts.",
+   "tag": "⏳"
   },
   {
-   "code": "QE5",
+   "code": "E5",
    "name": "Arsenal",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QE5.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Avoir 4 pièces d'équipement débloquées.",
+   "reward": "Piocher 2, gagner 6 armures.",
+   "tag": "⏳"
   },
   {
-   "code": "QE6",
+   "code": "E6",
    "name": "Maître d'armes",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QE6.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Activer au moins une pièce pendant 3 de vos tours consécutifs.",
+   "reward": "Piocher 2, infliger 8 dégâts.",
+   "tag": "⏳"
   },
   {
-   "code": "QP5",
+   "code": "P5",
    "name": "Sanctuaire",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QP5.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Soigner 8 PV.",
+   "reward": "Piocher 2, soigner 10.",
+   "tag": ""
   },
   {
-   "code": "QP6",
+   "code": "P6",
    "name": "Dos au mur",
    "kind": "quete",
-   "val": "3",
-   "rarity": "complexe",
-   "factions": [],
-   "file": "QP6.jpg"
+   "tier": "complexe",
+   "cost": 3,
+   "goal": "Commencer votre tour avec 15 PV ou moins.",
+   "reward": "Piocher 1, soigner 16.",
+   "tag": "⚔"
   },
   {
    "code": "EQ1",
    "name": "Casque d'acier",
    "kind": "equipement",
-   "val": "6",
-   "factions": [
-    "Casque"
-   ],
-   "file": "EQ1.jpg"
+   "slot": "Casque",
+   "cost": 6,
+   "mode": "Activé",
+   "text": "Gagnez 2 armures."
   },
   {
    "code": "EQ2",
    "name": "Plastron runique",
    "kind": "equipement",
-   "val": "10",
-   "factions": [
-    "Plastron"
-   ],
-   "file": "EQ2.jpg"
+   "slot": "Plastron",
+   "cost": 10,
+   "mode": "Passif",
+   "text": "Au début de votre tour, gagnez 3 armures."
   },
   {
    "code": "EQ3",
    "name": "Jambières du pèlerin",
    "kind": "equipement",
-   "val": "6",
-   "factions": [
-    "Jambières"
-   ],
-   "file": "EQ3.jpg"
+   "slot": "Jambières",
+   "cost": 6,
+   "mode": "Activé",
+   "text": "Soignez 4 PV."
   },
   {
    "code": "EQ4",
    "name": "Bottes de voyage",
    "kind": "equipement",
-   "val": "5",
-   "factions": [
-    "Bottes"
-   ],
-   "file": "EQ4.jpg"
+   "slot": "Bottes",
+   "cost": 5,
+   "mode": "Passif",
+   "text": "Quand vous validez une quête, piochez 1 carte."
   },
   {
    "code": "EQ5",
    "name": "Gants de duelliste",
    "kind": "equipement",
-   "val": "3",
-   "factions": [
-    "Gants"
-   ],
-   "file": "EQ5.jpg"
+   "slot": "Gants",
+   "cost": 3,
+   "mode": "Activé",
+   "text": "La prochaine carte qui inflige des dégâts ce tour inflige 2 dégâts de plus."
   },
   {
    "code": "EQ6",
    "name": "Épée longue",
    "kind": "equipement",
-   "val": "8",
-   "factions": [
-    "Épée"
-   ],
-   "file": "EQ6.jpg"
+   "slot": "Épée",
+   "cost": 8,
+   "mode": "Activé",
+   "text": "Infligez 4 dégâts."
   },
   {
    "code": "EQ7",
    "name": "Bouclier de chêne",
    "kind": "equipement",
-   "val": "10",
-   "factions": [
-    "Bouclier"
-   ],
-   "file": "EQ7.jpg"
+   "slot": "Bouclier",
+   "cost": 10,
+   "mode": "Passif",
+   "text": "La première attaque que vous subissez à chaque tour adverse inflige 4 dégâts de moins."
   }
  ],
  "decks": [
@@ -622,16 +623,16 @@
     "A12": 2
    },
    "quests": [
-    "QD3",
-    "QE1",
-    "QD1",
-    "QS1",
-    "QD4",
-    "QS3",
-    "QS4",
-    "QD2",
-    "QD6",
-    "QD5"
+    "D3",
+    "E1",
+    "D1",
+    "S1",
+    "D4",
+    "S3",
+    "S4",
+    "D2",
+    "D6",
+    "D5"
    ],
    "equip": [
     "EQ1",
@@ -660,16 +661,16 @@
     "B12": 1
    },
    "quests": [
-    "QA2",
-    "QP2",
-    "QA1",
-    "QS2",
-    "QA3",
-    "QA4",
-    "QP3",
-    "QA5",
-    "QD5",
-    "QP5"
+    "A2",
+    "P2",
+    "A1",
+    "S2",
+    "A3",
+    "A4",
+    "P3",
+    "A5",
+    "D5",
+    "P5"
    ],
    "equip": [
     "EQ1",

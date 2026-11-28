@@ -198,18 +198,23 @@ def equip_img(e):
     return im
 
 
+# Les images sont dessinées dans le navigateur (web/src/lib/herosCard.js) : ici seulement les données.
+# python3 tools/heros/gen.py --images : aperçus JPEG dans /tmp/heros_apercu (non publiés).
 out = []
 for c in CARDS:
-    card_img(c).save(os.path.join(OUT, f"{c['code']}.jpg"), quality=86, optimize=True)
-    out.append({"code": c["code"], "name": c["name"], "kind": c["kind"], "val": str(c["cost"]), "atk": str(c["lvl"]), "factions": [c["fam"]] if c.get("fam") else [], "file": f"{c['code']}.jpg"})
+    out.append({**c, "fam": c.get("fam", ""), "chain": c.get("chain", "")})
 for q in QUESTS:
-    quest_img(q).save(os.path.join(OUT, f"Q{q['code']}.jpg"), quality=86, optimize=True)
-    out.append({"code": "Q" + q["code"], "name": q["name"], "kind": "quete", "val": str(q["cost"]), "rarity": q["tier"], "factions": [], "file": f"Q{q['code']}.jpg"})
+    out.append(dict(q))
 for e in EQUIP:
-    equip_img(e).save(os.path.join(OUT, f"{e['code']}.jpg"), quality=86, optimize=True)
-    out.append({"code": e["code"], "name": e["name"], "kind": "equipement", "val": str(e["cost"]), "factions": [e["slot"]], "file": f"{e['code']}.jpg"})
-
-# codes uniques : les quêtes sont préfixées par Q (A1 « Garde levée » ≠ A1 « Escarbille »)
-decks = [{"name": d["name"], "cards": d["cards"], "quests": ["Q" + c for c in d["quests"]], "equip": [e["code"] for e in EQUIP]} for d in DECKS]
-json.dump({"version": 2, "cards": out, "decks": decks}, open(os.path.join(OUT, "cards.json"), "w"), ensure_ascii=False, indent=1)
+    out.append(dict(e))
+if "--images" in sys.argv:
+    os.makedirs("/tmp/heros_apercu", exist_ok=True)
+    for c in CARDS: card_img(c).save(f"/tmp/heros_apercu/{c['code']}.jpg", quality=86)
+    for q in QUESTS: quest_img(q).save(f"/tmp/heros_apercu/Q{q['code']}.jpg", quality=86)
+    for e in EQUIP: equip_img(e).save(f"/tmp/heros_apercu/{e['code']}.jpg", quality=86)
+# decks : cartes et quêtes par code (une carte A1 et une quête A1 sont distinguées par leur type)
+decks = [{"name": d["name"], "cards": d["cards"], "quests": d["quests"], "equip": [e["code"] for e in EQUIP]} for d in DECKS]
+for f in os.listdir(OUT):
+    if f.endswith(".jpg"): os.remove(os.path.join(OUT, f))
+json.dump({"version": 3, "cards": out, "decks": decks}, open(os.path.join(OUT, "cards.json"), "w"), ensure_ascii=False, indent=1)
 print(len(out), "cartes")
